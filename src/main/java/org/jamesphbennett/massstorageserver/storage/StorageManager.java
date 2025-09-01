@@ -419,7 +419,29 @@ public class StorageManager {
 
         // Return remainder if any
         if (amountToStore > 0) {
-            plugin.getLogger().warning("Could not store " + amountToStore + " items - network storage full");
+            // Get network location for better error reporting
+            String locationInfo = "";
+            try {
+                try (PreparedStatement locationStmt = conn.prepareStatement(
+                        "SELECT world_name, x, y, z FROM network_blocks WHERE network_id = ? AND block_type = 'STORAGE_SERVER' LIMIT 1")) {
+                    locationStmt.setString(1, networkId);
+                    try (ResultSet rs = locationStmt.executeQuery()) {
+                        if (rs.next()) {
+                            locationInfo = " at " + rs.getString("world_name") + " " + 
+                                         rs.getInt("x") + "," + rs.getInt("y") + "," + rs.getInt("z");
+                        }
+                    }
+                }
+            } catch (SQLException e) {
+                plugin.debugLog("Error getting network location: " + e.getMessage());
+            }
+
+            // Only show warning in debug/verbose mode
+            if (plugin.getConfigManager().isDebugMode() || plugin.getConfigManager().isVerboseMode()) {
+                plugin.getLogger().warning("Could not store " + amountToStore + " items - network storage full" + locationInfo);
+            } else {
+                plugin.debugLog("Could not store " + amountToStore + " items - network storage full" + locationInfo);
+            }
 
             // Log detailed capacity info for debugging
             for (String diskId : diskIds) {

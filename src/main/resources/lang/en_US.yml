@@ -476,10 +476,10 @@ containers:
 
 # Storage Tiers
 tiers:
-  "1k": "1K"
-  "4k": "4K" 
-  "16k": "16K"
-  "64k": "64K"
+  "1k": "1k"
+  "4k": "4k"
+  "16k": "16k"
+  "64k": "64k"
 
 # Debug Messages (for developers/debugging)
 debug:
