@@ -888,32 +888,32 @@ public class TerminalGUI implements Listener {
     }
 
     private void handleNavigationClick(Player player, int slot) {
-        if (plugin.getConfigManager().isVerboseMode()) {
+        if (plugin.getConfigManager().isDebugMode()) {
             plugin.getLogger().info("Navigation click detected in slot " + slot + " by player " + player.getName());
         }
 
         switch (slot) {
             case 45: // Previous page
-                if (plugin.getConfigManager().isVerboseMode()) {
+                if (plugin.getConfigManager().isDebugMode()) {
                     plugin.getLogger().info("Previous page clicked, current page: " + currentPage);
                 }
                 if (currentPage > 0) {
                     currentPage--;
                     updateDisplayedItems();
                     player.sendMessage(miniMessage.deserialize("<yellow>Page " + (currentPage + 1) + "/" + getMaxPages()));
-                    if (plugin.getConfigManager().isVerboseMode()) {
+                    if (plugin.getConfigManager().isDebugMode()) {
                         plugin.getLogger().info("Moved to page " + (currentPage + 1));
                     }
                 } else {
                     player.sendMessage(miniMessage.deserialize("<red>Already on the first page!"));
-                    if (plugin.getConfigManager().isVerboseMode()) {
+                    if (plugin.getConfigManager().isDebugMode()) {
                         plugin.getLogger().info("Already on first page");
                     }
                 }
                 break;
 
             case 53: // Next page
-                if (plugin.getConfigManager().isVerboseMode()) {
+                if (plugin.getConfigManager().isDebugMode()) {
                     plugin.getLogger().info("Next page clicked, current page: " + currentPage);
                 }
                 int maxPages = getMaxPages();
@@ -921,19 +921,19 @@ public class TerminalGUI implements Listener {
                     currentPage++;
                     updateDisplayedItems();
                     player.sendMessage(miniMessage.deserialize("<yellow>Page " + (currentPage + 1) + "/" + maxPages));
-                    if (plugin.getConfigManager().isVerboseMode()) {
+                    if (plugin.getConfigManager().isDebugMode()) {
                         plugin.getLogger().info("Moved to page " + (currentPage + 1));
                     }
                 } else {
                     player.sendMessage(miniMessage.deserialize("<red>Already on the last page!"));
-                    if (plugin.getConfigManager().isVerboseMode()) {
+                    if (plugin.getConfigManager().isDebugMode()) {
                         plugin.getLogger().info("Already on last page");
                     }
                 }
                 break;
 
             default:
-                if (plugin.getConfigManager().isVerboseMode()) {
+                if (plugin.getConfigManager().isDebugMode()) {
                     plugin.getLogger().info("Unhandled navigation slot: " + slot);
                 }
                 break;

@@ -64,7 +64,7 @@ public class StorageManager {
                         }
 
                         plugin.debugLog("debug.storage.processing", "amount", item.getAmount(), "item", item.getType());
-                        ItemStack remainder = storeItemInNetwork(conn, diskIds, item);
+                        ItemStack remainder = storeItemInNetwork(conn, networkId, diskIds, item);
                         if (remainder != null && remainder.getAmount() > 0) {
                             plugin.debugLog("debug.storage.operation-complete", "remaining", remainder.getAmount() + " " + remainder.getType() + " could not be stored");
                             remainders.add(remainder);
@@ -335,7 +335,7 @@ public class StorageManager {
         return connectedDiskIds;
     }
 
-    private ItemStack storeItemInNetwork(Connection conn, List<String> diskIds, ItemStack item) throws SQLException {
+    private ItemStack storeItemInNetwork(Connection conn, String networkId, List<String> diskIds, ItemStack item) throws SQLException {
         String itemHash = itemManager.generateItemHash(item);
         String itemData = serializeItemStack(item);
         int amountToStore = item.getAmount();
@@ -436,8 +436,8 @@ public class StorageManager {
                 plugin.debugLog("Error getting network location: " + e.getMessage());
             }
 
-            // Only show warning in debug/verbose mode
-            if (plugin.getConfigManager().isDebugMode() || plugin.getConfigManager().isVerboseMode()) {
+            // Only show warning in debug mode
+            if (plugin.getConfigManager().isDebugMode()) {
                 plugin.getLogger().warning("Could not store " + amountToStore + " items - network storage full" + locationInfo);
             } else {
                 plugin.debugLog("Could not store " + amountToStore + " items - network storage full" + locationInfo);
