@@ -79,12 +79,12 @@ public class ItemManager {
         ItemStack item = new ItemStack(Material.CHISELED_TUFF);
         ItemMeta meta = item.getItemMeta();
 
-        Component displayName = miniMessage.deserialize("<gold>Storage Server");
+        Component displayName = miniMessage.deserialize("<aqua>Server");
         meta.displayName(displayName);
 
         List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<gray>The core of the Mass Storage Network"));
-        lore.add(miniMessage.deserialize("<gray>Place adjacent to Drive Bays and Terminals"));
+        lore.add(miniMessage.deserialize("<blue>Mass Storage Server"));
+        lore.add(Component.empty());
         meta.lore(lore);
 
         meta.getPersistentDataContainer().set(STORAGE_SERVER_KEY, PersistentDataType.BOOLEAN, true);
@@ -101,8 +101,8 @@ public class ItemManager {
         meta.displayName(displayName);
 
         List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<gray>Holds up to 7 storage disks"));
-        lore.add(miniMessage.deserialize("<gray>Must be connected to a Storage Server"));
+        lore.add(miniMessage.deserialize("<blue>Mass Storage Server"));
+        lore.add(Component.empty());
         meta.lore(lore);
 
         meta.getPersistentDataContainer().set(DRIVE_BAY_KEY, PersistentDataType.BOOLEAN, true);
@@ -115,12 +115,12 @@ public class ItemManager {
         ItemStack item = new ItemStack(Material.CRAFTER);
         ItemMeta meta = item.getItemMeta();
 
-        Component displayName = miniMessage.deserialize("<green>MSS Terminal");
+        Component displayName = miniMessage.deserialize("<aqua>Terminal");
         meta.displayName(displayName);
 
         List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<gray>Access items stored in the network"));
-        lore.add(miniMessage.deserialize("<gray>Right-click to open storage interface"));
+        lore.add(miniMessage.deserialize("<blue>Mass Storage Server"));
+        lore.add(Component.empty());
         meta.lore(lore);
 
         meta.getPersistentDataContainer().set(MSS_TERMINAL_KEY, PersistentDataType.BOOLEAN, true);
@@ -133,13 +133,13 @@ public class ItemManager {
         ItemStack item = new ItemStack(Material.HEAVY_CORE);
         ItemMeta meta = item.getItemMeta();
 
-        Component displayName = miniMessage.deserialize("<blue>Network Cable");
+        Component displayName = miniMessage.deserialize("<aqua>Network Cable");
         meta.displayName(displayName);
 
         List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<gray>Connects network components over distance"));
-        lore.add(miniMessage.deserialize("<gray>Place to extend your network reach"));
-        lore.add(miniMessage.deserialize("<yellow>Does not count toward block limit"));
+        lore.add(miniMessage.deserialize("<blue>Mass Storage Server"));
+        lore.add(Component.empty());
+//        lore.add(miniMessage.deserialize("<yellow>Does not count toward block limit"));
         meta.lore(lore);
 
         meta.getPersistentDataContainer().set(NETWORK_CABLE_KEY, PersistentDataType.BOOLEAN, true);
@@ -152,15 +152,13 @@ public class ItemManager {
         ItemStack item = new ItemStack(Material.PLAYER_HEAD);
         org.bukkit.inventory.meta.SkullMeta meta = (org.bukkit.inventory.meta.SkullMeta) item.getItemMeta();
 
-        Component displayName = miniMessage.deserialize("<gold><bold>Exporter</bold></gold>");
+        Component displayName = miniMessage.deserialize("<aqua>Exporter");
         meta.displayName(displayName);
 
         List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<gray>Automatically exports items to containers"));
-        lore.add(miniMessage.deserialize("<gray>Place adjacent to any inventory"));
-        lore.add(miniMessage.deserialize("<yellow>Connects: North, South, East, West, or Down"));
+        lore.add(miniMessage.deserialize("<blue>Mass Storage Server"));
         lore.add(Component.empty());
-        lore.add(miniMessage.deserialize("<dark_gray>Machine Part</dark_gray>"));
+        lore.add(miniMessage.deserialize("<grey>Exports items from MSS Network"));
         meta.lore(lore);
 
         // Apply BurningFurnace player skin texture
@@ -181,15 +179,13 @@ public class ItemManager {
         ItemStack item = new ItemStack(Material.PLAYER_HEAD);
         org.bukkit.inventory.meta.SkullMeta meta = (org.bukkit.inventory.meta.SkullMeta) item.getItemMeta();
 
-        Component displayName = miniMessage.deserialize("<blue><bold>Importer</bold></blue>");
+        Component displayName = miniMessage.deserialize("<aqua>Importer");
         meta.displayName(displayName);
 
         List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<gray>Automatically imports items from containers"));
-        lore.add(miniMessage.deserialize("<gray>Place adjacent to any inventory"));
-        lore.add(miniMessage.deserialize("<yellow>Connects: North, South, East, West, or Down"));
+        lore.add(miniMessage.deserialize("<blue>Mass Storage Server"));
         lore.add(Component.empty());
-        lore.add(miniMessage.deserialize("<dark_gray>Machine Part</dark_gray>"));
+        lore.add(miniMessage.deserialize("<grey>Imports items to MSS Network"));
         meta.lore(lore);
 
         // Apply custom player skin texture using UUID
@@ -210,16 +206,12 @@ public class ItemManager {
         ItemStack item = new ItemStack(Material.OBSERVER);
         ItemMeta meta = item.getItemMeta();
 
-        Component displayName = miniMessage.deserialize("<red><bold>Security Terminal</bold></red>");
+        Component displayName = miniMessage.deserialize("<aqua>Security Terminal");
         meta.displayName(displayName);
 
         List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<gray>Manages network access permissions"));
-        lore.add(miniMessage.deserialize("<gray>Owner automatically gets all permissions"));
-        lore.add(miniMessage.deserialize("<gray>Right-click to manage trusted players"));
+        lore.add(miniMessage.deserialize("<blue>Mass Storage Server"));
         lore.add(Component.empty());
-        lore.add(miniMessage.deserialize("<yellow>Optional - networks work without this"));
-        lore.add(miniMessage.deserialize("<red>Only the owner can manage this terminal"));
         meta.lore(lore);
 
         meta.getPersistentDataContainer().set(SECURITY_TERMINAL_KEY, PersistentDataType.BOOLEAN, true);
@@ -261,18 +253,17 @@ public class ItemManager {
 
         // Set display name with tier color
         Component displayName = switch (tier.toLowerCase()) {
-            case "4k" -> miniMessage.deserialize("<yellow>Disk Platter [4K]");
-            case "16k" -> miniMessage.deserialize("<aqua>Disk Platter [16K]");
-            case "64k" -> miniMessage.deserialize("<light_purple>Disk Platter [64K]");
-            default -> miniMessage.deserialize("<white>Disk Platter [1K]");
+            case "4k" -> miniMessage.deserialize("<aqua>4k Platter");
+            case "16k" -> miniMessage.deserialize("<aqua>16k Platter");
+            case "64k" -> miniMessage.deserialize("<aqua>64k Platter");
+            default -> miniMessage.deserialize("<aqua>1k Platter");
         };
         meta.displayName(displayName);
 
         List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<gray>Component for crafting storage disks"));
-        lore.add(miniMessage.deserialize("<gray>Tier: " + getTierDisplayName(tier)));
+        lore.add(miniMessage.deserialize("<blue>Mass Storage Server"));
         lore.add(Component.empty());
-        lore.add(miniMessage.deserialize("<dark_gray>Mass Storage Component"));
+        lore.add(miniMessage.deserialize("<yellow>Crafting Component"));
         meta.lore(lore);
 
 
@@ -291,14 +282,13 @@ public class ItemManager {
         ItemStack item = new ItemStack(Material.BAMBOO_PRESSURE_PLATE);
         ItemMeta meta = item.getItemMeta();
 
-        Component displayName = miniMessage.deserialize("<gray>Storage Disk Housing");
+        Component displayName = miniMessage.deserialize("<aqua>Disk Housing");
         meta.displayName(displayName);
 
         List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<gray>Component for crafting storage disks"));
-        lore.add(miniMessage.deserialize("<gray>Houses the disk platter and circuitry"));
+        lore.add(miniMessage.deserialize("<blue>Mass Storage Server"));
         lore.add(Component.empty());
-        lore.add(miniMessage.deserialize("<dark_gray>Mass Storage Component"));
+        lore.add(miniMessage.deserialize("<yellow>Crafting Component"));
         meta.lore(lore);
 
         meta.getPersistentDataContainer().set(STORAGE_DISK_HOUSING_KEY, PersistentDataType.BOOLEAN, true);
@@ -413,10 +403,10 @@ public class ItemManager {
 
         // Set display name with tier color
         Component displayName = switch (tier) {
-            case "4k" -> miniMessage.deserialize("<yellow>Storage Disk [4K]");
-            case "16k" -> miniMessage.deserialize("<aqua>Storage Disk [16K]");
-            case "64k" -> miniMessage.deserialize("<light_purple>Storage Disk [64K]");
-            default -> miniMessage.deserialize("<white>Storage Disk [1K]");
+            case "4k" -> miniMessage.deserialize("<gold>4k Storage Disk");
+            case "16k" -> miniMessage.deserialize("<green>16k Storage Disk");
+            case "64k" -> miniMessage.deserialize("<light_purple>64k Storage Disk");
+            default -> miniMessage.deserialize("<red>1k Storage Disk");
         };
         meta.displayName(displayName);
 
@@ -425,11 +415,11 @@ public class ItemManager {
         int totalCapacity = defaultCells * itemsPerCell;
 
         List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<gray>Capacity: " + String.format("%,d", itemsPerCell) + " items per cell"));
-        lore.add(miniMessage.deserialize("<yellow>Cells Used: 0/" + defaultCells));
-        lore.add(miniMessage.deserialize("<aqua>Total Capacity: " + String.format("%,d", totalCapacity) + " items"));
+        lore.add(miniMessage.deserialize("<blue>Mass Storage Server"));
         lore.add(Component.empty());
-        lore.add(miniMessage.deserialize("<gray>Tier: " + getTierDisplayName(tier)));
+        lore.add(miniMessage.deserialize("<gray>Capacity: " + String.format("%,d", itemsPerCell) + " items per cell"));
+        lore.add(miniMessage.deserialize("<green>Cells Used: 0/" + defaultCells));
+        lore.add(miniMessage.deserialize("<aqua>Total Capacity: " + String.format("%,d", totalCapacity) + " items"));
         lore.add(Component.empty());
         lore.add(miniMessage.deserialize("<dark_gray>Crafted by: " + crafterName));
         lore.add(miniMessage.deserialize("<dark_gray>ID: " + diskId));
@@ -471,11 +461,11 @@ public class ItemManager {
                 (usedCells >= maxCells * 0.8) ? "<yellow>" : "<green>";
 
         List<Component> lore = new ArrayList<>();
+        lore.add(miniMessage.deserialize("<blue>Mass Storage Server"));
+        lore.add(Component.empty());
         lore.add(miniMessage.deserialize("<gray>Capacity: " + String.format("%,d", itemsPerCell) + " items per cell"));
         lore.add(miniMessage.deserialize(usageColor + "Cells Used: " + usedCells + "/" + maxCells));
         lore.add(miniMessage.deserialize("<aqua>Total Capacity: " + String.format("%,d", totalCapacity) + " items"));
-        lore.add(Component.empty());
-        lore.add(miniMessage.deserialize("<gray>Tier: " + getTierDisplayName(tier)));
         lore.add(Component.empty());
         lore.add(miniMessage.deserialize("<dark_gray>Crafted by: " + crafterName));
         lore.add(miniMessage.deserialize("<dark_gray>ID: " + diskId));
@@ -534,10 +524,10 @@ public class ItemManager {
      */
     public String getTierDisplayName(String tier) {
         return switch (tier.toLowerCase()) {
-            case "4k" -> "<yellow>4K";
-            case "16k" -> "<aqua>16K";
-            case "64k" -> "<light_purple>64K";
-            default -> "<white>1K";
+            case "4k" -> "<gold>4k";
+            case "16k" -> "<green>16k";
+            case "64k" -> "<light_purple>64k";
+            default -> "<red>1k";
         };
     }
 

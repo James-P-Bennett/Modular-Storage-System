@@ -225,10 +225,10 @@ public class DriveBayGUI implements Listener {
         int defaultCells = 64;
 
         Component displayName = switch (tier.toLowerCase()) {
-            case "4k" -> plugin.getMessageManager().getMessageComponent(null, "gui.drive-bay.slot.disk", "tier", "4K");
-            case "16k" -> plugin.getMessageManager().getMessageComponent(null, "gui.drive-bay.slot.disk", "tier", "16K");
-            case "64k" -> plugin.getMessageManager().getMessageComponent(null, "gui.drive-bay.slot.disk", "tier", "64K");
-            default -> plugin.getMessageManager().getMessageComponent(null, "gui.drive-bay.slot.disk", "tier", "1K");
+            case "4k" -> plugin.getMessageManager().getMessageComponent(null, "gui.drive-bay.slot.disk", "tier", "<gold>4k");
+            case "16k" -> plugin.getMessageManager().getMessageComponent(null, "gui.drive-bay.slot.disk", "tier", "<green>16k");
+            case "64k" -> plugin.getMessageManager().getMessageComponent(null, "gui.drive-bay.slot.disk", "tier", "<light_purple>64k");
+            default -> plugin.getMessageManager().getMessageComponent(null, "gui.drive-bay.slot.disk", "tier", "<red>1k");
         };
         meta.displayName(displayName);
 
