@@ -1,413 +1,223 @@
 # Mass Storage Server
 
-Mass Storage Server is a lightweight early-beta Minecraft plugin inspired by Applied Energistics 2 (AE2) and Refined Storage. It introduces an expandable item storage system built around craftable, removable disks and an intuitive terminal interface. All components are craftable using vanilla recipes or can be accessed through the `/mss` command.
+Mass Storage Server is a comprehensive Minecraft storage plugin inspired by Applied Energistics 2 and Refined Storage. It provides a multi-tiered network-based storage system with craftable, expandable storage disks and an intuitive terminal interface. The plugin features automation capabilities through importers and exporters, making it perfect for advanced storage and logistics systems.
 
-The plugin uses a fast and efficient SQLite database with HikariCP connection pooling. Each disk is uniquely identified and stores its own item pool, allowing for safe concurrent access from multiple users.
+## Features
 
-**Note:** This plugin is in active development. Use at your own risk and report any issues via the GitHub issues tracker.
+- **Network-Based Storage**: Connect Storage Servers, Drive Bays, and Terminals with Network Cables
+- **Multi-Tier Storage Disks**: 1K, 4K, 16K, and 64K capacity tiers with hot-swappable functionality  
+- **Advanced Terminals**: Search, sort, and manage your items with persistent per-terminal settings
+- **Automation System**: Import and export items automatically with configurable filters
+- **Security Controls**: Manage network access with Security Terminals
+- **Disk Recycling**: Dismantle empty disks to recover components (Shift + Right-click)
+- **Alternative Recipes**: Craft disks using shapeless recipes (Housing + Platter) in 2x2 or 3x3 grids
+- **Recipe Book Integration**: All recipes are unlocked and visible in the vanilla recipe book
+- **Database Backend**: Uses HikariCP connection pooling with SQLite for performance and reliability
+- **Comprehensive Configuration**: Customizable via config.yml, lang.yml, and recipes.yml files
 
 ---
 
-## Key Features
+## Quick Setup Tutorial
 
-### **Network-Based Storage System**
-- **Storage Server**: Central hub that connects all network components
-- **Drive Bays**: House up to 7 storage disks each with hot-swappable functionality
-- **Terminals**: Access your items with advanced search and sorting capabilities
-- **Network Cables**: Extend your network across long distances
+### Basic Network Setup
+1. **Craft a Storage Server** - The central hub of your storage network
+2. **Place a Drive Bay** - Adjacent to the Storage Server (holds up to 7 storage disks)
+3. **Add a Terminal** - Adjacent to the Storage Server or Drive Bay for item access
+4. **Craft Storage Disks** - Start with 1K disks and insert them into the Drive Bay
+5. **Start Storing** - Right-click the Terminal to access your network storage
 
-### **Multi-Tier Storage Disks**
-- **1K Disks**: 8,128 items total (127 items per cell, 64 cells)
-- **4K Disks**: 32,512 items total (508 items per cell, 64 cells)  
-- **16K Disks**: 130,048 items total (2,032 items per cell, 64 cells)
-- **64K Disks**: 520,192 items total (8,128 items per cell, 64 cells)
+### Network Components
+- **Storage Server**: Must be present in every network, acts as the controller
+- **Drive Bay**: Stores your storage disks, can have multiple per network
+- **Terminal**: Access point to view and manage stored items
+- **Network Cable**: Extends connections beyond adjacent placement (max 800 cables per network)
 
-### **Advanced Terminal Features**
-- **Smart Search**: Fuzzy search with relevance scoring
-- **Dynamic Sorting**: Alphabetical or quantity-based sorting
-- **Per-Terminal Memory**: Search terms and settings persist per terminal location
-- **Batch Operations**: Shift-click for inventory transfers, drag-and-drop support
-- **Real-time Updates**: Live inventory synchronization across all terminals
+---
 
-### **Comprehensive Crafting System**
-- **Tiered Components**: Craft disk platters for each storage tier
-- **Vanilla Integration**: All recipes use vanilla materials
-- **Custom Recipe Engine**: Supports both vanilla and component-based recipes
-- **Recipe Book Integration**: All recipes appear in the vanilla recipe book
+## Importers and Exporters
 
-### Requirements
-- **Server**: Spigot 1.21+
-- **Java**: OpenJDK 21 or higher
+### How They Work
+**Importers** automatically pull items from connected containers (chests, furnaces, etc.) into your storage network.
+**Exporters** automatically push items from your storage network into connected containers.
 
-### Setup
-1. Download the latest release from [GitHub Releases](https://github.com/jamesphbennett/massstorageserver/releases)
-2. Place the `.jar` file in your server's `plugins` folder
-3. Restart your server
+### Setup Process
+1. **Craft an Importer or Exporter**
+2. **Place it adjacent to a container** (chest, furnace, hopper, etc.)
+3. **Connect it to your network** using Network Cables
+4. **Right-click to configure** filters and enable/disable
+5. **Set filters** by dragging items into filter slots (empty = import/export everything)
 
-### Getting Started
-1. **Craft a Storage Server** - The heart of your network
-2. **Add Drive Bays** - Place adjacent to the Storage Server
-3. **Connect Terminals** - Place adjacent to create access points
-4. **Craft Storage Disks** - Start with 1K disks and upgrade as needed
+### Special Container Support
+- **Furnaces**: Exporters can target fuel and input slots separately
+- **Brewing Stands**: Specialized interfaces for ingredient and bottle slots
+- **All Containers**: Works with chests, barrels, hoppers, dispensers, and more
 
-### Network Expansion
-- Use **Network Cables** to extend your network beyond adjacent blocks
-- Maximum network size: 128 blocks + 800 cables
-- Add multiple Drive Bays and Terminals as needed
+---
 
-### Commands
+## Items and Crafting Recipes
+
+### Network Blocks
+
+#### Storage Server
+The core controller of every storage network.
+```
+NRN    N = Netherite Ingot
+RAR    R = Redstone  
+NRN    A = Amethyst Shard
+```
+
+#### Drive Bay  
+Houses up to 7 removable storage disks.
+```
+BOB    B = Copper Block
+CCC    C = Chest
+BOB    O = Crying Obsidian
+```
+
+#### Terminal
+Access point for viewing and managing stored items.
+```
+TTT    T = Tinted Glass
+QEQ    Q = Quartz
+DRD    D = Diamond, R = Redstone, E = Emerald
+```
+
+#### Security Terminal
+Controls network access and permissions.
+```
+IEI    I = Iron Bars
+ITI    E = Ender Pearl
+III    T = MSS Terminal
+```
+
+### Network Infrastructure
+
+#### Network Cable (yields 4)
+Extends network connections over distances.
+```
+GGG    G = Glass Pane
+CRC    C = Copper Ingot
+GGG    R = Redstone
+```
+
+#### Exporter
+Automatically exports items from network to containers.
+```
+R1R    R = Comparator
+csc    1 = 1K Disk Platter
+RhR    c = Network Cable, s = Sticky Piston, h = Hopper
+```
+
+#### Importer  
+Automatically imports items from containers to network.
+```
+R1R    R = Comparator
+cpc    1 = 1K Disk Platter  
+RhR    c = Network Cable, p = Piston, h = Hopper
+```
+
+### Storage Components
+
+#### Storage Disk Housing
+Base component for all storage disks.
+```
+TTT    T = Tinted Glass
+I I    I = Iron Ingot
+IWI    W = Wind Charge
+```
+
+#### 1K Disk Platter
+```
+RGR    R = Redstone
+GRG    G = Gold Ingot
+RGR
+```
+
+#### 4K Disk Platter
+```
+BGB    B = Blaze Rod, G = Gold Ingot
+111    1 = 1K Disk Platter
+ERE    E = Ender Pearl, R = Resin Brick
+```
+
+#### 16K Disk Platter  
+```
+BDB    B = Breeze Rod, D = Diamond
+444    4 = 4K Disk Platter
+PRP    P = Ender Pearl, R = Resin Brick
+```
+
+#### 64K Disk Platter
+```
+SES    S = Shulker Shell, E = Ender Eye
+666    6 = 16K Disk Platter  
+PRP    P = Ender Pearl, R = Resin Brick
+```
+
+### Storage Disks
+
+#### Standard Recipes (3x3 Crafting Table)
+All storage disks follow this pattern:
+```
+TTT    T = Tinted Glass
+IPI    I = Iron Ingot, P = Disk Platter (tier)
+IWI    W = Wind Charge
+```
+
+#### Alternative Shapeless Recipes (Works in 2x2 Survival Grid)
+- **1K Disk**: Storage Disk Housing + 1K Disk Platter
+- **4K Disk**: Storage Disk Housing + 4K Disk Platter  
+- **16K Disk**: Storage Disk Housing + 16K Disk Platter
+- **64K Disk**: Storage Disk Housing + 64K Disk Platter
+
+### Storage Capacities
+- **1K Disk**: 8,128 items total (127 items per cell × 64 cells)
+- **4K Disk**: 32,512 items total (508 items per cell × 64 cells)
+- **16K Disk**: 130,048 items total (2,032 items per cell × 64 cells)  
+- **64K Disk**: 520,192 items total (8,128 items per cell × 64 cells)
+
+---
+
+## Commands
+
+The plugin provides several administrative and utility commands:
+
 | Command | Description | Permission |
 |---------|-------------|------------|
-| `/mss help` | Show help menu | Default |
-| `/mss give <item> [player]` | Give MSS items | `massstorageserver.admin` |
-| `/mss recovery <disk_id>` | Recover lost storage disk | `massstorageserver.recovery` |
-| `/mss info` | Show plugin statistics | `massstorageserver.admin` |
-| `/mss recipes` | List all recipes | `massstorageserver.admin` |
-| `/mss reload [config\|recipes\|all]` | Reload configurations | `massstorageserver.admin` |
+| `/mss help` | Show help menu with all available commands | Default |
+| `/mss give <item> [player]` | Give MSS items to yourself or another player | `massstorageserver.admin` |
+| `/mss recovery <disk_id>` | Recover a lost storage disk by its ID | `massstorageserver.recovery` |
+| `/mss info` | Show plugin statistics and network information | `massstorageserver.admin` |
+| `/mss recipes` | List all available recipes and their status | `massstorageserver.admin` |
+| `/mss reload [config\|recipes\|all]` | Reload configuration files | `massstorageserver.admin` |
 
-### Permissions
-| Permission | Description | Default |
-|------------|-------------|---------|
-| `massstorageserver.use` | Use terminals and drive bays | `true` |
-| `massstorageserver.craft` | Craft MSS items | `true` |
-| `massstorageserver.admin` | Admin commands | `op` |
-| `massstorageserver.recovery` | Recovery commands | `op` |
+### Available Items for `/mss give`
+- `storage_server`, `drive_bay`, `mss_terminal`, `security_terminal`
+- `network_cable`, `exporter`, `importer`
+- `storage_disk_housing`
+- `disk_platter_1k`, `disk_platter_4k`, `disk_platter_16k`, `disk_platter_64k`
+- `storage_disk_1k`, `storage_disk_4k`, `storage_disk_16k`, `storage_disk_64k`
 
-### config.yml
-```
-# Mass Storage Server Configuration
-# Created by James Bennett (Hazmad)
+---
 
-# Network settings
-network:
-  # Maximum number of blocks allowed in a single network
-  max_blocks: 128
+## Configuration Files
 
-  # Maximum number of network cables allowed in a single network
-  max_cables: 800
+The plugin includes three main configuration files:
 
-  # Cooldown between operations in milliseconds (prevents spam)
-  operation_cooldown: 100
+- **config.yml**: Network limits, database settings, permissions, and performance options
+- **lang/en_US.yml**: All plugin messages and text (supports localization)
+- **recipes.yml**: Complete recipe definitions with enable/disable options for each recipe
 
-  # NOTE: All storage disks now have exactly 64 cells (hardcoded)
-  # NOTE: Items per cell are tier-specific (hardcoded):
-  #   1K Disk: 127 items per cell  (8,128 total capacity)
-  #   4K Disk: 508 items per cell  (32,512 total capacity)
-  #   16K Disk: 2,032 items per cell (130,048 total capacity)
-  #   64K Disk: 8,128 items per cell (520,192 total capacity)
+The plugin uses **HikariCP** with SQLite for efficient database operations and connection pooling, ensuring optimal performance even with large storage networks.
 
-# Network Item Blacklist - Items that cannot be stored in networks or added to exporter filters
-# 
-# AUTOMATICALLY BLOCKED (hardcoded for safety):
-#   - All storage disks (any tier) - detected by persistent data
-#   - Shulker boxes with contents - empty shulker boxes are allowed
-#   - Bundles with contents - empty bundles are allowed
-#   - All MSS blocks and components
-# 
-# CUSTOM BLACKLIST:
-# Add any additional items you want to prevent from being stored or filtered
-# Use their exact Material names from: https://hub.spigotmc.org/javadocs/bukkit/org/bukkit/Material.html
-# Examples: containers, tools, weapons, etc.
-blacklisted_items:
-# Example: Uncomment the lines below to block these items
-# - "CHEST"
-# - "TRAPPED_CHEST"
-# - "BARREL"
-# - "HOPPER"
-# - "DISPENSER"
-# - "DROPPER"
-# - "ENDER_CHEST"
-# - "DIAMOND_SWORD"
+---
 
-# Database settings
-database:
-  # Connection pool settings
-  connection_pool:
-    maximum_pool_size: 10
-    minimum_idle: 2
-    connection_timeout: 30000
-    idle_timeout: 600000
-    max_lifetime: 1800000
+## Requirements
+- **Server**: Spigot/Paper 1.21+  
+- **Java**: OpenJDK 21 or higher
 
-  # SQLite specific settings
-  sqlite:
-    journal_mode: "WAL"
-    synchronous: "NORMAL"
-    busy_timeout: 30000
-    cache_size: 10000
-
-# Permission settings
-permissions:
-  require_use_permission: true
-  require_craft_permission: true
-  require_admin_permission: true
-
-# Logging settings
-# Useful but can clutter up console
-logging:
-  log_network_operations: false
-  log_storage_operations: false
-  log_database_operations: false
-
-# Debug settings
-debug:
-  enabled: false
-  verbose: false
-```
-
-## recipes.yml
-```
-# Mass Storage Server - Recipe Configuration
-# This file defines all craftable recipes for the plugin
-# Edit this file to customize recipes or disable them entirely
-
-# CUSTOM INGREDIENT NOTATION:
-# For MSS custom components, use the format: "mss:component_type:tier"
-# Examples:
-# - "mss:disk_platter:1k" = 1K Disk Platter component
-# - "mss:disk_platter:4k" = 4K Disk Platter component
-# - "mss:storage_disk_housing" = Storage Disk Housing component
-
-# Global recipe settings
-settings:
-  # Whether recipes should be registered at all
-  enabled: true
-
-  # Whether to show recipe unlock messages to players
-  show_unlock_messages: false
-
-# Recipe definitions
-# Each recipe has:
-# - enabled: whether this specific recipe is active
-# - result: the item that will be crafted
-# - shape: the 3x3 crafting pattern (use spaces for empty slots)
-# - ingredients: mapping of letters to materials (vanilla) or custom components (mss:type:tier)
-
-recipes:
-  storage_server:
-    enabled: true
-    result:
-      item: "storage_server"
-      amount: 1
-    shape:
-      - "NRN"
-      - "RAR"
-      - "NRN"
-    ingredients:
-      N: "NETHERITE_INGOT"
-      R: "REDSTONE"
-      A: "AMETHYST_SHARD"
-    description: "The core of the Mass Storage Network"
-
-  drive_bay:
-    enabled: true
-    result:
-      item: "drive_bay"
-      amount: 1
-    shape:
-      - "BOB"
-      - "CCC"
-      - "BOB"
-    ingredients:
-      B: "COPPER_BLOCK"
-      C: "CHEST"
-      O: "CRYING_OBSIDIAN"
-    description: "Holds up to 7 storage disks"
-
-  mss_terminal:
-    enabled: true
-    result:
-      item: "mss_terminal"
-      amount: 1
-    shape:
-      - "TTT"
-      - "QEQ"
-      - "DRD"
-    ingredients:
-      T: "TINTED_GLASS"
-      Q: "QUARTZ"
-      E: "EMERALD"
-      D: "DIAMOND"
-      R: "REDSTONE"
-    description: "Access items stored in the network"
-
-  network_cable:
-    enabled: true
-    result:
-      item: "network_cable"
-      amount: 4
-    shape:
-      - "GGG"
-      - "CRC"
-      - "GGG"
-    ingredients:
-      G: "GLASS_PANE"
-      C: "COPPER_INGOT"
-      R: "REDSTONE"
-    description: "Connects network components over distance"
-
-  # ==================== COMPONENT RECIPES ====================
-
-  disk_platter_1k:
-    enabled: true
-    result:
-      item: "disk_platter_1k"
-      amount: 1
-    shape:
-      - "RGR"
-      - "GRG"
-      - "RGR"
-    ingredients:
-      R: "REDSTONE"
-      G: "GOLD_INGOT"
-    description: "1K tier disk platter component"
-
-  disk_platter_4k:
-    enabled: true
-    result:
-      item: "disk_platter_4k"
-      amount: 1
-    shape:
-      - "BGB"
-      - "111"
-      - "ERE"
-    ingredients:
-      B: "BLAZE_ROD"
-      G: "GOLD_INGOT"
-      "1": "mss:disk_platter:1k"  # CUSTOM: 1K disk platter component
-      E: "ENDER_PEARL"
-      R: "RESIN_BRICK"
-    description: "4K tier disk platter component"
-
-  disk_platter_16k:
-    enabled: true
-    result:
-      item: "disk_platter_16k"
-      amount: 1
-    shape:
-      - "BDB"
-      - "444"
-      - "PRP"
-    ingredients:
-      B: "BREEZE_ROD"
-      D: "DIAMOND"
-      "4": "mss:disk_platter:4k"  # CUSTOM: 4K disk platter component
-      P: "ENDER_PEARL"
-      R: "RESIN_BRICK"
-    description: "16K tier disk platter component"
-
-  disk_platter_64k:
-    enabled: true
-    result:
-      item: "disk_platter_64k"
-      amount: 1
-    shape:
-      - "SES"
-      - "666"
-      - "PRP"
-    ingredients:
-      S: "SHULKER_SHELL"
-      E: "ENDER_EYE"
-      "6": "mss:disk_platter:16k"  # CUSTOM: 16K disk platter component
-      P: "ENDER_PEARL"
-      R: "RESIN_BRICK"
-    description: "64K tier disk platter component"
-
-  storage_disk_housing:
-    enabled: true
-    result:
-      item: "storage_disk_housing"
-      amount: 1
-    shape:
-      - "TTT"
-      - "I I"
-      - "IWI"
-    ingredients:
-      T: "TINTED_GLASS"
-      I: "IRON_INGOT"
-      W: "WIND_CHARGE"
-    description: "Housing component for storage disks"
-
-  # ==================== STORAGE DISK RECIPES ====================
-
-  storage_disk_1k:
-    enabled: true
-    result:
-      item: "storage_disk_1k"
-      amount: 1
-    shape:
-      - "TTT"
-      - "I1I"
-      - "IWI"
-    ingredients:
-      T: "TINTED_GLASS"
-      I: "IRON_INGOT"
-      "1": "mss:disk_platter:1k"  # CUSTOM: 1K disk platter component
-      W: "WIND_CHARGE"
-    description: "Basic storage disk - 1K tier"
-
-  storage_disk_4k:
-    enabled: true
-    result:
-      item: "storage_disk_4k"
-      amount: 1
-    shape:
-      - "TTT"
-      - "I4I"
-      - "IWI"
-    ingredients:
-      T: "TINTED_GLASS"
-      I: "IRON_INGOT"
-      "4": "mss:disk_platter:4k"  # CUSTOM: 4K disk platter component
-      W: "WIND_CHARGE"
-    description: "Advanced storage disk - 4K tier"
-
-  storage_disk_16k:
-    enabled: true
-    result:
-      item: "storage_disk_16k"
-      amount: 1
-    shape:
-      - "TTT"
-      - "I6I"
-      - "IWI"
-    ingredients:
-      T: "TINTED_GLASS"
-      I: "IRON_INGOT"
-      "6": "mss:disk_platter:16k"  # CUSTOM: 16K disk platter component
-      W: "WIND_CHARGE"
-    description: "High-capacity storage disk - 16K tier"
-
-  storage_disk_64k:
-    enabled: true
-    result:
-      item: "storage_disk_64k"
-      amount: 1
-    shape:
-      - "TTT"
-      - "I6I"
-      - "IWI"
-    ingredients:
-      T: "TINTED_GLASS"
-      I: "IRON_INGOT"
-      "6": "mss:disk_platter:64k"  # CUSTOM: 64K disk platter component
-      W: "WIND_CHARGE"
-    description: "Maximum-capacity storage disk - 64K tier"
-```
-
-## Advanced Features
-
-### Network Recovery System
-- **Automatic Restoration**: Drive bay contents automatically restore when networks are rebuilt
-- **Orphaned Data Protection**: Items remain safe even when networks are broken
-- **Disk Recovery**: Use `/mss recovery <disk_id>` to recover lost disks
-
-### Performance Optimizations
-- **HikariCP Connection Pooling**: Efficient database operations
-- **Smart Caching**: Reduced database queries with intelligent caching
-- **Concurrent Safety**: Thread-safe network operations with proper locking
-
-### Explosion & Griefing Protection
-- **TNT Protection**: Blocks drop safely when destroyed by explosions
-- **Piston Prevention**: Pistons cannot move or break MSS blocks
-- **Drive Bay Safety**: Contents are automatically dropped when drive bays are destroyed
+## Installation
+1. Download the latest release
+2. Place the .jar file in your server's plugins folder  
+3. Restart your server
+4. Configure the plugin via the generated config files as needed

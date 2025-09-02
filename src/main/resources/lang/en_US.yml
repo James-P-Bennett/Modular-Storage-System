@@ -200,6 +200,7 @@ success:
     placed: "Storage disk placed successfully!"
     removed: "Storage disk removed successfully!"
     created: "Created {tier} storage disk"
+    cannot-dismantle-with-items: "<red>Cannot dismantle disks that contain items!</red>"
   
   device:
     created: "Created {device} {id}"
@@ -286,10 +287,8 @@ gui:
       showing-range: "Showing: {start}-{end} of {total}"
       total-items: "{type} Items: {count}"
     item:
-      quantity: "Stored: {amount}"
-      left-click: "Left Click: Take full stack to cursor"
-      right-click: "Right Click: Take half stack to cursor"
-      shift-click: "Shift Click: Take full stack to inventory"
+      quantity: "<yellow>Quantity: <white>{amount}"
+
     storage:
       not-allowed: "This item cannot be stored in the network!"
       partial: "Stored {stored} items. {remaining} items couldn't be stored (network full?)"

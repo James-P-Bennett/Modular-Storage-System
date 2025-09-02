@@ -440,14 +440,8 @@ public class TerminalGUI implements Listener {
 
         // Add quantity information to lore
         List<Component> lore = (meta.hasLore() && meta.lore() != null) ? new ArrayList<>(Objects.requireNonNull(meta.lore())) : new ArrayList<>();
-        lore.add(Component.empty());
         lore.add(plugin.getMessageManager().getMessageComponent(null, "gui.terminal.item.quantity", "amount", storedItem.quantity()));
-
-        // Add interaction hints with click behavior
         lore.add(Component.empty());
-        lore.add(plugin.getMessageManager().getMessageComponent(null, "gui.terminal.item.left-click"));
-        lore.add(plugin.getMessageManager().getMessageComponent(null, "gui.terminal.item.right-click"));
-        lore.add(plugin.getMessageManager().getMessageComponent(null, "gui.terminal.item.shift-click"));
 
         meta.lore(lore);
         displayItem.setItemMeta(meta);

@@ -234,3 +234,100 @@ recipes:
       "6": "mss:disk_platter:64k"  # CUSTOM: 64K disk platter component
       W: "WIND_CHARGE"
     description: "Maximum-capacity storage disk - 64K tier"
+
+  # ==================== NETWORK DEVICE RECIPES ====================
+
+  exporter:
+    enabled: true
+    result:
+      item: "exporter"
+      amount: 1
+    shape:
+      - "R1R"
+      - "csc"
+      - "RhR"
+    ingredients:
+      R: "COMPARATOR"
+      "1": "mss:disk_platter:1k"  # CUSTOM: 1K disk platter component
+      c: "mss:network_cable"  # CUSTOM: Network cable component
+      s: "STICKY_PISTON"
+      h: "HOPPER"
+    description: "Exports items from network to containers"
+
+  importer:
+    enabled: true
+    result:
+      item: "importer"
+      amount: 1
+    shape:
+      - "R1R"
+      - "cpc"
+      - "RhR"
+    ingredients:
+      R: "COMPARATOR"
+      "1": "mss:disk_platter:1k"  # CUSTOM: 1K disk platter component
+      c: "mss:network_cable"  # CUSTOM: Network cable component
+      p: "PISTON"
+      h: "HOPPER"
+    description: "Imports items from containers into network"
+
+  security_terminal:
+    enabled: true
+    result:
+      item: "security_terminal"
+      amount: 1
+    shape:
+      - "IEI"
+      - "ITI"
+      - "III"
+    ingredients:
+      I: "IRON_BARS"
+      E: "ENDER_PEARL"
+      T: "mss:mss_terminal"  # CUSTOM: MSS Terminal component
+    description: "Controls network access and permissions"
+
+  # ==================== ALTERNATIVE DISK RECIPES (SHAPELESS) ====================
+
+  storage_disk_1k_alt:
+    enabled: true
+    result:
+      item: "storage_disk_1k"
+      amount: 1
+    shapeless: true
+    ingredients:
+      - "mss:storage_disk_housing"  # CUSTOM: Storage disk housing component
+      - "mss:disk_platter:1k"  # CUSTOM: 1K disk platter component
+    description: "Alternative 1K storage disk recipe (shapeless)"
+
+  storage_disk_4k_alt:
+    enabled: true
+    result:
+      item: "storage_disk_4k"
+      amount: 1
+    shapeless: true
+    ingredients:
+      - "mss:storage_disk_housing"  # CUSTOM: Storage disk housing component
+      - "mss:disk_platter:4k"  # CUSTOM: 4K disk platter component
+    description: "Alternative 4K storage disk recipe (shapeless)"
+
+  storage_disk_16k_alt:
+    enabled: true
+    result:
+      item: "storage_disk_16k"
+      amount: 1
+    shapeless: true
+    ingredients:
+      - "mss:storage_disk_housing"  # CUSTOM: Storage disk housing component
+      - "mss:disk_platter:16k"  # CUSTOM: 16K disk platter component
+    description: "Alternative 16K storage disk recipe (shapeless)"
+
+  storage_disk_64k_alt:
+    enabled: true
+    result:
+      item: "storage_disk_64k"
+      amount: 1
+    shapeless: true
+    ingredients:
+      - "mss:storage_disk_housing"  # CUSTOM: Storage disk housing component
+      - "mss:disk_platter:64k"  # CUSTOM: 64K disk platter component
+    description: "Alternative 64K storage disk recipe (shapeless)"

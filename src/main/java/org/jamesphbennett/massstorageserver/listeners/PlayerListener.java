@@ -9,13 +9,18 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import io.papermc.paper.event.player.AsyncChatEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.block.Action;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Recipe;
 import org.bukkit.inventory.ShapedRecipe;
 import org.jamesphbennett.massstorageserver.MassStorageServer;
 import org.jamesphbennett.massstorageserver.managers.ItemManager;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 
 public class PlayerListener implements Listener {
@@ -61,10 +66,7 @@ public class PlayerListener implements Listener {
             event.setCancelled(true);
 
             // Handle the player input on the main thread
-            plugin.getServer().getScheduler().runTask(plugin, () -> {
-                plugin.getGUIManager().handlePlayerInput(player, message);
-            });
-            return;
+            plugin.getServer().getScheduler().runTask(plugin, () -> plugin.getGUIManager().handlePlayerInput(player, message));
         }
     }
 
@@ -86,20 +88,112 @@ public class PlayerListener implements Listener {
     }
 
     /**
+     * Handle disk recycling on shift + right click
+     */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        // Only handle shift + right click in air
+        if (event.getAction() != Action.RIGHT_CLICK_AIR) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+        if (!player.isSneaking()) {
+            return;
+        }
+
+        ItemStack item = player.getInventory().getItemInMainHand();
+        if (item.isEmpty()) {
+            return;
+        }
+
+        // Check if the item is a storage disk
+        if (!itemManager.isStorageDisk(item)) {
+            return;
+        }
+
+        // Check if the disk has any contents (used capacity > 0)
+        if (hasStorageContent(item, player)) {
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.disk.cannot-dismantle-with-items"));
+            return;
+        }
+
+        // Cancel the event to prevent any other actions
+        event.setCancelled(true);
+
+        // Get the disk tier to create the correct platter
+        String diskTier = itemManager.getDiskTier(item);
+        if (diskTier == null) {
+            return;
+        }
+
+        // Create the recycled components
+        ItemStack diskPlatter = itemManager.createDiskPlatter(diskTier);
+        ItemStack diskHousing = itemManager.createStorageDiskHousing();
+
+        if (diskPlatter == null || diskHousing == null) {
+            return;
+        }
+
+        // Remove the disk from player's hand
+        item.setAmount(item.getAmount() - 1);
+
+        // Try to add components to player's inventory
+        if (player.getInventory().firstEmpty() == -1) {
+            // Inventory is full, drop at player's feet
+            player.getWorld().dropItemNaturally(player.getLocation(), diskPlatter);
+            player.getWorld().dropItemNaturally(player.getLocation(), diskHousing);
+        } else {
+            // Try to add to inventory
+            var remaining1 = player.getInventory().addItem(diskPlatter);
+            var remaining2 = player.getInventory().addItem(diskHousing);
+
+            // Drop any items that couldn't fit
+            if (!remaining1.isEmpty()) {
+                for (ItemStack remaining : remaining1.values()) {
+                    player.getWorld().dropItemNaturally(player.getLocation(), remaining);
+                }
+            }
+            if (!remaining2.isEmpty()) {
+                for (ItemStack remaining : remaining2.values()) {
+                    player.getWorld().dropItemNaturally(player.getLocation(), remaining);
+                }
+            }
+
+        }
+
+        // Remove disk from database if it exists
+        removeStorageDiskFromDatabase(item, player);
+
+        plugin.getLogger().info("Player " + player.getName() + " dismantled a " + diskTier + " storage disk");
+    }
+
+    /**
      * Handle crafting preparation - this is where we validate custom component recipes
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPrepareItemCraft(PrepareItemCraftEvent event) {
-        // Only handle crafting tables (not player inventory crafting)
-        if (event.getInventory().getSize() != 10) return;
-
         ItemStack[] matrix = event.getInventory().getMatrix();
+        String customRecipeName;
+
+        // Handle different crafting grid sizes
+        if (event.getInventory().getSize() == 10) {
+            // 3x3 crafting table - support all recipes (shaped and shapeless)
+            customRecipeName = plugin.getRecipeManager().matchCustomComponentRecipe(matrix);
+        } else if (event.getInventory().getSize() == 5) {
+            // 2x2 survival crafting - only support shapeless recipes
+            customRecipeName = plugin.getRecipeManager().matchCustomShapelessRecipe(matrix);
+        } else {
+            // Other inventory types not supported
+            return;
+        }
 
         // Check for custom component recipes FIRST
-        String customRecipeName = plugin.getRecipeManager().matchCustomComponentRecipe(matrix);
         if (customRecipeName != null) {
             // This matches a custom component recipe
-            plugin.getLogger().info("Custom component recipe matched: " + customRecipeName);
+            if (plugin.getConfigManager().isDebugMode()) {
+                plugin.getLogger().info("Custom component recipe matched: " + customRecipeName);
+            }
 
             // Check if recipe is enabled
             if (!plugin.getConfigManager().isRecipeEnabled(customRecipeName)) {
@@ -111,7 +205,9 @@ public class PlayerListener implements Listener {
             ItemStack result = plugin.getRecipeManager().getCustomRecipeResult(customRecipeName);
             if (result != null) {
                 event.getInventory().setResult(result);
-                plugin.getLogger().info("Set custom recipe result: " + result.getType() + " for " + customRecipeName);
+                if (plugin.getConfigManager().isDebugMode()) {
+                    plugin.getLogger().info("Set custom recipe result: " + result.getType() + " for " + customRecipeName);
+                }
             }
             return; // IMPORTANT: Return here to avoid blocking the recipe
         }
@@ -155,6 +251,11 @@ public class PlayerListener implements Listener {
             return;
         }
 
+        // Determine crafting grid type
+        boolean is3x3CraftingTable = event.getInventory().getSize() == 10;
+        boolean is2x2SurvivalCrafting = event.getInventory().getSize() == 5;
+        boolean supportsMSSRecipes = is3x3CraftingTable || is2x2SurvivalCrafting;
+
         // Check crafting permission first
         if (plugin.getConfigManager().isRequireCraftPermission() && !player.hasPermission("massstorageserver.craft")) {
             // Check if this involves any MSS items (including cables)
@@ -194,9 +295,17 @@ public class PlayerListener implements Listener {
         }
 
         // Handle custom component recipes
-        if (result != null && itemManager.isMSSItem(result)) {
+        if (result != null && itemManager.isMSSItem(result) && supportsMSSRecipes) {
             ItemStack[] matrix = event.getInventory().getMatrix();
-            String customRecipeName = plugin.getRecipeManager().matchCustomComponentRecipe(matrix);
+            String customRecipeName;
+
+            if (is3x3CraftingTable) {
+                // 3x3 crafting table - support all recipes (shaped and shapeless)
+                customRecipeName = plugin.getRecipeManager().matchCustomComponentRecipe(matrix);
+            } else {
+                // 2x2 survival crafting - only support shapeless recipes
+                customRecipeName = plugin.getRecipeManager().matchCustomShapelessRecipe(matrix);
+            }
 
             if (customRecipeName != null) {
                 handleCustomComponentCrafting(event, player, customRecipeName);
@@ -213,9 +322,18 @@ public class PlayerListener implements Listener {
             }
 
             // Also check if this is a custom component recipe
-            String customRecipeName = plugin.getRecipeManager().matchCustomComponentRecipe(event.getInventory().getMatrix());
-            if (customRecipeName != null) {
-                isMSSRecipe = true;
+            if (supportsMSSRecipes) {
+                String customRecipeName;
+                if (is3x3CraftingTable) {
+                    // 3x3 crafting table - support all recipes (shaped and shapeless)
+                    customRecipeName = plugin.getRecipeManager().matchCustomComponentRecipe(event.getInventory().getMatrix());
+                } else {
+                    // 2x2 survival crafting - only support shapeless recipes
+                    customRecipeName = plugin.getRecipeManager().matchCustomShapelessRecipe(event.getInventory().getMatrix());
+                }
+                if (customRecipeName != null) {
+                    isMSSRecipe = true;
+                }
             }
 
             if (!isMSSRecipe) {
@@ -281,14 +399,72 @@ public class PlayerListener implements Listener {
     }
 
     private void handleCustomComponentCrafting(CraftItemEvent event, Player player, String recipeName) {
-        // The result was already set in PrepareItemCraftEvent
-        // We just need to provide feedback and logging
+        // Check if this is a storage disk recipe that needs special handling
+        if (isStorageDiskAltRecipe(recipeName)) {
+            handleStorageDiskAltCrafting(event, player, recipeName);
+            return;
+        }
 
+        // For non-storage disk recipes, the result was already set in PrepareItemCraftEvent
+        // We just need to provide feedback and logging
         ItemStack result = event.getCurrentItem();
         if (result != null) {
             String componentName = getComponentDisplayName(recipeName);
             player.sendMessage(Component.text(componentName + " crafted successfully!", NamedTextColor.GREEN));
             plugin.getLogger().info("Player " + player.getName() + " crafted custom component: " + recipeName);
+        }
+    }
+
+    /**
+     * Check if the recipe is an alternative storage disk recipe
+     */
+    private boolean isStorageDiskAltRecipe(String recipeName) {
+        return recipeName.equals("storage_disk_1k_alt") || 
+               recipeName.equals("storage_disk_4k_alt") || 
+               recipeName.equals("storage_disk_16k_alt") || 
+               recipeName.equals("storage_disk_64k_alt");
+    }
+
+    /**
+     * Handle alternative storage disk crafting with proper player data
+     */
+    private void handleStorageDiskAltCrafting(CraftItemEvent event, Player player, String recipeName) {
+        ItemStack storageDisk = null;
+        String diskType = "1k"; // Default
+
+        // Determine which tier is being crafted based on recipe name
+        switch (recipeName) {
+            case "storage_disk_1k_alt" -> {
+                storageDisk = itemManager.createStorageDisk(player.getUniqueId().toString(), player.getName());
+                diskType = "1k";
+            }
+            case "storage_disk_4k_alt" -> {
+                storageDisk = itemManager.createStorageDisk4k(player.getUniqueId().toString(), player.getName());
+                diskType = "4k";
+            }
+            case "storage_disk_16k_alt" -> {
+                storageDisk = itemManager.createStorageDisk16k(player.getUniqueId().toString(), player.getName());
+                diskType = "16k";
+            }
+            case "storage_disk_64k_alt" -> {
+                storageDisk = itemManager.createStorageDisk64k(player.getUniqueId().toString(), player.getName());
+                diskType = "64k";
+            }
+        }
+
+        if (storageDisk != null) {
+            // Replace the result with our properly created disk
+            event.setCurrentItem(storageDisk);
+
+            // Register the disk in the database
+            try {
+                registerStorageDisk(storageDisk, player, diskType);
+                player.sendMessage(Component.text("Storage Disk [" + diskType.toUpperCase() + "] crafted successfully!", NamedTextColor.GREEN));
+                plugin.getLogger().info("Player " + player.getName() + " crafted " + diskType + " storage disk via alternative recipe: " + recipeName);
+            } catch (SQLException e) {
+                player.sendMessage(Component.text("Error registering storage disk: " + e.getMessage(), NamedTextColor.RED));
+                plugin.getLogger().severe("Error registering storage disk: " + e.getMessage());
+            }
         }
     }
 
@@ -346,5 +522,65 @@ public class PlayerListener implements Listener {
 
     private boolean isMSSRecipe(ShapedRecipe recipe) {
         return recipe.getKey().getNamespace().equals(plugin.getName().toLowerCase());
+    }
+
+    /**
+     * Check if a storage disk has any contents (used capacity > 0)
+     */
+    private boolean hasStorageContent(ItemStack disk, Player player) {
+        String diskId = itemManager.getStorageDiskId(disk);
+        if (diskId == null) {
+            return false; // If no disk ID, assume it's empty
+        }
+
+        try (Connection conn = plugin.getDatabaseManager().getConnection();
+             PreparedStatement stmt = conn.prepareStatement("SELECT used_cells FROM storage_disks WHERE disk_id = ?")) {
+            
+            stmt.setString(1, diskId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    int usedCells = rs.getInt("used_cells");
+                    return usedCells > 0;
+                }
+            }
+            return false; // Disk not found in database, assume empty
+        } catch (SQLException e) {
+            plugin.getLogger().warning("Error checking disk storage content for " + diskId + ": " + e.getMessage());
+            return true; // Error occurred, be safe and don't allow recycling
+        }
+    }
+
+    /**
+     * Remove a storage disk from the database when recycled
+     */
+    private void removeStorageDiskFromDatabase(ItemStack disk, Player player) {
+        String diskId = itemManager.getStorageDiskId(disk);
+        if (diskId == null) {
+            return; // No disk ID, nothing to remove
+        }
+
+        try {
+            plugin.getDatabaseManager().executeTransaction(conn -> {
+                // First, remove any storage items associated with this disk
+                try (var stmt1 = conn.prepareStatement("DELETE FROM storage_items WHERE disk_id = ?")) {
+                    stmt1.setString(1, diskId);
+                    int itemsRemoved = stmt1.executeUpdate();
+                    if (itemsRemoved > 0) {
+                        plugin.getLogger().info("Removed " + itemsRemoved + " storage items for recycled disk " + diskId);
+                    }
+                }
+
+                // Then, remove the disk record
+                try (var stmt2 = conn.prepareStatement("DELETE FROM storage_disks WHERE disk_id = ?")) {
+                    stmt2.setString(1, diskId);
+                    int disksRemoved = stmt2.executeUpdate();
+                    if (disksRemoved > 0) {
+                        plugin.getLogger().info("Removed disk record for recycled disk " + diskId);
+                    }
+                }
+            });
+        } catch (SQLException e) {
+            plugin.getLogger().warning("Error removing recycled disk " + diskId + " from database: " + e.getMessage());
+        }
     }
 }

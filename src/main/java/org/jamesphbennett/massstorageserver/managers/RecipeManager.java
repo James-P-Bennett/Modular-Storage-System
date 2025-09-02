@@ -7,8 +7,10 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.ShapedRecipe;
+import org.bukkit.inventory.ShapelessRecipe;
 import org.jamesphbennett.massstorageserver.MassStorageServer;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,10 +36,10 @@ public class RecipeManager {
     /**
      * Data class to store custom recipe information
      *
-     * @param ingredients Object can be Material or CustomComponent
+     * @param ingredients For shaped: Object can be Material or CustomComponent. For shapeless: List of Objects
      */
-        public record CustomRecipeData(String[] shape, Map<Character, Object> ingredients, String resultType,
-                                       int resultAmount, String description) {
+        public record CustomRecipeData(String[] shape, Map<Character, Object> ingredients, List<Object> shapelessIngredients,
+                                       boolean isShapeless, String resultType, int resultAmount, String description) {
     }
 
     /**
@@ -95,13 +97,27 @@ public class RecipeManager {
         ConfigurationSection recipeSection = configManager.getRecipeSection(recipeName);
         if (recipeSection == null) return false;
 
-        ConfigurationSection ingredientsSection = recipeSection.getConfigurationSection("ingredients");
-        if (ingredientsSection == null) return false;
+        // Check if this is a shapeless recipe
+        boolean isShapeless = recipeSection.getBoolean("shapeless", false);
+        
+        if (isShapeless) {
+            // For shapeless recipes, ingredients is a list
+            List<String> ingredientsList = recipeSection.getStringList("ingredients");
+            for (String materialName : ingredientsList) {
+                if (materialName != null && materialName.startsWith("mss:")) {
+                    return true;
+                }
+            }
+        } else {
+            // For shaped recipes, ingredients is a section
+            ConfigurationSection ingredientsSection = recipeSection.getConfigurationSection("ingredients");
+            if (ingredientsSection == null) return false;
 
-        for (String key : ingredientsSection.getKeys(false)) {
-            String materialName = ingredientsSection.getString(key);
-            if (materialName != null && materialName.startsWith("mss:")) {
-                return true;
+            for (String key : ingredientsSection.getKeys(false)) {
+                String materialName = ingredientsSection.getString(key);
+                if (materialName != null && materialName.startsWith("mss:")) {
+                    return true;
+                }
             }
         }
         return false;
@@ -125,40 +141,69 @@ public class RecipeManager {
         String resultItemType = resultSection.getString("item");
         int resultAmount = resultSection.getInt("amount", 1);
         String description = recipeSection.getString("description", "No description");
+        boolean isShapeless = recipeSection.getBoolean("shapeless", false);
 
-        // Get shape
-        List<String> shapeList = recipeSection.getStringList("shape");
-        if (shapeList.size() != 3) {
-            throw new IllegalArgumentException("Recipe shape must have exactly 3 rows for: " + recipeName);
-        }
-        String[] shape = shapeList.toArray(new String[3]);
+        CustomRecipeData recipeData;
 
-        // Parse ingredients (mix of vanilla materials and custom components)
-        Map<Character, Object> ingredients = new HashMap<>();
-        ConfigurationSection ingredientsSection = recipeSection.getConfigurationSection("ingredients");
-        if (ingredientsSection == null) {
-            throw new IllegalArgumentException("Recipe ingredients section not found for: " + recipeName);
-        }
-
-        for (String key : ingredientsSection.getKeys(false)) {
-            String materialName = ingredientsSection.getString(key);
-            if (materialName == null) continue;
-
-            char ingredientChar = key.charAt(0);
-
-            if (materialName.startsWith("mss:")) {
-                // Parse custom component
-                CustomComponent component = parseCustomComponent(materialName, recipeName, key);
-                ingredients.put(ingredientChar, component);
-            } else {
-                // Parse vanilla material
-                Material material = parseVanillaMaterial(materialName, recipeName, key);
-                ingredients.put(ingredientChar, material);
+        if (isShapeless) {
+            // Handle shapeless recipe
+            List<String> ingredientsList = recipeSection.getStringList("ingredients");
+            if (ingredientsList.isEmpty()) {
+                throw new IllegalArgumentException("Shapeless recipe ingredients list is empty for: " + recipeName);
             }
+
+            List<Object> shapelessIngredients = new ArrayList<>();
+            for (String materialName : ingredientsList) {
+                if (materialName == null) continue;
+
+                if (materialName.startsWith("mss:")) {
+                    // Parse custom component
+                    CustomComponent component = parseCustomComponent(materialName, recipeName, "shapeless");
+                    shapelessIngredients.add(component);
+                } else {
+                    // Parse vanilla material
+                    Material material = parseVanillaMaterial(materialName, recipeName, "shapeless");
+                    shapelessIngredients.add(material);
+                }
+            }
+
+            recipeData = new CustomRecipeData(null, null, shapelessIngredients, true, resultItemType, resultAmount, description);
+        } else {
+            // Handle shaped recipe
+            List<String> shapeList = recipeSection.getStringList("shape");
+            if (shapeList.size() != 3) {
+                throw new IllegalArgumentException("Recipe shape must have exactly 3 rows for: " + recipeName);
+            }
+            String[] shape = shapeList.toArray(new String[3]);
+
+            // Parse ingredients (mix of vanilla materials and custom components)
+            Map<Character, Object> ingredients = new HashMap<>();
+            ConfigurationSection ingredientsSection = recipeSection.getConfigurationSection("ingredients");
+            if (ingredientsSection == null) {
+                throw new IllegalArgumentException("Recipe ingredients section not found for: " + recipeName);
+            }
+
+            for (String key : ingredientsSection.getKeys(false)) {
+                String materialName = ingredientsSection.getString(key);
+                if (materialName == null) continue;
+
+                char ingredientChar = key.charAt(0);
+
+                if (materialName.startsWith("mss:")) {
+                    // Parse custom component
+                    CustomComponent component = parseCustomComponent(materialName, recipeName, key);
+                    ingredients.put(ingredientChar, component);
+                } else {
+                    // Parse vanilla material
+                    Material material = parseVanillaMaterial(materialName, recipeName, key);
+                    ingredients.put(ingredientChar, material);
+                }
+            }
+
+            recipeData = new CustomRecipeData(shape, ingredients, null, false, resultItemType, resultAmount, description);
         }
 
         // Store the custom recipe data
-        CustomRecipeData recipeData = new CustomRecipeData(shape, ingredients, resultItemType, resultAmount, description);
         customComponentRecipes.put(recipeName, recipeData);
 
         // ALSO register a display-only vanilla recipe for the recipe book
@@ -240,28 +285,51 @@ public class RecipeManager {
 
         // Create display recipe with "_display" suffix to avoid conflicts
         NamespacedKey key = new NamespacedKey(plugin, recipeName + "_display");
-        ShapedRecipe displayRecipe = new ShapedRecipe(key, result);
 
-        // Set the shape
-        displayRecipe.shape(recipeData.shape[0], recipeData.shape[1], recipeData.shape[2]);
+        if (recipeData.isShapeless) {
+            // Handle shapeless recipe
+            ShapelessRecipe displayRecipe = new ShapelessRecipe(key, result);
 
-        // Convert ingredients to recipe choices that accept both placeholder and custom components
-        for (Map.Entry<Character, Object> entry : recipeData.ingredients.entrySet()) {
-            char ingredientChar = entry.getKey();
-            Object ingredient = entry.getValue();
-
-            if (ingredient instanceof Material material) {
-                // Use vanilla material as-is
-                displayRecipe.setIngredient(ingredientChar, material);
-            } else if (ingredient instanceof CustomComponent component) {
-                // Create recipe choice that accepts both placeholder and actual component
-                org.bukkit.inventory.RecipeChoice choice = createComponentChoice(component);
-                displayRecipe.setIngredient(ingredientChar, choice);
+            // Add ingredients for shapeless recipe
+            for (Object ingredient : recipeData.shapelessIngredients) {
+                if (ingredient instanceof Material material) {
+                    // Use vanilla material as-is
+                    displayRecipe.addIngredient(material);
+                } else if (ingredient instanceof CustomComponent component) {
+                    // Create recipe choice that accepts both placeholder and actual component
+                    org.bukkit.inventory.RecipeChoice choice = createComponentChoice(component);
+                    displayRecipe.addIngredient(choice);
+                }
             }
-        }
 
-        // Register the display recipe with the server
-        plugin.getServer().addRecipe(displayRecipe);
+            // Register the display recipe with the server
+            plugin.getServer().addRecipe(displayRecipe);
+
+        } else {
+            // Handle shaped recipe
+            ShapedRecipe displayRecipe = new ShapedRecipe(key, result);
+
+            // Set the shape
+            displayRecipe.shape(recipeData.shape[0], recipeData.shape[1], recipeData.shape[2]);
+
+            // Convert ingredients to recipe choices that accept both placeholder and custom components
+            for (Map.Entry<Character, Object> entry : recipeData.ingredients.entrySet()) {
+                char ingredientChar = entry.getKey();
+                Object ingredient = entry.getValue();
+
+                if (ingredient instanceof Material material) {
+                    // Use vanilla material as-is
+                    displayRecipe.setIngredient(ingredientChar, material);
+                } else if (ingredient instanceof CustomComponent component) {
+                    // Create recipe choice that accepts both placeholder and actual component
+                    org.bukkit.inventory.RecipeChoice choice = createComponentChoice(component);
+                    displayRecipe.setIngredient(ingredientChar, choice);
+                }
+            }
+
+            // Register the display recipe with the server
+            plugin.getServer().addRecipe(displayRecipe);
+        }
 
         plugin.getLogger().info("Registered display recipe for '" + recipeName + "' (shows actual components in recipe book)");
     }
@@ -308,6 +376,8 @@ public class RecipeManager {
         return switch (component.type) {
             case "disk_platter" -> itemManager.createDiskPlatter(component.tier != null ? component.tier : "1k");
             case "storage_disk_housing" -> itemManager.createStorageDiskHousing();
+            case "network_cable" -> itemManager.createNetworkCable();
+            case "mss_terminal" -> itemManager.createMSSTerminal();
             default -> null;
         };
     }
@@ -352,9 +422,38 @@ public class RecipeManager {
     }
 
     /**
+     * Check if a custom component recipe matches the given crafting matrix (shapeless recipes only)
+     */
+    public String matchCustomShapelessRecipe(ItemStack[] craftingMatrix) {
+        for (Map.Entry<String, CustomRecipeData> entry : customComponentRecipes.entrySet()) {
+            CustomRecipeData recipe = entry.getValue();
+            if (recipe.isShapeless && matchesShapelessRecipe(craftingMatrix, recipe)) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    /**
      * Check if the crafting matrix matches a specific custom recipe
      */
     private boolean matchesCustomRecipe(ItemStack[] craftingMatrix, CustomRecipeData recipeData) {
+        if (recipeData.isShapeless) {
+            return matchesShapelessRecipe(craftingMatrix, recipeData);
+        } else {
+            return matchesShapedRecipe(craftingMatrix, recipeData);
+        }
+    }
+
+    /**
+     * Check if the crafting matrix matches a shaped recipe
+     */
+    private boolean matchesShapedRecipe(ItemStack[] craftingMatrix, CustomRecipeData recipeData) {
+        // Only support 3x3 crafting tables for shaped recipes (9 slots)
+        if (craftingMatrix.length != 9) {
+            return false; // Shaped recipes need 3x3 crafting table
+        }
+
         // Convert 9-slot matrix to 3x3 for easier checking
         ItemStack[][] grid = new ItemStack[3][3];
         for (int i = 0; i < 9; i++) {
@@ -390,6 +489,46 @@ public class RecipeManager {
     }
 
     /**
+     * Check if the crafting matrix matches a shapeless recipe
+     */
+    private boolean matchesShapelessRecipe(ItemStack[] craftingMatrix, CustomRecipeData recipeData) {
+        // Create a list of non-empty items from the crafting matrix
+        List<ItemStack> matrixItems = new ArrayList<>();
+        for (ItemStack item : craftingMatrix) {
+            if (item != null && !item.getType().isAir()) {
+                matrixItems.add(item.clone());
+            }
+        }
+
+        // Check if we have the right number of items
+        if (matrixItems.size() != recipeData.shapelessIngredients.size()) {
+            return false;
+        }
+
+        // Create a copy of expected ingredients to track matching
+        List<Object> expectedIngredients = new ArrayList<>(recipeData.shapelessIngredients);
+
+        // Try to match each item in the matrix with an expected ingredient
+        for (ItemStack matrixItem : matrixItems) {
+            boolean found = false;
+            for (int i = 0; i < expectedIngredients.size(); i++) {
+                Object expectedIngredient = expectedIngredients.get(i);
+                if (matchesIngredient(matrixItem, expectedIngredient)) {
+                    expectedIngredients.remove(i);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return false;
+            }
+        }
+
+        // All ingredients should be matched and list should be empty
+        return expectedIngredients.isEmpty();
+    }
+
+    /**
      * Check if an item matches an ingredient (vanilla material or custom component)
      */
     private boolean matchesIngredient(ItemStack item, Object ingredient) {
@@ -414,6 +553,8 @@ public class RecipeManager {
             case "disk_platter" -> itemManager.isDiskPlatter(item) &&
                     (component.tier == null || component.tier.equals(itemManager.getDiskPlatterTier(item)));
             case "storage_disk_housing" -> itemManager.isStorageDiskHousing(item);
+            case "network_cable" -> itemManager.isNetworkCable(item);
+            case "mss_terminal" -> itemManager.isMSSTerminal(item);
             default -> false;
         };
     }
@@ -447,6 +588,15 @@ public class RecipeManager {
                 break;
             case "network_cable":
                 result = itemManager.createNetworkCable();
+                break;
+            case "exporter":
+                result = itemManager.createExporter();
+                break;
+            case "importer":
+                result = itemManager.createImporter();
+                break;
+            case "security_terminal":
+                result = itemManager.createSecurityTerminal();
                 break;
 
             // Storage disks
