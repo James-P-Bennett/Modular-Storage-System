@@ -1,11 +1,11 @@
-# Mass Storage Server
+# Modular Storage System
 
-Mass Storage Server is a comprehensive Minecraft storage plugin inspired by Applied Energistics 2 and Refined Storage. It provides a multi-tiered network-based storage system with craftable, expandable storage disks and an intuitive terminal interface. The plugin features automation capabilities through importers and exporters, making it perfect for advanced storage and logistics systems.
+Modular Storage System is a comprehensive Minecraft storage plugin inspired by Applied Energistics 2 and Refined Storage. It provides a multi-tiered network-based storage system with craftable, expandable storage disks and an intuitive terminal interface. The plugin features automation capabilities through importers and exporters, making it perfect for advanced storage and logistics systems.
 
 ## Features
 
 - **Network-Based Storage**: Connect Storage Servers, Drive Bays, and Terminals with Network Cables
-- **Multi-Tier Storage Disks**: 1K, 4K, 16K, and 64K capacity tiers with hot-swappable functionality  
+- **Multi-Tier Storage Disks**: 1k, 4k, 16k, and 64k capacity tiers with hot-swappable functionality  
 - **Advanced Terminals**: Search, sort, and manage your items with persistent per-terminal settings
 - **Automation System**: Import and export items automatically with configurable filters
 - **Security Controls**: Manage network access with Security Terminals
@@ -23,7 +23,7 @@ Mass Storage Server is a comprehensive Minecraft storage plugin inspired by Appl
 1. **Craft a Storage Server** - The central hub of your storage network
 2. **Place a Drive Bay** - Adjacent to the Storage Server (holds up to 7 storage disks)
 3. **Add a Terminal** - Adjacent to the Storage Server or Drive Bay for item access
-4. **Craft Storage Disks** - Start with 1K disks and insert them into the Drive Bay
+4. **Craft Storage Disks** - Start with 1k disks and insert them into the Drive Bay
 5. **Start Storing** - Right-click the Terminal to access your network storage
 
 ### Network Components
@@ -104,7 +104,7 @@ GGG    R = Redstone
 Automatically exports items from network to containers.
 ```
 R1R    R = Comparator
-csc    1 = 1K Disk Platter
+csc    1 = 1k Disk Platter
 RhR    c = Network Cable, s = Sticky Piston, h = Hopper
 ```
 
@@ -112,7 +112,7 @@ RhR    c = Network Cable, s = Sticky Piston, h = Hopper
 Automatically imports items from containers to network.
 ```
 R1R    R = Comparator
-cpc    1 = 1K Disk Platter  
+cpc    1 = 1k Disk Platter  
 RhR    c = Network Cable, p = Piston, h = Hopper
 ```
 
@@ -126,31 +126,31 @@ I I    I = Iron Ingot
 IWI    W = Wind Charge
 ```
 
-#### 1K Disk Platter
+#### 1k Disk Platter
 ```
 RGR    R = Redstone
 GRG    G = Gold Ingot
 RGR
 ```
 
-#### 4K Disk Platter
+#### 4k Disk Platter
 ```
 BGB    B = Blaze Rod, G = Gold Ingot
-111    1 = 1K Disk Platter
+111    1 = 1k Disk Platter
 ERE    E = Ender Pearl, R = Resin Brick
 ```
 
-#### 16K Disk Platter  
+#### 16k Disk Platter  
 ```
 BDB    B = Breeze Rod, D = Diamond
-444    4 = 4K Disk Platter
+444    4 = 4k Disk Platter
 PRP    P = Ender Pearl, R = Resin Brick
 ```
 
-#### 64K Disk Platter
+#### 64k Disk Platter
 ```
 SES    S = Shulker Shell, E = Ender Eye
-666    6 = 16K Disk Platter  
+666    6 = 16k Disk Platter  
 PRP    P = Ender Pearl, R = Resin Brick
 ```
 
@@ -165,16 +165,16 @@ IWI    W = Wind Charge
 ```
 
 #### Alternative Shapeless Recipes (Works in 2x2 Survival Grid)
-- **1K Disk**: Storage Disk Housing + 1K Disk Platter
-- **4K Disk**: Storage Disk Housing + 4K Disk Platter  
-- **16K Disk**: Storage Disk Housing + 16K Disk Platter
-- **64K Disk**: Storage Disk Housing + 64K Disk Platter
+- **1k Disk**: Storage Disk Housing + 1k Disk Platter
+- **4k Disk**: Storage Disk Housing + 4k Disk Platter  
+- **16k Disk**: Storage Disk Housing + 16k Disk Platter
+- **64k Disk**: Storage Disk Housing + 64k Disk Platter
 
 ### Storage Capacities
-- **1K Disk**: 8,128 items total (127 items per cell × 64 cells)
-- **4K Disk**: 32,512 items total (508 items per cell × 64 cells)
-- **16K Disk**: 130,048 items total (2,032 items per cell × 64 cells)  
-- **64K Disk**: 520,192 items total (8,128 items per cell × 64 cells)
+- **1k Disk**: 8,128 items total (127 items per cell × 64 cells)
+- **4k Disk**: 32,512 items total (508 items per cell × 64 cells)
+- **16k Disk**: 130,048 items total (2,032 items per cell × 64 cells)  
+- **64k Disk**: 520,192 items total (8,128 items per cell × 64 cells)
 
 ---
 
@@ -185,11 +185,11 @@ The plugin provides several administrative and utility commands:
 | Command | Description | Permission |
 |---------|-------------|------------|
 | `/mss help` | Show help menu with all available commands | Default |
-| `/mss give <item> [player]` | Give MSS items to yourself or another player | `massstorageserver.admin` |
-| `/mss recovery <disk_id>` | Recover a lost storage disk by its ID | `massstorageserver.recovery` |
-| `/mss info` | Show plugin statistics and network information | `massstorageserver.admin` |
-| `/mss recipes` | List all available recipes and their status | `massstorageserver.admin` |
-| `/mss reload [config\|recipes\|all]` | Reload configuration files | `massstorageserver.admin` |
+| `/mss give <item> [player]` | Give MSS items to yourself or another player | `modularstoragesystem.admin` |
+| `/mss recovery <disk_id>` | Recover a lost storage disk by its ID | `modularstoragesystem.recovery` |
+| `/mss info` | Show plugin statistics and network information | `modularstoragesystem.admin` |
+| `/mss recipes` | List all available recipes and their status | `modularstoragesystem.admin` |
+| `/mss reload [config\|recipes\|all]` | Reload configuration files | `modularstoragesystem.admin` |
 
 ### Available Items for `/mss give`
 - `storage_server`, `drive_bay`, `mss_terminal`, `security_terminal`

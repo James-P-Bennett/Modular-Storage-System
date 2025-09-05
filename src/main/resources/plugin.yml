@@ -1,29 +1,28 @@
-name: MassStorageServer
+name: ModularStorageSystem
 version: '${project.version}'
-main: org.jamesphbennett.massstorageserver.MassStorageServer
+main: org.jamesphbennett.modularstoragesystem.ModularStorageSystem
 api-version: '1.21'
 prefix: MSS
-authors: [ jamesphbennett ]
-description: A deep storage system for Minecraft servers
-website: https://github.com/jamesphbennett/massstorageserver
+authors: [ Hazmad ]
+description: More robust and advanced item management systems.
 
 commands:
   mss:
-    description: Mass Storage Server main command
+    description: Modular Storage System main command
     usage: /<command> [args]
-    permission: massstorageserver.admin
-    aliases: [massstorage]
+    permission: modularstoragesystem.admin
+    aliases: [modulartorage]
 
 permissions:
-  massstorageserver.admin:
-    description: Admin permissions for Mass Storage Server
+  modularstoragesystem.admin:
+    description: Admin permissions for Modular Storage System
     default: op
-  massstorageserver.use:
-    description: Basic permissions to use Mass Storage Server
+  modularstoragesystem.use:
+    description: Basic permissions to use Modular Storage System
     default: true
-  massstorageserver.craft:
+  modularstoragesystem.craft:
     description: Permission to craft MSS items
     default: true
-  massstorageserver.recovery:
+  modularstoragesystem.recovery:
     description: Permission to use recovery commands
     default: op

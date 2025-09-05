@@ -5,11 +5,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.jamesphbennett</groupId>
-    <artifactId>massstorageserver</artifactId>
-    <version>BETA-1.5.3</version>
+    <artifactId>modularstoragesystem</artifactId>
+    <version>BETA-1.5.4</version>
     <packaging>jar</packaging>
 
-    <name>Mass Storage Server</name>
+    <name>Modular Storage System</name>
     <description>A deep storage system for Minecraft servers</description>
 
     <properties>
@@ -85,7 +85,7 @@
                             <relocations>
                                 <relocation>
                                     <pattern>com.zaxxer.hikari</pattern>
-                                    <shadedPattern>org.jamesphbennett.massstorageserver.libs.hikari</shadedPattern>
+                                    <shadedPattern>org.jamesphbennett.modularstoragesystem.libs.hikari</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>

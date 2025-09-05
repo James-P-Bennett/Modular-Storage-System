@@ -1,4 +1,4 @@
-# Mass Storage Server Configuration
+# Modular Storage System Configuration
 # Created by James Bennett (Hazmad)
 
 # Network settings
@@ -25,10 +25,10 @@ storage:
 
   # NOTE: All storage disks now have exactly 64 cells (hardcoded)
   # NOTE: Items per cell are tier-specific (hardcoded):
-  #   1K Disk: 127 items per cell  (8,128 total capacity)
-  #   4K Disk: 508 items per cell  (32,512 total capacity)
-  #   16K Disk: 2,032 items per cell (130,048 total capacity)
-  #   64K Disk: 8,128 items per cell (520,192 total capacity)
+  #   1k Disk: 127 items per cell  (8,128 total capacity)
+  #   4k Disk: 508 items per cell  (32,512 total capacity)
+  #   16k Disk: 2,032 items per cell (130,048 total capacity)
+  #   64k Disk: 8,128 items per cell (520,192 total capacity)
 
 # Network Item Blacklist - Items that cannot be stored in networks or added to exporter filters
 # 

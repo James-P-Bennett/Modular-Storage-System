@@ -1,12 +1,12 @@
-# Mass Storage Server - Recipe Configuration
+# Modular Storage System - Recipe Configuration
 # This file defines all craftable recipes for the plugin
 # Edit this file to customize recipes or disable them entirely
 
 # CUSTOM INGREDIENT NOTATION:
 # For MSS custom components, use the format: "mss:component_type:tier"
 # Examples:
-# - "mss:disk_platter:1k" = 1K Disk Platter component
-# - "mss:disk_platter:4k" = 4K Disk Platter component
+# - "mss:disk_platter:1k" = 1k Disk Platter component
+# - "mss:disk_platter:4k" = 4k Disk Platter component
 # - "mss:storage_disk_housing" = Storage Disk Housing component
 
 # Global recipe settings
@@ -101,7 +101,7 @@ recipes:
     ingredients:
       R: "REDSTONE"
       G: "GOLD_INGOT"
-    description: "1K tier disk platter component"
+    description: "1k tier disk platter component"
 
   disk_platter_4k:
     enabled: true
@@ -115,10 +115,10 @@ recipes:
     ingredients:
       B: "BLAZE_ROD"
       G: "GOLD_INGOT"
-      "1": "mss:disk_platter:1k"  # CUSTOM: 1K disk platter component
+      "1": "mss:disk_platter:1k"  # CUSTOM: 1k disk platter component
       E: "ENDER_PEARL"
       R: "RESIN_BRICK"
-    description: "4K tier disk platter component"
+    description: "4k tier disk platter component"
 
   disk_platter_16k:
     enabled: true
@@ -132,10 +132,10 @@ recipes:
     ingredients:
       B: "BREEZE_ROD"
       D: "DIAMOND"
-      "4": "mss:disk_platter:4k"  # CUSTOM: 4K disk platter component
+      "4": "mss:disk_platter:4k"  # CUSTOM: 4k disk platter component
       P: "ENDER_PEARL"
       R: "RESIN_BRICK"
-    description: "16K tier disk platter component"
+    description: "16k tier disk platter component"
 
   disk_platter_64k:
     enabled: true
@@ -149,10 +149,10 @@ recipes:
     ingredients:
       S: "SHULKER_SHELL"
       E: "ENDER_EYE"
-      "6": "mss:disk_platter:16k"  # CUSTOM: 16K disk platter component
+      "6": "mss:disk_platter:16k"  # CUSTOM: 16k disk platter component
       P: "ENDER_PEARL"
       R: "RESIN_BRICK"
-    description: "64K tier disk platter component"
+    description: "64k tier disk platter component"
 
   storage_disk_housing:
     enabled: true
@@ -183,9 +183,9 @@ recipes:
     ingredients:
       T: "TINTED_GLASS"
       I: "IRON_INGOT"
-      "1": "mss:disk_platter:1k"  # CUSTOM: 1K disk platter component
+      "1": "mss:disk_platter:1k"  # CUSTOM: 1k disk platter component
       W: "WIND_CHARGE"
-    description: "Basic storage disk - 1K tier"
+    description: "Basic storage disk - 1k tier"
 
   storage_disk_4k:
     enabled: true
@@ -199,9 +199,9 @@ recipes:
     ingredients:
       T: "TINTED_GLASS"
       I: "IRON_INGOT"
-      "4": "mss:disk_platter:4k"  # CUSTOM: 4K disk platter component
+      "4": "mss:disk_platter:4k"  # CUSTOM: 4k disk platter component
       W: "WIND_CHARGE"
-    description: "Advanced storage disk - 4K tier"
+    description: "Advanced storage disk - 4k tier"
 
   storage_disk_16k:
     enabled: true
@@ -215,9 +215,9 @@ recipes:
     ingredients:
       T: "TINTED_GLASS"
       I: "IRON_INGOT"
-      "6": "mss:disk_platter:16k"  # CUSTOM: 16K disk platter component
+      "6": "mss:disk_platter:16k"  # CUSTOM: 16k disk platter component
       W: "WIND_CHARGE"
-    description: "High-capacity storage disk - 16K tier"
+    description: "High-capacity storage disk - 16k tier"
 
   storage_disk_64k:
     enabled: true
@@ -231,9 +231,9 @@ recipes:
     ingredients:
       T: "TINTED_GLASS"
       I: "IRON_INGOT"
-      "6": "mss:disk_platter:64k"  # CUSTOM: 64K disk platter component
+      "6": "mss:disk_platter:64k"  # CUSTOM: 64k disk platter component
       W: "WIND_CHARGE"
-    description: "Maximum-capacity storage disk - 64K tier"
+    description: "Maximum-capacity storage disk - 64k tier"
 
   # ==================== NETWORK DEVICE RECIPES ====================
 
@@ -248,7 +248,7 @@ recipes:
       - "RhR"
     ingredients:
       R: "COMPARATOR"
-      "1": "mss:disk_platter:1k"  # CUSTOM: 1K disk platter component
+      "1": "mss:disk_platter:1k"  # CUSTOM: 1k disk platter component
       c: "mss:network_cable"  # CUSTOM: Network cable component
       s: "STICKY_PISTON"
       h: "HOPPER"
@@ -265,7 +265,7 @@ recipes:
       - "RhR"
     ingredients:
       R: "COMPARATOR"
-      "1": "mss:disk_platter:1k"  # CUSTOM: 1K disk platter component
+      "1": "mss:disk_platter:1k"  # CUSTOM: 1k disk platter component
       c: "mss:network_cable"  # CUSTOM: Network cable component
       p: "PISTON"
       h: "HOPPER"
@@ -296,8 +296,8 @@ recipes:
     shapeless: true
     ingredients:
       - "mss:storage_disk_housing"  # CUSTOM: Storage disk housing component
-      - "mss:disk_platter:1k"  # CUSTOM: 1K disk platter component
-    description: "Alternative 1K storage disk recipe (shapeless)"
+      - "mss:disk_platter:1k"  # CUSTOM: 1k disk platter component
+    description: "Alternative 1k storage disk recipe (shapeless)"
 
   storage_disk_4k_alt:
     enabled: true
@@ -307,8 +307,8 @@ recipes:
     shapeless: true
     ingredients:
       - "mss:storage_disk_housing"  # CUSTOM: Storage disk housing component
-      - "mss:disk_platter:4k"  # CUSTOM: 4K disk platter component
-    description: "Alternative 4K storage disk recipe (shapeless)"
+      - "mss:disk_platter:4k"  # CUSTOM: 4k disk platter component
+    description: "Alternative 4k storage disk recipe (shapeless)"
 
   storage_disk_16k_alt:
     enabled: true
@@ -318,8 +318,8 @@ recipes:
     shapeless: true
     ingredients:
       - "mss:storage_disk_housing"  # CUSTOM: Storage disk housing component
-      - "mss:disk_platter:16k"  # CUSTOM: 16K disk platter component
-    description: "Alternative 16K storage disk recipe (shapeless)"
+      - "mss:disk_platter:16k"  # CUSTOM: 16k disk platter component
+    description: "Alternative 16k storage disk recipe (shapeless)"
 
   storage_disk_64k_alt:
     enabled: true
@@ -329,5 +329,5 @@ recipes:
     shapeless: true
     ingredients:
       - "mss:storage_disk_housing"  # CUSTOM: Storage disk housing component
-      - "mss:disk_platter:64k"  # CUSTOM: 64K disk platter component
-    description: "Alternative 64K storage disk recipe (shapeless)"
+      - "mss:disk_platter:64k"  # CUSTOM: 64k disk platter component
+    description: "Alternative 64k storage disk recipe (shapeless)"
