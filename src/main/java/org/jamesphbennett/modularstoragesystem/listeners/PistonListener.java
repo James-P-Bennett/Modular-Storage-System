@@ -194,7 +194,8 @@ public class PistonListener implements Listener {
                 type != Material.CHISELED_TUFF_BRICKS &&
                 type != Material.CRAFTER &&
                 type != Material.PLAYER_HEAD &&
-                type != Material.PLAYER_WALL_HEAD) {
+                type != Material.PLAYER_WALL_HEAD &&
+                type != Material.OBSERVER) {
             return false;
         }
 

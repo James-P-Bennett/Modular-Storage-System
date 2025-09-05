@@ -7,6 +7,9 @@
 # Example: "<red><bold>Error:</bold></red> Something went wrong!"
 # Learn more: https://docs.advntr.dev/minimessage/format.html
 
+# Global Settings
+prefix: "<gradient:#00D4FF:#0099CC><bold>[MSS]</bold></gradient> "
+
 # Command Messages
 commands:
   help:
@@ -28,7 +31,7 @@ commands:
   no-permission: "<red>You don't have permission to use this command.</red>"
   no-permission-recovery: "<red>You don't have permission to use recovery commands.</red>"
   players-only: "<red>Only players can use this command.</red>"
-  unknown-command: "<red>Unknown command. Use /mss help for available commands.</red>"
+  unknown-command: "<red>Unknown command. Use <yellow>/mss help</yellow> for available commands.</red>"
   reload-success: "<green>Plugin configuration reloaded successfully!</green>"
   debug-enabled: "<green>Debug mode enabled</green>"
   debug-disabled: "<yellow>Debug mode disabled</yellow>"
@@ -89,7 +92,7 @@ commands:
     all-success: "<green>All configurations reloaded successfully!</green>"
     all-error: "<red>Error reloading configurations: {error}</red>"
 
-# Error Messages
+# Error Messages  
 errors:
   network:
     invalid: "<red>This network is no longer valid</red>"
@@ -98,7 +101,7 @@ errors:
     not-connected-any: "<red>This {device} is not connected to any network</red>"
     connection-lost: "<red>Network connection lost - please check your storage system</red>"
     dissolved: "<red>Storage network dissolved - blocks have been disconnected</red>"
-    dissolved-drive-bay: "<red>Storage network dissolved - you can still manage disks in this drive bay</red>"
+    dissolved-drive-bay: "<yellow>Storage network dissolved - you can still manage disks in this drive bay</yellow>"
     security-terminal-limit: "<red>MSS networks can only have one security terminal.</red>"
     exporter-not-connected: "<red>This exporter is not connected to a valid network.</red>"
     importer-not-connected: "<red>This importer is not connected to a valid network.</red>"
@@ -110,9 +113,9 @@ errors:
   storage:
     full: "<red>Storage network is full!</red>"
     disk-full: "<red>Storage disk is full</red>"
-    item-blacklisted: "<red>Item not allowed: {item}</red>"
+    item-blacklisted: "<red>Item not allowed: <yellow>{item}</yellow></red>"
     item-blacklisted-filter: "<red>You cannot add occupied containers or disks to the network!</red>"
-    no-disks: "<red>No storage disks found in network {network}</red>"
+    no-disks: "<red>No storage disks found in network <yellow>{network}</yellow></red>"
   
   gui:
     error-opening: "<red>Error opening {gui} GUI: {error}</red>"
@@ -129,7 +132,7 @@ errors:
     storage-server-conflict: "<red>Cannot place Storage Server: Adjacent network already has a Storage Server!</red>"
     security-terminal-conflict: "<red>Cannot place Security Terminal: Adjacent network already has a Security Terminal!</red>"
     network-limit-exceeded: "<red>Network limit exceeded!</red>"
-    cable-limit-exceeded: "<red>Network cable limit exceeded! Maximum {max} cables per network.</red>"
+    cable-limit-exceeded: "<red>Network cable limit exceeded! Maximum <yellow>{max}</yellow> cables per network.</red>"
     invalid-network-formation: "<red>Cannot form network: Network configuration violates constraints!</red>"
     storage-disks-blocks: "<red>Storage disks cannot be placed as blocks!</red>"
     mss-components-blocks: "<red>Mass Storage components cannot be placed as blocks!</red>"
@@ -137,11 +140,11 @@ errors:
     no-block-modification-permission: "<red>You don't have permission to modify blocks in this network.</red>"
     exporter-cannot-attach: "<red>You cannot attach an exporter directly to the network!</red>"
     importer-cannot-attach: "<red>You cannot attach an importer directly to the network!</red>"
-    network-size-limit: "<red>Network size limit exceeded! Maximum {max} blocks per network.</red>"
-    block-error: "<red>Error placing block: {error}</red>"
-    access-denied-place-blocks: "<red>Access Denied: You are not authorized to place network blocks.</red>"
-    access-denied-remove-blocks: "<red>Access Denied: You are not authorized to remove network blocks.</red>"
-    access-denied-manage-network: "<red>Access Denied: You are not authorized to manage this network.</red>"
+    network-size-limit: "<red>Network size limit exceeded! Maximum <yellow>{max}</yellow> blocks per network.</red>"
+    block-error: "<red>Error placing block: <gray>{error}</gray></red>"
+    access-denied-place-blocks: "<red>🔒 Access Denied: You are not authorized to place network blocks.</red>"
+    access-denied-remove-blocks: "<red>🔒 Access Denied: You are not authorized to remove network blocks.</red>"
+    access-denied-manage-network: "<red>🔒 Access Denied: You are not authorized to manage this network.</red>"
     
   interaction:
     no-use-permission-exporters: "<red>You don't have permission to use Exporters.</red>"
@@ -187,7 +190,7 @@ success:
     importer-connected: "<green>Importer created successfully! Right-click to configure.</green>"
     storage-server-requirements: "<yellow>Storage Server requires Drive Bays and Terminals to form a network.</yellow>"
     block-needs-connection: "<yellow>This block needs to be connected to a Storage Server to function.</yellow>"
-    network-connected: "<green>Connected to network with {drive_bays} drive bay(s) and {terminals} terminal(s).</green>"
+    network-connected: "<green>Connected to network with <aqua>{drive_bays}</aqua> drive bay(s) and <aqua>{terminals}</aqua> terminal(s).</green>"
     drive-bay-restored: "<aqua>Drive bay contents have been restored!</aqua>"
     check-terminals: "<yellow>Check your terminals to see restored items.</yellow>"
     network-updated: "<green>Network updated after block removal.</green>"
@@ -213,7 +216,7 @@ success:
     disabled: "{device} disabled"
   
   storage-server-info:
-    header: "<color:#038541><b>Mass Storage Network Info:"
+    header: "<green><b>Mass Storage Network Info:"
     network-id: "<white>Network ID: {network_id}</white>"
     network-id-none: "<gray>Network ID: Not Assigned</gray>"
     status-operational: "<green>Operational</green>"
@@ -251,7 +254,7 @@ gui:
   
   # Terminal GUI
   terminal:
-    title: "<color:#038541><b>Terminal"
+    title: "<green><b>Terminal"
     search:
       button: "Search"
       instruction: "Left-click to open search"
@@ -300,7 +303,7 @@ gui:
 
   # Drive Bay GUI  
   drive-bay:
-    title: "<color:#038541><b>Drive Bay"
+    title: "<green><b>Drive Bay"
     slot:
       empty: "Empty Drive Slot"
       disk: "{tier} Storage Disk"
@@ -321,7 +324,7 @@ gui:
 
   # Exporter GUI
   exporter:
-    title: "<color:#038541><b>Exporter"
+    title: "<green><b>Exporter"
     status:
       enabled: "Status: Enabled"
       disabled: "Status: Disabled"
@@ -349,7 +352,7 @@ gui:
     
     # Furnace-specific exporter
     furnace:
-      title: "<color:#038541><b>Exporter"
+      title: "<green><b>Exporter"
       fuel-slot: "Fuel Slot"
       input-slot: "Input Slot"  
       output-slot: "Output Slot"
@@ -394,7 +397,7 @@ gui:
 
   # Importer GUI
   importer:
-    title: "<color:#038541><b>Importer"
+    title: "<green><b>Importer"
     status:
       enabled: "Status: Enabled"
       disabled: "Status: Disabled"
@@ -424,7 +427,7 @@ gui:
     
     # Brewing Stand specific importer
     brewing:
-      title: "<color:#038541><b>Importer"
+      title: "<green><b>Importer"
       slot-left: "Import Slot (Left)"
       slot-middle: "Import Slot (Middle)" 
       slot-right: "Import Slot (Right)"
@@ -442,7 +445,7 @@ gui:
 
   # Security Terminal GUI
   security-terminal:
-    title: "Security Terminal"
+    title: "<green><b>Security Terminal"
     navigation:
       previous-page: "Previous Page"
       next-page: "Next Page"
@@ -456,7 +459,7 @@ gui:
       add-instruction: "Click to add a trusted player"
       add-offline-support: "You can add offline players"
     info:
-      title: "Security Terminal"
+      title: "<green>Security Terminal"
       owner: "Owner: {owner}"
       trusted-count: "Trusted Players: {count}"
       permissions-header: "Permissions:"

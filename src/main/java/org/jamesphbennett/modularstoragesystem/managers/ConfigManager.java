@@ -65,10 +65,7 @@ public class ConfigManager {
         loadDebugSettings();
 
         plugin.getLogger().info("Configuration loaded successfully!");
-        plugin.getLogger().info("All storage disks hardcoded to " + HARDCODED_CELLS_PER_DISK + " cells");
-        plugin.getLogger().info("Items per cell are tier-specific: 1k=127, 4k=508, 16k=2032, 64k=8128");
-        plugin.getLogger().info("Maximum network cables per network: " + maxNetworkCables);
-        plugin.getLogger().info("Maximum exporters per network (bus limit): " + maxExporters);
+        // Removed redundant configuration details - available in debug mode
     }
 
     private void loadRecipesConfig() {
