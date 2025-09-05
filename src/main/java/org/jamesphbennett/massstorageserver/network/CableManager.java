@@ -222,6 +222,9 @@ public class CableManager {
             return null;
         }
 
+        // Clean up any orphaned security terminal associations before checking conflicts
+        plugin.getSecurityManager().cleanupOrphanedTerminals();
+        
         NetworkConnectivityManager.ConflictResult result = 
             connectivityManager.checkPlacementConflicts(location, blockTypeEnum);
         
