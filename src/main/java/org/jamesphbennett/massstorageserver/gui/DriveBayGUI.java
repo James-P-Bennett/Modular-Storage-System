@@ -62,33 +62,7 @@ public class DriveBayGUI implements Listener {
             inventory.setItem(slot, null);
         }
 
-        updateTitleItem();
-    }
-
-    /**
-     * Update the title item to show network status
-     */
-    private void updateTitleItem() {
-        ItemStack title = new ItemStack(Material.CHISELED_TUFF_BRICKS);
-        ItemMeta titleMeta = title.getItemMeta();
-        titleMeta.displayName(plugin.getMessageManager().getMessageComponent(null, "gui.drive-bay.title"));
-
-        List<Component> titleLore = new ArrayList<>();
-        titleLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.drive-bay.slot.insert"));
-
-        boolean networkValid = isNetworkValid();
-        if (networkValid) {
-            titleLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.drive-bay.status.connected"));
-            titleLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.drive-bay.info.slots", "filled", 0, "total", plugin.getConfigManager().getMaxDriveBaySlots()));
-        } else {
-            titleLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.drive-bay.status.disconnected"));
-            titleLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.drive-bay.status.standalone"));
-            titleLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.drive-bay.info.slots", "filled", 0, "total", plugin.getConfigManager().getMaxDriveBaySlots()));
-        }
-
-        titleMeta.lore(titleLore);
-        title.setItemMeta(titleMeta);
-        inventory.setItem(4, title);
+//        updateTitleItem();
     }
 
     /**
@@ -309,10 +283,8 @@ public class DriveBayGUI implements Listener {
                                 if (clickedItem.getAmount() <= 0) {
                                     event.setCurrentItem(null);
                                 }
-                                plugin.getServer().getScheduler().runTask(plugin, () -> {
-                                    loadDrives();
-                                    updateTitleItem();
-                                });
+                                //                                    updateTitleItem();
+                                plugin.getServer().getScheduler().runTask(plugin, this::loadDrives);
                             }
                             return;
                         }
@@ -349,10 +321,8 @@ public class DriveBayGUI implements Listener {
                             ItemStack updatedDisk = loadStorageDiskWithCurrentStats(diskId);
                             player.getInventory().addItem(Objects.requireNonNullElse(updatedDisk, clickedItem));
                             inventory.setItem(slot, null);
-                            plugin.getServer().getScheduler().runTask(plugin, () -> {
-                                loadDrives();
-                                updateTitleItem();
-                            });
+                            //                                updateTitleItem();
+                            plugin.getServer().getScheduler().runTask(plugin, this::loadDrives);
                         }
                     }
                 } else {
@@ -390,10 +360,8 @@ public class DriveBayGUI implements Listener {
                 if (clickedItem == null || clickedItem.getType().isAir()) {
                     if (placeDiskInSlot(player, driveSlotIndex, cursorItem)) {
                         event.getView().setCursor(null);
-                        plugin.getServer().getScheduler().runTask(plugin, () -> {
-                            loadDrives();
-                            updateTitleItem();
-                        });
+                        //                            updateTitleItem();
+                        plugin.getServer().getScheduler().runTask(plugin, this::loadDrives);
                     } else {
                         player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.drive-bay.error.database"));
                     }
@@ -401,10 +369,8 @@ public class DriveBayGUI implements Listener {
                     if (plugin.getItemManager().isStorageDisk(clickedItem)) {
                         if (swapDisksInSlot(player, driveSlotIndex, cursorItem)) {
                             event.getView().setCursor(clickedItem);
-                            plugin.getServer().getScheduler().runTask(plugin, () -> {
-                                loadDrives();
-                                updateTitleItem();
-                            });
+                            //                                updateTitleItem();
+                            plugin.getServer().getScheduler().runTask(plugin, this::loadDrives);
                         }
                     }
                 }
@@ -421,10 +387,8 @@ public class DriveBayGUI implements Listener {
                         ItemStack updatedDisk = loadStorageDiskWithCurrentStats(diskId);
                         event.getView().setCursor(Objects.requireNonNullElse(updatedDisk, clickedItem));
                         inventory.setItem(slot, null);
-                        plugin.getServer().getScheduler().runTask(plugin, () -> {
-                            loadDrives();
-                            updateTitleItem();
-                        });
+                        //                            updateTitleItem();
+                        plugin.getServer().getScheduler().runTask(plugin, this::loadDrives);
                     }
                 }
             }
@@ -655,6 +619,6 @@ public class DriveBayGUI implements Listener {
 
     public void refreshDiskDisplay() {
         loadDrives();
-        updateTitleItem();
+//        updateTitleItem();
     }
 }
