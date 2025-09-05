@@ -66,17 +66,17 @@ public class RecipeManager {
         customComponentRecipes.clear();
         Set<String> recipeNames = configManager.getRecipeNames();
 
-        plugin.getLogger().info("Found " + recipeNames.size() + " recipes in configuration");
+        // Removed redundant console message - recipe count shown at end
 
         for (String recipeName : recipeNames) {
             if (configManager.isRecipeEnabled(recipeName)) {
                 try {
                     if (hasCustomComponents(recipeName)) {
                         registerCustomComponentRecipe(recipeName);
-                        plugin.getLogger().info("Registered custom component recipe: " + recipeName);
+                        // Debug logging only - removed verbose console output
                     } else {
                         registerVanillaRecipe(recipeName);
-                        plugin.getLogger().info("Registered vanilla recipe: " + recipeName);
+                        // Debug logging only - removed verbose console output
                     }
                     registeredRecipeCount++;
                 } catch (Exception e) {
@@ -88,9 +88,7 @@ public class RecipeManager {
             }
         }
 
-        plugin.getLogger().info("Successfully registered " + registeredRecipeCount + " recipes (" +
-                customComponentRecipes.size() + " custom component recipes, " +
-                (registeredRecipeCount - customComponentRecipes.size()) + " vanilla recipes)");
+        plugin.getLogger().info("Registered " + registeredRecipeCount + " recipes");
     }
 
     /**
@@ -273,7 +271,7 @@ public class RecipeManager {
         plugin.getServer().addRecipe(recipe);
 
         String description = recipeSection.getString("description", "No description");
-        plugin.getLogger().info("Registered vanilla recipe '" + recipeName + "' (" + description + ") -> " + resultAmount + "x " + resultItemType);
+        // Removed verbose console output - summary shown at plugin startup
     }
 
     /**
@@ -334,7 +332,7 @@ public class RecipeManager {
             plugin.getServer().addRecipe(displayRecipe);
         }
 
-        plugin.getLogger().info("Registered display recipe for '" + recipeName + "' (shows actual components in recipe book)");
+        // Removed verbose console output - summary shown at plugin startup
     }
 
     /**

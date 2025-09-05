@@ -164,7 +164,7 @@ public class ItemManager {
         // Apply BurningFurnace player skin texture
         try {
             applyPlayerSkinTexture(meta);
-            plugin.getLogger().info("Successfully applied BurningFurnace player texture to exporter");
+            // Texture applied successfully - removed verbose console output
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to apply BurningFurnace player texture to exporter: " + e.getMessage());
         }
@@ -191,7 +191,7 @@ public class ItemManager {
         // Apply custom player skin texture using UUID
         try {
             applyImporterPlayerSkinTexture(meta);
-            plugin.getLogger().info("Successfully applied custom player texture to importer");
+            // Texture applied successfully - removed verbose console output
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to apply custom player texture to importer: " + e.getMessage());
         }

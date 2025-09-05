@@ -30,6 +30,7 @@ public class ExplosionManager {
         List<Location> driveBayLocations = new ArrayList<>();
         List<Location> exporterLocations = new ArrayList<>();
         List<Location> importerLocations = new ArrayList<>();
+        List<Location> securityTerminalLocations = new ArrayList<>();
 
         // First pass: identify our custom blocks in the explosion
         for (Block block : blockList) {
@@ -42,6 +43,8 @@ public class ExplosionManager {
                     exporterLocations.add(block.getLocation());
                 } else if (isCustomImporter(block)) {
                     importerLocations.add(block.getLocation());
+                } else if (isCustomSecurityTerminal(block)) {
+                    securityTerminalLocations.add(block.getLocation());
                 }
             }
         }
@@ -51,7 +54,8 @@ public class ExplosionManager {
         }
 
         plugin.getLogger().info("Explosion at " + explosionLocation + " affecting " + customBlocksToHandle.size() +
-                " MSS blocks (" + driveBayLocations.size() + " drive bays, " + exporterLocations.size() + " exporters)");
+                " MSS blocks (" + driveBayLocations.size() + " drive bays, " + exporterLocations.size() + " exporters, " + 
+                importerLocations.size() + " importers, " + securityTerminalLocations.size() + " security terminals)");
 
         // Handle drive bay contents BEFORE blocks are destroyed
         for (Location driveBayLoc : driveBayLocations) {
@@ -106,6 +110,18 @@ public class ExplosionManager {
                 }
             } catch (Exception e) {
                 plugin.getLogger().severe("Error handling importer explosion at " + importerLoc + ": " + e.getMessage());
+                plugin.getLogger().severe("Stack trace: " + java.util.Arrays.toString(e.getStackTrace()));
+            }
+        }
+
+        // Handle security terminal cleanup BEFORE blocks are destroyed
+        for (Location securityTerminalLoc : securityTerminalLocations) {
+            try {
+                plugin.getLogger().info("Cleaning up security terminal data at " + securityTerminalLoc + " due to explosion");
+                plugin.getSecurityManager().removeSecurityTerminal(securityTerminalLoc);
+                plugin.getLogger().info("Removed security terminal at " + securityTerminalLoc + " due to explosion");
+            } catch (Exception e) {
+                plugin.getLogger().severe("Error handling security terminal explosion at " + securityTerminalLoc + ": " + e.getMessage());
                 plugin.getLogger().severe("Stack trace: " + java.util.Arrays.toString(e.getStackTrace()));
             }
         }
@@ -252,7 +268,7 @@ public class ExplosionManager {
      * Check if a block is one of our custom network blocks
      */
     private boolean isCustomNetworkBlock(Block block) {
-        return isCustomStorageServer(block) || isCustomDriveBay(block) || isCustomMSSTerminal(block) || isCustomExporter(block) || isCustomImporter(block) || isCustomNetworkCable(block);
+        return isCustomStorageServer(block) || isCustomDriveBay(block) || isCustomMSSTerminal(block) || isCustomSecurityTerminal(block) || isCustomExporter(block) || isCustomImporter(block) || isCustomNetworkCable(block);
     }
 
     /**
@@ -290,6 +306,14 @@ public class ExplosionManager {
     private boolean isCustomImporter(Block block) {
         if (block.getType() != org.bukkit.Material.PLAYER_HEAD && block.getType() != org.bukkit.Material.PLAYER_WALL_HEAD) return false;
         return isMarkedAsCustomBlock(block.getLocation(), "IMPORTER");
+    }
+
+    /**
+     * Check if a block is a custom security terminal
+     */
+    private boolean isCustomSecurityTerminal(Block block) {
+        if (block.getType() != org.bukkit.Material.OBSERVER) return false;
+        return isMarkedAsCustomBlock(block.getLocation(), "SECURITY_TERMINAL");
     }
 
     /**
@@ -361,6 +385,8 @@ public class ExplosionManager {
             return plugin.getItemManager().createExporter();
         } else if (isCustomImporter(block)) {
             return plugin.getItemManager().createImporter();
+        } else if (isCustomSecurityTerminal(block)) {
+            return plugin.getItemManager().createSecurityTerminal();
         } else if (isCustomNetworkCable(block)) {
             return plugin.getItemManager().createNetworkCable();
         }
@@ -374,6 +400,7 @@ public class ExplosionManager {
         if (isCustomStorageServer(block)) return "STORAGE_SERVER";
         if (isCustomDriveBay(block)) return "DRIVE_BAY";
         if (isCustomMSSTerminal(block)) return "MSS_TERMINAL";
+        if (isCustomSecurityTerminal(block)) return "SECURITY_TERMINAL";
         if (isCustomExporter(block)) return "EXPORTER";
         if (isCustomImporter(block)) return "IMPORTER";
         return "UNKNOWN";
