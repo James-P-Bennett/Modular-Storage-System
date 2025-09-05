@@ -1,5 +1,5 @@
-# Mass Storage Server - English Language File
-# This file contains all translatable text for the Mass Storage Server plugin
+# Modular Storage System - English Language File
+# This file contains all translatable text for the Modular Storage System plugin
 # 
 # MiniMessage formatting is supported for colors and styling:
 # <red>, <green>, <blue>, <yellow>, <gold>, <gray>, <white>, <black>
@@ -10,7 +10,7 @@
 # Command Messages
 commands:
   help:
-    header: "<gold>=== Mass Storage Server Commands ===</gold>"
+    header: "<gold>=== Modular Storage System Commands ===</gold>"
     main-help: "<yellow>/mss help - Show this help message</yellow>"
     recovery: "<yellow>/mss recovery <disk_id> - Recover a storage disk by ID</yellow>"
     give: "<yellow>/mss give <item> [player] - Give MSS items</yellow>"
@@ -549,9 +549,9 @@ storage-server-info:
 # System Messages
 system:
   startup:
-    failed: "Failed to enable Mass Storage Server Plugin!"
-    shutdown-start: "Shutting down Mass Storage Server Plugin..."
-    shutdown-complete: "Mass Storage Server Plugin disabled successfully!"
+    failed: "Failed to enable Modular Storage System Plugin!"
+    shutdown-start: "Shutting down Modular Storage System Plugin..."
+    shutdown-complete: "Modular Storage System Plugin disabled successfully!"
   database:
     initialized: "Database initialized successfully at: {path}"
     migration-tier-support: "Database migration needed - adding tier support to storage_disks"
@@ -687,10 +687,10 @@ debug:
 # Console Messages (for server console)
 console:
   startup:
-    loading: "Loading Mass Storage Server v{version}"
-    loaded: "Mass Storage Server loaded successfully"
-    enabled: "Mass Storage Server enabled"
-    disabled: "Mass Storage Server disabled"
+    loading: "Loading Modular Storage System v{version}"
+    loaded: "Modular Storage System loaded successfully"
+    enabled: "Modular Storage System enabled"
+    disabled: "Modular Storage System disabled"
   
   database:
     connected: "Connected to database successfully"
@@ -719,7 +719,7 @@ console:
     load-failed: "Failed to load language {lang} from {source}: {error}"
     
   shutdown:
-    disabling: "Shutting down Mass Storage Server Plugin..."
+    disabling: "Shutting down Modular Storage System Plugin..."
     
   recipes:
     registered: "Registered {count} recipes"
