@@ -38,6 +38,8 @@ public final class ModularStorageSystem extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        // Display ASCII art on startup
+        displayStartupArt();
 
         getLogger().info(messageManager != null ? messageManager.getConsoleMessage("console.startup.loading", "version", getDescription().getVersion()) : "Loading Modular Storage System v" + getDescription().getVersion());
 
@@ -173,6 +175,30 @@ public final class ModularStorageSystem extends JavaPlugin {
         if (configManager != null && configManager.isDebugMode() && messageManager != null) {
             String message = messageManager.getDebugMessage(messageKey, placeholders);
             getLogger().info("[DEBUG] " + message);
+        }
+    }
+    
+    /**
+     * Display ASCII art on startup
+     */
+    private void displayStartupArt() {
+        String[] art = {
+            "┏┳┓┏━┓╺┳┓╻ ╻╻  ┏━┓┏━┓",
+            "┃┃┃┃ ┃ ┃┃┃ ┃┃  ┣━┫┣┳┛", 
+            "╹ ╹┗━┛╺┻┛┗━┛┗━╸╹ ╹╹┗╸",
+            "┏━┓╺┳╸┏━┓┏━┓┏━┓┏━╸┏━╸   ┏━┓╻ ╻┏━┓╺┳╸┏━╸┏┳┓",
+            "┗━┓ ┃ ┃ ┃┣┳┛┣━┫┃╺┓┣╸    ┗━┓┗┳┛┗━┓ ┃ ┣╸ ┃┃┃",
+            "┗━┛ ╹ ┗━┛╹┗╸╹ ╹┗━┛┗━╸   ┗━┛ ╹ ┗━┛ ╹ ┗━╸╹ ╹",
+            "",
+            "",
+            "",
+            "┏┓ ╻ ╻   ╻ ╻┏━┓╺━┓┏┳┓┏━┓╺┳┓",
+            "┣┻┓┗┳┛   ┣━┫┣━┫┏━┛┃┃┃┣━┫ ┃┃",
+            "┗━┛ ╹    ╹ ╹╹ ╹┗━╸╹ ╹╹ ╹╺┻┛╺━╸"
+        };
+        
+        for (String line : art) {
+            getLogger().info(line);
         }
     }
 }

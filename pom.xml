@@ -6,7 +6,7 @@
 
     <groupId>org.jamesphbennett</groupId>
     <artifactId>modularstoragesystem</artifactId>
-    <version>BETA-1.5.4</version>
+    <version>BETA-1.5.5</version>
     <packaging>jar</packaging>
 
     <name>Modular Storage System</name>
@@ -88,6 +88,20 @@
                                     <shadedPattern>org.jamesphbennett.modularstoragesystem.libs.hikari</shadedPattern>
                                 </relocation>
                             </relocations>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer"/>
+                            </transformers>
                         </configuration>
                     </execution>
                 </executions>
