@@ -551,7 +551,7 @@ public class DriveBayGUI implements Listener {
                 plugin.getLogger().info("Network " + (networkId != null ? networkId : "null") + " is not valid, skipping terminal refresh");
             }
 
-            player.sendMessage(Component.text("Storage disk inserted successfully!", NamedTextColor.GREEN));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.storage.disk-inserted"));
             plugin.debugLog("Successfully placed disk " + diskId + " in slot " + slotIndex);
             return true;
         } catch (Exception e) {
@@ -594,7 +594,7 @@ public class DriveBayGUI implements Listener {
                 plugin.getGUIManager().refreshNetworkTerminals(networkId);
             }
 
-            player.sendMessage(Component.text("Storage disk removed successfully!", NamedTextColor.YELLOW));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.storage.disk-removed"));
             return true;
         } catch (Exception e) {
             player.sendMessage(Component.text("Error removing disk: " + e.getMessage(), NamedTextColor.RED));
@@ -633,7 +633,7 @@ public class DriveBayGUI implements Listener {
 
                 if (!plugin.getItemManager().isStorageDisk(event.getOldCursor())) {
                     event.setCancelled(true);
-                    event.getWhoClicked().sendMessage(Component.text("Only storage disks can be placed in drive bays!", NamedTextColor.RED));
+                    event.getWhoClicked().sendMessage(plugin.getMessageManager().getMessageComponent((Player)event.getWhoClicked(), "gui.storage.disk-only"));
                     return;
                 }
             }

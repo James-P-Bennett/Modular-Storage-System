@@ -45,7 +45,7 @@ public class PistonListener implements Listener {
 
                 // Notify nearby players
                 notifyNearbyPlayers(event.getBlock().getLocation(),
-                        Component.text("Pistons cannot move Mass Storage blocks or cables!", NamedTextColor.RED));
+                        plugin.getMessageManager().getMessageComponent(null, "gui.piston.cannot-move-blocks"));
                 return;
             }
         }
@@ -79,7 +79,7 @@ public class PistonListener implements Listener {
 
                 // Notify nearby players
                 notifyNearbyPlayers(event.getBlock().getLocation(),
-                        Component.text("Pistons cannot push blocks into Mass Storage blocks or cables!", NamedTextColor.RED));
+                        plugin.getMessageManager().getMessageComponent(null, "gui.piston.cannot-push-into"));
                 return;
             }
         }
@@ -100,7 +100,7 @@ public class PistonListener implements Listener {
 
                 // Notify nearby players
                 notifyNearbyPlayers(event.getBlock().getLocation(),
-                        Component.text("Pistons cannot push into Mass Storage blocks or cables!", NamedTextColor.RED));
+                        plugin.getMessageManager().getMessageComponent(null, "gui.piston.cannot-push-adjacent"));
             }
         }
     }
@@ -124,7 +124,7 @@ public class PistonListener implements Listener {
 
                 // Notify nearby players
                 notifyNearbyPlayers(event.getBlock().getLocation(),
-                        Component.text("Pistons cannot pull Mass Storage blocks or cables!", NamedTextColor.RED));
+                        plugin.getMessageManager().getMessageComponent(null, "gui.piston.cannot-pull-blocks"));
                 return;
             }
         }
@@ -157,7 +157,7 @@ public class PistonListener implements Listener {
 
                 // Notify nearby players
                 notifyNearbyPlayers(event.getBlock().getLocation(),
-                        Component.text("Pistons cannot pull blocks into Mass Storage blocks or cables!", NamedTextColor.RED));
+                        plugin.getMessageManager().getMessageComponent(null, "gui.piston.cannot-pull-into"));
                 return;
             }
         }

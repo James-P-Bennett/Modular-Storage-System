@@ -79,6 +79,7 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
                 handleReload(sender, args);
                 break;
 
+
             default:
                 sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.unknown-command"));
                 break;
@@ -276,7 +277,7 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
                  ResultSet rs = stmt.executeQuery()) {
                 rs.next();
                 int exporterCount = rs.getInt(1);
-                sender.sendMessage(Component.text("Exporters Placed: " + exporterCount, NamedTextColor.YELLOW));
+                sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.info.exporters", "count", exporterCount));
             }
 
             // Count importers
@@ -284,7 +285,7 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
                  ResultSet rs = stmt.executeQuery()) {
                 rs.next();
                 int importerCount = rs.getInt(1);
-                sender.sendMessage(Component.text("Importers Placed: " + importerCount, NamedTextColor.YELLOW));
+                sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.info.importers", "count", importerCount));
             }
 
             // Recipe information
@@ -468,4 +469,5 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
 
         return completions;
     }
+
 }
