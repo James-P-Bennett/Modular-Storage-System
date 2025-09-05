@@ -310,7 +310,7 @@ public class GUIManager {
 
             plugin.debugLog("Opened security terminal GUI for player " + player.getName());
         } catch (Exception e) {
-            player.sendMessage(Component.text("Error opening security terminal: " + e.getMessage(), NamedTextColor.RED));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.access.error-security-terminal", "error", e.getMessage()));
             plugin.getLogger().severe("Error opening Security Terminal GUI: " + e.getMessage());
         }
     }
@@ -338,7 +338,7 @@ public class GUIManager {
 
     public void cancelPlayerInput(Player player) {
         playersAwaitingPlayerInput.remove(player.getUniqueId());
-        player.sendMessage(Component.text("Player input cancelled.", NamedTextColor.YELLOW));
+        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.network.input-cancelled"));
     }
 
     /**
@@ -597,6 +597,7 @@ public class GUIManager {
         // Handle exporter disconnections when network is invalidated
         plugin.getExporterManager().handleNetworkInvalidated(networkId);
         plugin.getImporterManager().handleNetworkInvalidated(networkId);
+        plugin.getSecurityManager().handleNetworkInvalidated(networkId);
 
         // Clear the modified flag for this network
         clearNetworkModified(networkId);

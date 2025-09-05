@@ -139,6 +139,9 @@ errors:
     importer-cannot-attach: "<red>You cannot attach an importer directly to the network!</red>"
     network-size-limit: "<red>Network size limit exceeded! Maximum {max} blocks per network.</red>"
     block-error: "<red>Error placing block: {error}</red>"
+    access-denied-place-blocks: "<red>Access Denied: You are not authorized to place network blocks.</red>"
+    access-denied-remove-blocks: "<red>Access Denied: You are not authorized to remove network blocks.</red>"
+    access-denied-manage-network: "<red>Access Denied: You are not authorized to manage this network.</red>"
     
   interaction:
     no-use-permission-exporters: "<red>You don't have permission to use Exporters.</red>"
@@ -150,6 +153,7 @@ errors:
     no-block-modification-permission: "<red>You don't have permission to remove blocks from this network.</red>"
     security-terminal-owner-only: "<red>Only the owner can manage this security terminal.</red>"
     no-drive-bay-permission: "<red>You don't have permission to access this drive bay.</red>"
+    access-denied-access-items: "<red>Access Denied: You are not authorized to access network items.</red>"
     
     
   removal:
@@ -208,13 +212,8 @@ success:
     enabled: "{device} enabled"
     disabled: "{device} disabled"
   
-  filter:
-    added: "Added {item} to {type} filter"
-    removed: "Removed item from {type} filter"
-    cleared: "Cleared all filters - will now {action} everything"
-
   storage-server-info:
-    header: "<aqua>═══ Storage Server Information ═══</aqua>"
+    header: "<color:#038541><b>Mass Storage Network Info:"
     network-id: "<white>Network ID: {network_id}</white>"
     network-id-none: "<gray>Network ID: Not Assigned</gray>"
     status-operational: "<green>Operational</green>"
@@ -243,6 +242,7 @@ gui:
     removed: "<yellow>Removed item from {type} filter</yellow>"
     cleared: "<yellow>Cleared all filters - will now {action} everything</yellow>"
     no-filters: "<yellow>No filters to clear</yellow>"
+    item-added: "<green>Added {item} to filter</green>"
   
   device:
     enabled: "<green>{device} enabled</green>"
@@ -251,7 +251,7 @@ gui:
   
   # Terminal GUI
   terminal:
-    title: "<green>MSS Terminal</green>"
+    title: "<color:#038541><b>Terminal"
     search:
       button: "Search"
       instruction: "Left-click to open search"
@@ -300,7 +300,7 @@ gui:
 
   # Drive Bay GUI  
   drive-bay:
-    title: "<blue>Drive Bay Storage</blue>"
+    title: "<color:#038541><b>Drive Bay"
     slot:
       empty: "Empty Drive Slot"
       insert: "Insert storage disks to expand capacity"
@@ -330,7 +330,7 @@ gui:
 
   # Exporter GUI
   exporter:
-    title: "<blue>Exporter Configuration</blue>"
+    title: "<color:#038541><b>Exporter"
     status:
       enabled: "Status: Enabled"
       disabled: "Status: Disabled"
@@ -358,7 +358,7 @@ gui:
     
     # Furnace-specific exporter
     furnace:
-      title: "<blue>Furnace Exporter Configuration</blue>"
+      title: "<color:#038541><b>Exporter"
       fuel-slot: "Fuel Slot"
       input-slot: "Input Slot"  
       output-slot: "Output Slot"
@@ -403,7 +403,7 @@ gui:
 
   # Importer GUI
   importer:
-    title: "<blue>Importer Configuration</blue>"
+    title: "<color:#038541><b>Importer"
     status:
       enabled: "Status: Enabled"
       disabled: "Status: Disabled"
@@ -433,7 +433,7 @@ gui:
     
     # Brewing Stand specific importer
     brewing:
-      title: "<blue>Brewing Stand Importer</blue>"
+      title: "<color:#038541><b>Importer"
       slot-left: "Import Slot (Left)"
       slot-middle: "Import Slot (Middle)" 
       slot-right: "Import Slot (Right)"
@@ -448,6 +448,135 @@ gui:
       filter-removed: "Removed import filter {slot}"
       filters-cleared: "Cleared all brewing stand filters"
       filter-description: "Import Filter ({slot})"
+
+  # Security Terminal GUI
+  security-terminal:
+    title: "Security Terminal"
+    navigation:
+      previous-page: "Previous Page"
+      next-page: "Next Page"
+      page-info: "Page {current}/{max}"
+      prev-available: "Click to go to previous page"
+      first-page: "Already on first page"
+      next-available: "Click to go to next page"
+      last-page: "Already on last page"
+    controls:
+      add-player: "Add Player"
+      add-instruction: "Click to add a trusted player"
+      add-offline-support: "You can add offline players"
+    info:
+      title: "Security Terminal"
+      owner: "Owner: {owner}"
+      trusted-count: "Trusted Players: {count}"
+      permissions-header: "Permissions:"
+      gui-access: "• GUI Access"
+      block-modification: "• Block Modification"
+    player:
+      permissions-header: "Permissions:"
+      access-granted: "✓ Access"
+      access-denied: "✗ Access"
+      building-granted: "✓ Building"
+      building-denied: "✗ Building"
+      instructions:
+        left-click: "Left-click: Toggle Access"
+        right-click: "Right-click: Toggle Building"
+        shift-click: "Shift-click: Remove Player"
+    messages:
+      add-prompt: "<yellow>Type the name of the player you want to add:</yellow>"
+      access-granted: "<green>{status} GUI access (Terminal/Drive Bay/Server/Import/Export) for {player}</green>"
+      access-revoked: "<red>{status} GUI access (Terminal/Drive Bay/Server/Import/Export) for {player}</red>"
+      building-granted: "<green>{status} block modification access for {player}</green>"
+      building-revoked: "<red>{status} block modification access for {player}</red>"
+      player-removed: "<yellow>Removed {player} from trusted players</yellow>"
+      player-not-found: "<red>Player not found: {player}</red>"
+      player-already-trusted: "<yellow>{player} is already a trusted player</yellow>"
+      player-added: "<green>Added {player} as a trusted player</green>"
+      error-adding: "<red>Error adding player: {error}</red>"
+
+  # Crafting Messages
+  crafting:
+    no-permission: "<red>You don't have permission to craft Mass Storage items.</red>"
+    component-success: "<green>{component} crafted successfully!</green>"
+    storage-disk-success: "<green>Storage Disk [{tier}] crafted successfully!</green>"
+    vanilla-recipe-blocked: "<red>Mass Storage components cannot be used in vanilla recipes!</red>"
+    search-expired: "<red>Search input expired. Please try again.</red>"
+
+  # Storage Operations
+  storage:
+    disk-inserted: "<green>Storage disk inserted successfully!</green>"
+    disk-removed: "<green>Storage disk removed successfully!</green>"
+    disk-only: "<red>Only storage disks can be placed in drive bays!</red>"
+
+  # Network Operations
+  network:
+    exporter-cannot-attach: "<red>You cannot attach an exporter directly to the network!</red>"
+    importer-cannot-attach: "<red>You cannot attach an importer directly to the network!</red>"
+    exporter-placed-unconnected: "<yellow>Exporter placed! Connect it to a network to activate.</yellow>"
+    exporter-placed-connected: "<green>Exporter created successfully! Right-click to configure.</green>"
+    importer-placed-unconnected: "<yellow>Importer placed! Connect it to a network to activate.</yellow>"
+    importer-placed-connected: "<green>Importer created successfully! Right-click to configure.</green>"
+    connected-info: "<green>Connected to network with {drive_bays} drive bay(s) and {terminals} terminal(s).</green>"
+    size-limit-exceeded: "<red>Network size limit exceeded! Maximum {max} blocks per network.</red>"
+    drive-bay-restored: "<aqua>Drive bay contents have been restored!</aqua>"
+    check-terminals: "<yellow>Check your terminals to see restored items.</yellow>"
+    search-cancelled: "<yellow>Search cancelled.</yellow>"
+    input-cancelled: "<red>Player input cancelled.</red>"
+    connection-lost: "<red>Network connection lost - please check your storage system.</red>"
+    dissolved: "<red>Storage network dissolved - blocks have been disconnected.</red>"
+    no-longer-valid: "<red>Storage network is no longer valid.</red>"
+
+  # Piston Restrictions
+  piston:
+    cannot-move-blocks: "<red>Pistons cannot move Mass Storage blocks or cables!</red>"
+    cannot-push-into: "<red>Pistons cannot push blocks into Mass Storage blocks or cables!</red>"
+    cannot-push-adjacent: "<red>Pistons cannot push into Mass Storage blocks or cables!</red>"
+    cannot-pull-blocks: "<red>Pistons cannot pull Mass Storage blocks or cables!</red>"
+    cannot-pull-into: "<red>Pistons cannot pull blocks into Mass Storage blocks or cables!</red>"
+
+# Storage Server Information Display
+storage-server-info:
+  header: "<aqua>═══ Storage Server Information ═══</aqua>"
+  network-id: "<white>Network ID: {id}</white>"
+  network-id-none: "<gray>Network ID: Not Assigned</gray>"
+  status: "Status: {status}"
+  status-online: "<green>Online</green>"
+  status-offline-detected: "<yellow>Offline</yellow>"
+  status-offline: "<red>Offline</red>"
+  connected-components: "<yellow>Connected Components:</yellow>"
+  drive-bays-count: "<green>  Drive Bays: {count}</green>"
+  terminals-count: "<green>  Terminals: {count}</green>"
+  exporters-count: "<green>  Exporters: {count}</green>"
+  importers-count: "<green>  Importers: {count}</green>"
+  cables-count: "<yellow>  Cables: {count}</yellow>"
+  network-limits: "<yellow>Network Limits:</yellow>"
+  blocks-limit: "  Blocks: {current}/{max}"
+  cables-limit: "  Cables: {current}/{max}"
+  bus-limit: "  Bus Limit: {current}/{max}"
+  storage-capacity: "Storage: {used}/{total} cells ({percent}%)"
+  storage-no-disks: "<gray>Storage: No disks installed</gray>"
+
+# System Messages
+system:
+  startup:
+    failed: "Failed to enable Mass Storage Server Plugin!"
+    shutdown-start: "Shutting down Mass Storage Server Plugin..."
+    shutdown-complete: "Mass Storage Server Plugin disabled successfully!"
+  database:
+    initialized: "Database initialized successfully at: {path}"
+    migration-tier-support: "Database migration needed - adding tier support to storage_disks"
+    migration-complete: "Successfully added tier support to storage_disks table"
+    tables-created: "Database tables and indexes created successfully!"
+    shutdown: "Database connection pool shutdown successfully!"
+  config:
+    loaded: "Configuration loaded successfully!"
+    recipes-loaded: "Recipes configuration loaded successfully!"
+    deprecated-option: "Config option 'max_items_per_cell' is deprecated and ignored. Items per cell are now tier-specific and hardcoded."
+  recipes:
+    reloading: "Reloading recipes from configuration..."
+    custom-note: "Note: This recipe uses custom components and requires manual crafting validation."
+  cables:
+    placement-error: "Error placing cable: {error}"
+    network-conflict-error: "Error checking network conflicts."
 
 # Device Names (for dynamic messages)
 devices:

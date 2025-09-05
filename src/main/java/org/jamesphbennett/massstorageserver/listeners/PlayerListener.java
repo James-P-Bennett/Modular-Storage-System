@@ -52,7 +52,7 @@ public class PlayerListener implements Listener {
             plugin.getServer().getScheduler().runTask(plugin, () -> {
                 boolean handled = plugin.getGUIManager().handleSearchInput(player, message);
                 if (!handled) {
-                    player.sendMessage(Component.text("Search input expired. Please try again.", NamedTextColor.RED));
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.crafting.search-expired"));
                 }
             });
             return;
@@ -262,7 +262,7 @@ public class PlayerListener implements Listener {
             if (containsMSSItems(event.getInventory().getMatrix()) ||
                     (event.getCurrentItem() != null && itemManager.isMSSItem(event.getCurrentItem()))) {
                 event.setCancelled(true);
-                player.sendMessage(Component.text("You don't have permission to craft Mass Storage items.", NamedTextColor.RED));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.crafting.no-permission"));
                 return;
             }
         }
@@ -278,7 +278,7 @@ public class PlayerListener implements Listener {
             if (recipeKey.endsWith("_display")) {
                 String realRecipeName = recipeKey.replace("_display", "");
                 String componentName = getComponentDisplayName(realRecipeName);
-                player.sendMessage(Component.text(componentName + " crafted successfully!", NamedTextColor.GREEN));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.crafting.component-success", "component", componentName));
                 plugin.getLogger().info("Player " + player.getName() + " crafted " + realRecipeName + " using display recipe");
                 return;
             }
@@ -338,7 +338,7 @@ public class PlayerListener implements Listener {
 
             if (!isMSSRecipe) {
                 event.setCancelled(true);
-                player.sendMessage(Component.text("Mass Storage components cannot be used in vanilla recipes!", NamedTextColor.RED));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.crafting.vanilla-recipe-blocked"));
                 plugin.getLogger().info("Prevented player " + player.getName() + " from using MSS items in non-MSS recipe");
             }
         }
@@ -390,7 +390,7 @@ public class PlayerListener implements Listener {
             // Register the disk in the database
             try {
                 registerStorageDisk(storageDisk, player, diskType);
-                player.sendMessage(Component.text("Storage Disk [" + diskType.toUpperCase() + "] crafted successfully!", NamedTextColor.GREEN));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.crafting.storage-disk-success", "tier", diskType.toUpperCase()));
             } catch (SQLException e) {
                 player.sendMessage(Component.text("Error registering storage disk: " + e.getMessage(), NamedTextColor.RED));
                 plugin.getLogger().severe("Error registering storage disk: " + e.getMessage());
@@ -410,7 +410,7 @@ public class PlayerListener implements Listener {
         ItemStack result = event.getCurrentItem();
         if (result != null) {
             String componentName = getComponentDisplayName(recipeName);
-            player.sendMessage(Component.text(componentName + " crafted successfully!", NamedTextColor.GREEN));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.crafting.component-success", "component", componentName));
             plugin.getLogger().info("Player " + player.getName() + " crafted custom component: " + recipeName);
         }
     }
@@ -459,7 +459,7 @@ public class PlayerListener implements Listener {
             // Register the disk in the database
             try {
                 registerStorageDisk(storageDisk, player, diskType);
-                player.sendMessage(Component.text("Storage Disk [" + diskType.toUpperCase() + "] crafted successfully!", NamedTextColor.GREEN));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.crafting.storage-disk-success", "tier", diskType.toUpperCase()));
                 plugin.getLogger().info("Player " + player.getName() + " crafted " + diskType + " storage disk via alternative recipe: " + recipeName);
             } catch (SQLException e) {
                 player.sendMessage(Component.text("Error registering storage disk: " + e.getMessage(), NamedTextColor.RED));

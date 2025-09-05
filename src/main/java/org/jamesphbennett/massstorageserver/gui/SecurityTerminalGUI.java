@@ -46,7 +46,9 @@ public class SecurityTerminalGUI implements Listener {
         this.ownerUuid = ownerUuid;
         this.viewer = viewer;
         
-        this.inventory = Bukkit.createInventory(null, 54, Component.text("Security Terminal", NamedTextColor.RED));
+        // Create inventory with localized title
+        Component title = plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.title");
+        this.inventory = Bukkit.createInventory(null, 54, title);
         
         setupGUI();
         loadTrustedPlayers();
@@ -81,13 +83,13 @@ public class SecurityTerminalGUI implements Listener {
         // Previous page button
         ItemStack prevPage = new ItemStack(Material.ARROW);
         ItemMeta prevMeta = prevPage.getItemMeta();
-        prevMeta.displayName(Component.text("Previous Page", NamedTextColor.YELLOW));
+        prevMeta.displayName(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.navigation.previous-page"));
         List<Component> prevLore = new ArrayList<>();
-        prevLore.add(Component.text("Page " + (currentPage + 1) + "/" + maxPages, NamedTextColor.GRAY));
+        prevLore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.navigation.page-info", "current", currentPage + 1, "max", maxPages));
         if (currentPage > 0) {
-            prevLore.add(Component.text("Click to go to previous page", NamedTextColor.GREEN));
+            prevLore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.navigation.prev-available"));
         } else {
-            prevLore.add(Component.text("Already on first page", NamedTextColor.RED));
+            prevLore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.navigation.first-page"));
         }
         prevMeta.lore(prevLore);
         prevPage.setItemMeta(prevMeta);
@@ -96,13 +98,13 @@ public class SecurityTerminalGUI implements Listener {
         // Next page button
         ItemStack nextPage = new ItemStack(Material.ARROW);
         ItemMeta nextMeta = nextPage.getItemMeta();
-        nextMeta.displayName(Component.text("Next Page", NamedTextColor.YELLOW));
+        nextMeta.displayName(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.navigation.next-page"));
         List<Component> nextLore = new ArrayList<>();
-        nextLore.add(Component.text("Page " + (currentPage + 1) + "/" + maxPages, NamedTextColor.GRAY));
+        nextLore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.navigation.page-info", "current", currentPage + 1, "max", maxPages));
         if (currentPage < maxPages - 1) {
-            nextLore.add(Component.text("Click to go to next page", NamedTextColor.GREEN));
+            nextLore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.navigation.next-available"));
         } else {
-            nextLore.add(Component.text("Already on last page", NamedTextColor.RED));
+            nextLore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.navigation.last-page"));
         }
         nextMeta.lore(nextLore);
         nextPage.setItemMeta(nextMeta);
@@ -113,10 +115,10 @@ public class SecurityTerminalGUI implements Listener {
         // Add player button
         ItemStack addPlayer = new ItemStack(Material.EMERALD);
         ItemMeta addMeta = addPlayer.getItemMeta();
-        addMeta.displayName(Component.text("Add Player", NamedTextColor.GREEN));
+        addMeta.displayName(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.controls.add-player"));
         List<Component> addLore = new ArrayList<>();
-        addLore.add(Component.text("Click to add a trusted player", NamedTextColor.GRAY));
-        addLore.add(Component.text("You can add offline players", NamedTextColor.YELLOW));
+        addLore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.controls.add-instruction"));
+        addLore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.controls.add-offline-support"));
         addMeta.lore(addLore);
         addPlayer.setItemMeta(addMeta);
         inventory.setItem(48, addPlayer);
@@ -124,14 +126,14 @@ public class SecurityTerminalGUI implements Listener {
         // Info item
         ItemStack info = new ItemStack(Material.OBSERVER);
         ItemMeta infoMeta = info.getItemMeta();
-        infoMeta.displayName(Component.text("Security Terminal", NamedTextColor.RED));
+        infoMeta.displayName(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.info.title"));
         List<Component> infoLore = new ArrayList<>();
-        infoLore.add(Component.text("Owner: " + getOwnerName(), NamedTextColor.GRAY));
-        infoLore.add(Component.text("Trusted Players: " + trustedPlayers.size(), NamedTextColor.GRAY));
+        infoLore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.info.owner", "owner", getOwnerName()));
+        infoLore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.info.trusted-count", "count", trustedPlayers.size()));
         infoLore.add(Component.empty());
-        infoLore.add(Component.text("Permissions:", NamedTextColor.YELLOW));
-        infoLore.add(Component.text("• Drive Bay Access", NamedTextColor.AQUA));
-        infoLore.add(Component.text("• Block Modification", NamedTextColor.AQUA));
+        infoLore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.info.permissions-header"));
+        infoLore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.info.gui-access"));
+        infoLore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.info.block-modification"));
         infoMeta.lore(infoLore);
         info.setItemMeta(infoMeta);
         inventory.setItem(49, info);
@@ -199,26 +201,26 @@ public class SecurityTerminalGUI implements Listener {
         
         List<Component> lore = new ArrayList<>();
         lore.add(Component.empty());
-        lore.add(Component.text("Permissions:", NamedTextColor.YELLOW));
+        lore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.player.permissions-header"));
         
-        // Drive Bay Access
+        // GUI Access (covers all GUI interactions)
         if (trustedPlayer.driveBayAccess) {
-            lore.add(Component.text("✓ Drive Bay Access", NamedTextColor.GREEN));
+            lore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.player.access-granted"));
         } else {
-            lore.add(Component.text("✗ Drive Bay Access", NamedTextColor.RED));
+            lore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.player.access-denied"));
         }
         
         // Block Modification Access
         if (trustedPlayer.blockModAccess) {
-            lore.add(Component.text("✓ Block Modification", NamedTextColor.GREEN));
+            lore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.player.building-granted"));
         } else {
-            lore.add(Component.text("✗ Block Modification", NamedTextColor.RED));
+            lore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.player.building-denied"));
         }
         
         lore.add(Component.empty());
-        lore.add(Component.text("Left-click: Toggle Drive Bay Access", NamedTextColor.AQUA));
-        lore.add(Component.text("Right-click: Toggle Block Modification", NamedTextColor.AQUA));
-        lore.add(Component.text("Shift-click: Remove Player", NamedTextColor.RED));
+        lore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.player.instructions.left-click"));
+        lore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.player.instructions.right-click"));
+        lore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.player.instructions.shift-click"));
         
         meta.lore(lore);
         skull.setItemMeta(meta);
@@ -272,7 +274,7 @@ public class SecurityTerminalGUI implements Listener {
         // Handle add player button
         if (slot == 48) {
             player.closeInventory();
-            player.sendMessage(Component.text("Type the name of the player you want to add:", NamedTextColor.YELLOW));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.security-terminal.messages.add-prompt"));
             plugin.getGUIManager().registerPlayerInput(player, this);
             return;
         }
@@ -288,8 +290,8 @@ public class SecurityTerminalGUI implements Listener {
                     // Remove player
                     removeTrustedPlayer(trustedPlayer);
                 } else if (clickType == ClickType.LEFT) {
-                    // Toggle drive bay access
-                    toggleDriveBayAccess(trustedPlayer);
+                    // Toggle all GUI access (terminal, drive bay, server, importer, exporter)
+                    toggleGUIAccess(trustedPlayer);
                 } else if (clickType == ClickType.RIGHT) {
                     // Toggle block modification access
                     toggleBlockModAccess(trustedPlayer);
@@ -298,15 +300,14 @@ public class SecurityTerminalGUI implements Listener {
         }
     }
 
-    private void toggleDriveBayAccess(TrustedPlayer trustedPlayer) {
+    private void toggleGUIAccess(TrustedPlayer trustedPlayer) {
         trustedPlayer.driveBayAccess = !trustedPlayer.driveBayAccess;
         updatePlayerPermissions(trustedPlayer);
         updateDisplayedPlayers();
         
-        viewer.sendMessage(Component.text(
-            (trustedPlayer.driveBayAccess ? "Granted" : "Revoked") + " drive bay access for " + trustedPlayer.name,
-            trustedPlayer.driveBayAccess ? NamedTextColor.GREEN : NamedTextColor.RED
-        ));
+        String statusKey = trustedPlayer.driveBayAccess ? "gui.security-terminal.messages.access-granted" : "gui.security-terminal.messages.access-revoked";
+        String status = trustedPlayer.driveBayAccess ? "Granted" : "Revoked";
+        viewer.sendMessage(plugin.getMessageManager().getMessageComponent(viewer, statusKey, "status", status, "player", trustedPlayer.name));
     }
 
     private void toggleBlockModAccess(TrustedPlayer trustedPlayer) {
@@ -314,10 +315,9 @@ public class SecurityTerminalGUI implements Listener {
         updatePlayerPermissions(trustedPlayer);
         updateDisplayedPlayers();
         
-        viewer.sendMessage(Component.text(
-            (trustedPlayer.blockModAccess ? "Granted" : "Revoked") + " block modification access for " + trustedPlayer.name,
-            trustedPlayer.blockModAccess ? NamedTextColor.GREEN : NamedTextColor.RED
-        ));
+        String statusKey = trustedPlayer.blockModAccess ? "gui.security-terminal.messages.building-granted" : "gui.security-terminal.messages.building-revoked";
+        String status = trustedPlayer.blockModAccess ? "Granted" : "Revoked";
+        viewer.sendMessage(plugin.getMessageManager().getMessageComponent(viewer, statusKey, "status", status, "player", trustedPlayer.name));
     }
 
     private void updatePlayerPermissions(TrustedPlayer trustedPlayer) {
@@ -357,7 +357,7 @@ public class SecurityTerminalGUI implements Listener {
             
             updateDisplayedPlayers();
             
-            viewer.sendMessage(Component.text("Removed " + trustedPlayer.name + " from trusted players", NamedTextColor.YELLOW));
+            viewer.sendMessage(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.messages.player-removed", "player", trustedPlayer.name));
             
         } catch (SQLException e) {
             plugin.getLogger().severe("Error removing trusted player: " + e.getMessage());
@@ -369,7 +369,7 @@ public class SecurityTerminalGUI implements Listener {
         OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(playerName);
         
         if (offlinePlayer.getUniqueId() == null) {
-            viewer.sendMessage(Component.text("Player not found: " + playerName, NamedTextColor.RED));
+            viewer.sendMessage(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.messages.player-not-found", "player", playerName));
             return;
         }
         
@@ -378,7 +378,7 @@ public class SecurityTerminalGUI implements Listener {
         // Check if player is already trusted
         for (TrustedPlayer trusted : trustedPlayers) {
             if (trusted.uuid.equals(playerUuid)) {
-                viewer.sendMessage(Component.text(playerName + " is already a trusted player", NamedTextColor.YELLOW));
+                viewer.sendMessage(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.messages.player-already-trusted", "player", playerName));
                 return;
             }
         }
@@ -398,14 +398,14 @@ public class SecurityTerminalGUI implements Listener {
             
             loadTrustedPlayers(); // Reload to get the new player
             
-            viewer.sendMessage(Component.text("Added " + playerName + " as a trusted player", NamedTextColor.GREEN));
+            viewer.sendMessage(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.messages.player-added", "player", playerName));
             
         } catch (SQLException e) {
             if (e.getMessage().contains("UNIQUE constraint failed")) {
-                viewer.sendMessage(Component.text(playerName + " is already a trusted player", NamedTextColor.YELLOW));
+                viewer.sendMessage(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.messages.player-already-trusted", "player", playerName));
             } else {
                 plugin.getLogger().severe("Error adding trusted player: " + e.getMessage());
-                viewer.sendMessage(Component.text("Error adding player: " + e.getMessage(), NamedTextColor.RED));
+                viewer.sendMessage(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.messages.error-adding", "error", e.getMessage()));
             }
         }
     }

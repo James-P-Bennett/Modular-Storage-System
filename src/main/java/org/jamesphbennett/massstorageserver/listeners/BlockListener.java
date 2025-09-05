@@ -72,7 +72,7 @@ public class BlockListener implements Listener {
         // Prevent MSS components from being placed as blocks
         if (itemManager.isMSSComponent(item)) {
             event.setCancelled(true);
-            player.sendMessage(Component.text("Mass Storage components cannot be placed as blocks!", NamedTextColor.RED));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.placement.mss-components-blocks"));
             return;
         }
 
@@ -84,7 +84,7 @@ public class BlockListener implements Listener {
         // Validate placement permissions
         if (plugin.getConfigManager().isRequireUsePermission() && !player.hasPermission("massstorageserver.use")) {
             event.setCancelled(true);
-            player.sendMessage(Component.text("You don't have permission to place Mass Storage blocks.", NamedTextColor.RED));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.placement.access-denied-place-blocks"));
             return;
         }
 
@@ -101,9 +101,9 @@ public class BlockListener implements Listener {
         }
 
         // If we found an adjacent network, check block modification permissions
-        if (adjacentNetworkId != null && !plugin.getSecurityManager().hasPermission(player, adjacentNetworkId, PermissionType.BLOCK_MODIFICATION)) {
+        if (adjacentNetworkId != null && !player.hasPermission("mss.admin") && !plugin.getSecurityManager().hasPermission(player, adjacentNetworkId, PermissionType.BLOCK_MODIFICATION)) {
             event.setCancelled(true);
-            player.sendMessage(Component.text("You don't have permission to modify blocks in this network.", NamedTextColor.RED));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.placement.access-denied-place-blocks"));
             return;
         }
 
@@ -113,7 +113,7 @@ public class BlockListener implements Listener {
             Block blockAgainst = event.getBlockAgainst();
             if (isCustomMSSBlock(blockAgainst)) {
                 event.setCancelled(true);
-                player.sendMessage(Component.text("You cannot attach an exporter directly to the network!", NamedTextColor.RED));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.placement.exporter-cannot-attach"));
                 return;
             }
 
@@ -131,9 +131,9 @@ public class BlockListener implements Listener {
             // If no network found, use placeholder - exporter will remain inactive until connected
             if (nearbyNetworkId == null) {
                 nearbyNetworkId = "UNCONNECTED";
-                player.sendMessage(Component.text("Exporter placed! Connect it to a network to activate.", NamedTextColor.YELLOW));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.exporter-unconnected"));
             } else {
-                player.sendMessage(Component.text("Exporter created successfully! Right-click to configure.", NamedTextColor.GREEN));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.exporter-connected"));
             }
 
             // Mark as custom block
@@ -146,7 +146,8 @@ public class BlockListener implements Listener {
                         (nearbyNetworkId.equals("UNCONNECTED") ? " (unconnected)" : " (connected to " + nearbyNetworkId + ")"));
 
             } catch (Exception e) {
-                player.sendMessage(Component.text("Error creating exporter: " + e.getMessage(), NamedTextColor.RED));
+                Component message = plugin.getMessageManager().getMessageComponent(player, "errors.placement.block-error", "error", e.getMessage());
+                player.sendMessage(message);
                 plugin.getLogger().severe("Error creating exporter: " + e.getMessage());
                 event.setCancelled(true);
                 return;
@@ -160,7 +161,7 @@ public class BlockListener implements Listener {
             Block blockAgainst = event.getBlockAgainst();
             if (isCustomMSSBlock(blockAgainst)) {
                 event.setCancelled(true);
-                player.sendMessage(Component.text("You cannot attach an importer directly to the network!", NamedTextColor.RED));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.placement.importer-cannot-attach"));
                 return;
             }
 
@@ -178,9 +179,9 @@ public class BlockListener implements Listener {
             // If no network found, use placeholder - importer will remain inactive until connected
             if (nearbyNetworkId == null) {
                 nearbyNetworkId = "UNCONNECTED";
-                player.sendMessage(Component.text("Importer placed! Connect it to a network to activate.", NamedTextColor.YELLOW));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.importer-unconnected"));
             } else {
-                player.sendMessage(Component.text("Importer created successfully! Right-click to configure.", NamedTextColor.GREEN));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.importer-connected"));
             }
 
             // Mark as custom block
@@ -193,7 +194,8 @@ public class BlockListener implements Listener {
                         (nearbyNetworkId.equals("UNCONNECTED") ? " (unconnected)" : " (connected to " + nearbyNetworkId + ")"));
 
             } catch (Exception e) {
-                player.sendMessage(Component.text("Error creating importer: " + e.getMessage(), NamedTextColor.RED));
+                Component message = plugin.getMessageManager().getMessageComponent(player, "errors.placement.block-error", "error", e.getMessage());
+                player.sendMessage(message);
                 plugin.getLogger().severe("Error creating importer: " + e.getMessage());
                 event.setCancelled(true);
                 return;
@@ -221,11 +223,19 @@ public class BlockListener implements Listener {
             } catch (Exception e) {
                 plugin.getLogger().severe("Error marking security terminal location: " + e.getMessage());
                 event.setCancelled(true);
-                player.sendMessage(Component.text("Error placing security terminal: " + e.getMessage(), NamedTextColor.RED));
+                Component message = plugin.getMessageManager().getMessageComponent(player, "errors.placement.block-error", "error", e.getMessage());
+                player.sendMessage(message);
                 return;
             }
             // Continue to network detection for security terminals
         } else if (itemManager.isNetworkCable(item)) {
+            // Check if placing this cable would connect to security terminals the player can't modify
+            if (!canPlaceCableNearSecurityTerminals(player, location)) {
+                event.setCancelled(true);
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.placement.access-denied-manage-network"));
+                return;
+            }
+            
             if (!cableManager.handleCablePlacement(player, location)) {
                 event.setCancelled(true);
                 return;
@@ -239,7 +249,8 @@ public class BlockListener implements Listener {
             String linkingConflict = cableManager.checkNetworkLinkingConflict(location);
             if (linkingConflict != null) {
                 event.setCancelled(true);
-                player.sendMessage(Component.text(linkingConflict, NamedTextColor.RED));
+                Component message = MiniMessage.miniMessage().deserialize(linkingConflict);
+                player.sendMessage(message);
                 return;
             }
 
@@ -266,7 +277,8 @@ public class BlockListener implements Listener {
                 String exporterConflict = checkExporterAttachmentConflict(location);
                 if (exporterConflict != null) {
                     event.setCancelled(true);
-                    player.sendMessage(Component.text(exporterConflict, NamedTextColor.RED));
+                    Component message = MiniMessage.miniMessage().deserialize(exporterConflict);
+                player.sendMessage(message);
                     return;
                 }
             }
@@ -278,7 +290,8 @@ public class BlockListener implements Listener {
                 plugin.getLogger().severe("Error marking custom block location: " + e.getMessage());
                 // If we can't mark the block, cancel the placement
                 event.setCancelled(true);
-                player.sendMessage(Component.text("Error placing block: " + e.getMessage(), NamedTextColor.RED));
+                Component message = plugin.getMessageManager().getMessageComponent(player, "errors.placement.block-error", "error", e.getMessage());
+                player.sendMessage(message);
                 return;
             }
         }
@@ -353,7 +366,8 @@ public class BlockListener implements Listener {
                         block.setType(Material.AIR);
                         removeCustomBlockMarker(location);
                         block.getWorld().dropItemNaturally(location, item);
-                        player.sendMessage(Component.text("Network size limit exceeded! Maximum " + maxBlocks + " blocks per network.", NamedTextColor.RED));
+                        Component message = plugin.getMessageManager().getMessageComponent(player, "errors.placement.network-size-limit", "max", String.valueOf(maxBlocks));
+                        player.sendMessage(message);
                         return;
                     }
 
@@ -376,25 +390,24 @@ public class BlockListener implements Listener {
 
                     // Only show connection message in debug mode
                     if (plugin.getConfigManager().isDebugMode()) {
-                        player.sendMessage(Component.text("Connected to network with " +
-                                network.getDriveBays().size() + " drive bay(s) and " +
-                                network.getTerminals().size() + " terminal(s).", NamedTextColor.GREEN));
+                        Component message = plugin.getMessageManager().getMessageComponent(player, "success.placement.network-connected", "drive_bays", String.valueOf(network.getDriveBays().size()), "terminals", String.valueOf(network.getTerminals().size()));
+                        player.sendMessage(message);
                     }
 
                     // Show restoration message only in debug mode - this happens frequently during network building
                     if (hasRestoredContent && plugin.getConfigManager().isDebugMode()) {
                         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                            player.sendMessage(Component.text("Drive bay contents have been restored!", NamedTextColor.AQUA));
-                            player.sendMessage(Component.text("Check your terminals to see restored items.", NamedTextColor.YELLOW));
+                            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.drive-bay-restored"));
+                            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.check-terminals"));
                         }, 10L);
                     }
                 } else {
                     if (itemManager.isStorageServer(item)) {
-                        player.sendMessage(Component.text("Storage Server requires Drive Bays and Terminals to form a network.", NamedTextColor.YELLOW));
+                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.storage-server-requirements"));
                     } else if (itemManager.isNetworkCable(item)) {
                         // Remove cable placement message - too spammy during network construction
                     } else {
-                        player.sendMessage(Component.text("This block needs to be connected to a Storage Server to function.", NamedTextColor.YELLOW));
+                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.block-needs-connection"));
                     }
                 }
 
@@ -412,7 +425,8 @@ public class BlockListener implements Listener {
                 }
 
             } catch (Exception e) {
-                player.sendMessage(Component.text("Error setting up network: " + e.getMessage(), NamedTextColor.RED));
+                Component message = plugin.getMessageManager().getMessageComponent(player, "errors.network.connection-lost");
+                player.sendMessage(message);
                 plugin.getLogger().severe("Error setting up network: " + e.getMessage());
             }
         });
@@ -433,9 +447,9 @@ public class BlockListener implements Listener {
             String networkId = networkManager.getNetworkId(location);
 
             // Check security terminal permissions for block modification
-            if (!plugin.getSecurityManager().hasPermission(player, networkId, PermissionType.BLOCK_MODIFICATION)) {
+            if (!player.hasPermission("mss.admin") && !plugin.getSecurityManager().hasPermission(player, networkId, PermissionType.BLOCK_MODIFICATION, location)) {
                 event.setCancelled(true);
-                player.sendMessage(Component.text("You don't have permission to remove blocks from this network.", NamedTextColor.RED));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.placement.access-denied-remove-blocks"));
                 return;
             }
 
@@ -461,7 +475,8 @@ public class BlockListener implements Listener {
                     removeCustomBlockMarker(location);
 
                 } catch (Exception e) {
-                    player.sendMessage(Component.text("Error removing exporter: " + e.getMessage(), NamedTextColor.RED));
+                    Component message = plugin.getMessageManager().getMessageComponent(player, "errors.removal.error-exporter", "error", e.getMessage());
+                    player.sendMessage(message);
                     plugin.getLogger().severe("Error removing exporter: " + e.getMessage());
                 }
                 return; // Exporters don't affect network topology, so return early
@@ -489,7 +504,8 @@ public class BlockListener implements Listener {
                     removeCustomBlockMarker(location);
 
                 } catch (Exception e) {
-                    player.sendMessage(Component.text("Error removing importer: " + e.getMessage(), NamedTextColor.RED));
+                    Component message = plugin.getMessageManager().getMessageComponent(player, "errors.removal.error-importer", "error", e.getMessage());
+                    player.sendMessage(message);
                     plugin.getLogger().severe("Error removing importer: " + e.getMessage());
                 }
                 return; // Importers don't affect network topology, so return early
@@ -513,7 +529,8 @@ public class BlockListener implements Listener {
                     removeCustomBlockMarker(location);
 
                 } catch (Exception e) {
-                    player.sendMessage(Component.text("Error removing security terminal: " + e.getMessage(), NamedTextColor.RED));
+                    Component message = plugin.getMessageManager().getMessageComponent(player, "errors.removal.error-security-terminal", "error", e.getMessage());
+                    player.sendMessage(message);
                     plugin.getLogger().severe("Error removing security terminal: " + e.getMessage());
                 }
                 // Security terminals are network blocks, so continue to network processing
@@ -571,17 +588,13 @@ public class BlockListener implements Listener {
                                 }
                             }
                         }
-                        
-                        if (networkStillValid) {
-                            player.sendMessage(Component.text("Network updated after block removal.", NamedTextColor.GREEN));
-                        }
 
                         if (!networkStillValid) {
                             // Network was completely broken - refresh terminals (to close them) and unregister it
                             try {
                                 plugin.getGUIManager().refreshNetworkTerminals(networkId);
                                 networkManager.unregisterNetwork(networkId);
-                                player.sendMessage(Component.text("Storage network dissolved. Drive bay contents preserved.", NamedTextColor.YELLOW));
+                                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.network-dissolved"));
                             } catch (Exception e) {
                                 plugin.getLogger().warning("Error unregistering network " + networkId + ": " + e.getMessage());
                             }
@@ -594,14 +607,16 @@ public class BlockListener implements Listener {
                         plugin.getImporterManager().updateImporterNetworkAssignments();
 
                     } catch (Exception e) {
-                        player.sendMessage(Component.text("Error updating network: " + e.getMessage(), NamedTextColor.RED));
+                        Component message = plugin.getMessageManager().getMessageComponent(player, "errors.removal.error-network-update", "error", e.getMessage());
+                        player.sendMessage(message);
                         plugin.getLogger().severe("Error updating network after block break: " + e.getMessage());
                     }
                 });
             }
 
         } catch (Exception e) {
-            player.sendMessage(Component.text("Error processing block break: " + e.getMessage(), NamedTextColor.RED));
+            Component message = plugin.getMessageManager().getMessageComponent(player, "errors.removal.error-block-break", "error", e.getMessage());
+            player.sendMessage(message);
             plugin.getLogger().severe("Error in block break event: " + e.getMessage());
         }
     }
@@ -646,7 +661,7 @@ public class BlockListener implements Listener {
             // Player is in search mode - cancel the search and the interaction
             event.setCancelled(true);
             plugin.getGUIManager().cancelSearchInput(player);
-            player.sendMessage(Component.text("Search cancelled.", NamedTextColor.YELLOW));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.search-cancelled"));
             plugin.getLogger().info("Cancelled search input for player " + player.getName() + " due to block interaction");
             return;
         }
@@ -656,21 +671,27 @@ public class BlockListener implements Listener {
             event.setCancelled(true);
 
             if (plugin.getConfigManager().isRequireUsePermission() && !player.hasPermission("massstorageserver.use")) {
-                player.sendMessage(Component.text("You don't have permission to use Exporters.", NamedTextColor.RED));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.interaction.no-use-permission-exporters"));
                 return;
             }
 
             try {
                 String networkId = networkManager.getNetworkId(block.getLocation());
                 if (networkId == null) {
-                    player.sendMessage(Component.text("This exporter is not connected to a valid network.", NamedTextColor.RED));
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.network.exporter-not-connected"));
+                    return;
+                }
+
+                // Check security permissions (unless player has admin bypass)
+                if (!player.hasPermission("mss.admin") && !plugin.getSecurityManager().hasPermission(player, networkId, PermissionType.DRIVE_BAY_ACCESS, block.getLocation())) {
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.interaction.access-denied-access-items"));
                     return;
                 }
 
                 // Get the exporter from the manager
                 ExporterManager.ExporterData exporterData = plugin.getExporterManager().getExporterAtLocation(block.getLocation());
                 if (exporterData == null) {
-                    player.sendMessage(Component.text("Exporter data not found. Try breaking and replacing the block.", NamedTextColor.RED));
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.network.exporter-data-not-found"));
                     return;
                 }
 
@@ -678,7 +699,8 @@ public class BlockListener implements Listener {
                 plugin.getGUIManager().openExporterGUI(player, block.getLocation(), exporterData.exporterId, networkId);
 
             } catch (Exception e) {
-                player.sendMessage(Component.text("Error accessing exporter: " + e.getMessage(), NamedTextColor.RED));
+                Component message = plugin.getMessageManager().getMessageComponent(player, "errors.access.error-exporter", "error", e.getMessage());
+                player.sendMessage(message);
                 plugin.getLogger().severe("Error accessing exporter: " + e.getMessage());
             }
             return;
@@ -689,7 +711,7 @@ public class BlockListener implements Listener {
             event.setCancelled(true);
 
             if (plugin.getConfigManager().isRequireUsePermission() && !player.hasPermission("massstorageserver.use")) {
-                player.sendMessage(Component.text("You don't have permission to use importers.", NamedTextColor.RED));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.interaction.no-use-permission-importers"));
                 return;
             }
 
@@ -706,14 +728,20 @@ public class BlockListener implements Listener {
                 }
                 
                 if (networkId == null) {
-                    player.sendMessage(Component.text("This importer is not connected to a valid network.", NamedTextColor.RED));
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.network.importer-not-connected"));
+                    return;
+                }
+
+                // Check security permissions (unless player has admin bypass)
+                if (!player.hasPermission("mss.admin") && !plugin.getSecurityManager().hasPermission(player, networkId, PermissionType.DRIVE_BAY_ACCESS, block.getLocation())) {
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.interaction.access-denied-access-items"));
                     return;
                 }
 
                 // Get importer data
                 ImporterManager.ImporterData importerData = plugin.getImporterManager().getImporterAtLocation(block.getLocation());
                 if (importerData == null) {
-                    player.sendMessage(Component.text("Importer data not found. Try breaking and replacing the block.", NamedTextColor.RED));
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.network.importer-data-not-found"));
                     return;
                 }
 
@@ -721,7 +749,8 @@ public class BlockListener implements Listener {
                 plugin.getGUIManager().openImporterGUI(player, block.getLocation(), importerData.importerId, networkId);
 
             } catch (Exception e) {
-                player.sendMessage(Component.text("Error accessing importer: " + e.getMessage(), NamedTextColor.RED));
+                Component message = plugin.getMessageManager().getMessageComponent(player, "errors.access.error-importer", "error", e.getMessage());
+                player.sendMessage(message);
                 plugin.getLogger().severe("Error accessing importer: " + e.getMessage());
             }
             return;
@@ -732,14 +761,20 @@ public class BlockListener implements Listener {
             event.setCancelled(true);
 
             if (plugin.getConfigManager().isRequireUsePermission() && !player.hasPermission("massstorageserver.use")) {
-                player.sendMessage(Component.text("You don't have permission to use terminals.", NamedTextColor.RED));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.interaction.no-use-permission-terminals"));
                 return;
             }
 
             try {
                 String networkId = networkManager.getNetworkId(block.getLocation());
                 if (networkId == null || !networkManager.isNetworkValid(networkId)) {
-                    player.sendMessage(Component.text("This terminal is not connected to a valid network.", NamedTextColor.RED));
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.network.terminal-not-connected"));
+                    return;
+                }
+
+                // Check security permissions (unless player has admin bypass)
+                if (!player.hasPermission("mss.admin") && !plugin.getSecurityManager().hasPermission(player, networkId, PermissionType.DRIVE_BAY_ACCESS, block.getLocation())) {
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.interaction.access-denied-access-items"));
                     return;
                 }
 
@@ -747,7 +782,8 @@ public class BlockListener implements Listener {
                 plugin.getGUIManager().openTerminalGUI(player, block.getLocation(), networkId);
 
             } catch (Exception e) {
-                player.sendMessage(Component.text("Error accessing terminal: " + e.getMessage(), NamedTextColor.RED));
+                Component message = plugin.getMessageManager().getMessageComponent(player, "errors.access.error-terminal", "error", e.getMessage());
+                player.sendMessage(message);
                 plugin.getLogger().severe("Error accessing terminal: " + e.getMessage());
             }
             return;
@@ -758,16 +794,24 @@ public class BlockListener implements Listener {
             event.setCancelled(true);
 
             if (plugin.getConfigManager().isRequireUsePermission() && !player.hasPermission("massstorageserver.use")) {
-                player.sendMessage(Component.text("You don't have permission to view storage server info.", NamedTextColor.RED));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.interaction.no-use-permission-storage-server"));
                 return;
             }
 
             try {
+                // Check security permissions (unless player has admin bypass)
+                String networkId = networkManager.getNetworkId(block.getLocation());
+                if (networkId != null && !player.hasPermission("mss.admin") && !plugin.getSecurityManager().hasPermission(player, networkId, PermissionType.DRIVE_BAY_ACCESS, block.getLocation())) {
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.interaction.access-denied-access-items"));
+                    return;
+                }
+                
                 // Always display storage server information, regardless of network validity
                 displayStorageServerInfo(player, block.getLocation());
 
             } catch (Exception e) {
-                player.sendMessage(Component.text("Error accessing storage server: " + e.getMessage(), NamedTextColor.RED));
+                Component message = plugin.getMessageManager().getMessageComponent(player, "errors.access.error-storage-server", "error", e.getMessage());
+                player.sendMessage(message);
                 plugin.getLogger().severe("Error accessing storage server: " + e.getMessage());
             }
             return;
@@ -778,21 +822,21 @@ public class BlockListener implements Listener {
             event.setCancelled(true);
 
             if (plugin.getConfigManager().isRequireUsePermission() && !player.hasPermission("massstorageserver.use")) {
-                player.sendMessage(Component.text("You don't have permission to use security terminals.", NamedTextColor.RED));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.placement.access-denied-manage-network"));
                 return;
             }
 
             try {
                 // Check if player is the owner
                 if (!plugin.getSecurityManager().isOwner(player, block.getLocation())) {
-                    player.sendMessage(Component.text("Only the owner can manage this security terminal.", NamedTextColor.RED));
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.placement.access-denied-manage-network"));
                     return;
                 }
 
                 // Get security terminal data
                 var terminalData = plugin.getSecurityManager().getSecurityTerminal(block.getLocation());
                 if (terminalData == null) {
-                    player.sendMessage(Component.text("Security terminal data not found. Try breaking and replacing the block.", NamedTextColor.RED));
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.network.security-terminal-data-not-found"));
                     return;
                 }
 
@@ -800,7 +844,8 @@ public class BlockListener implements Listener {
                 plugin.getGUIManager().openSecurityTerminalGUI(player, block.getLocation(), terminalData.terminalId, terminalData.ownerUuid);
 
             } catch (Exception e) {
-                player.sendMessage(Component.text("Error accessing security terminal: " + e.getMessage(), NamedTextColor.RED));
+                Component message = plugin.getMessageManager().getMessageComponent(player, "errors.access.error-security-terminal", "error", e.getMessage());
+                player.sendMessage(message);
                 plugin.getLogger().severe("Error accessing security terminal: " + e.getMessage());
             }
             return;
@@ -811,30 +856,31 @@ public class BlockListener implements Listener {
             event.setCancelled(true);
 
             if (plugin.getConfigManager().isRequireUsePermission() && !player.hasPermission("massstorageserver.use")) {
-                player.sendMessage(Component.text("You don't have permission to use drive bays.", NamedTextColor.RED));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.interaction.no-use-permission-drive-bays"));
                 return;
             }
 
             try {
                 // Check security terminal permissions
                 String networkId = networkManager.getNetworkId(block.getLocation());
-                if (!plugin.getSecurityManager().hasPermission(player, networkId, PermissionType.DRIVE_BAY_ACCESS)) {
-                    player.sendMessage(Component.text("You don't have permission to access this drive bay.", NamedTextColor.RED));
+                if (!player.hasPermission("mss.admin") && !plugin.getSecurityManager().hasPermission(player, networkId, PermissionType.DRIVE_BAY_ACCESS, block.getLocation())) {
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.interaction.access-denied-access-items"));
                     return;
                 }
 
                 // Allow access even without network, show status message
                 if (networkId == null) {
-                    player.sendMessage(Component.text("Opening drive bay (no network connection).", NamedTextColor.YELLOW));
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.drive-bay-no-network"));
                 } else if (!networkManager.isNetworkValid(networkId)) {
-                    player.sendMessage(Component.text("Opening drive bay (network is no longer valid).", NamedTextColor.YELLOW));
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.drive-bay-invalid-network"));
                 }
 
                 // Open drive bay GUI regardless of network validity
                 plugin.getGUIManager().openDriveBayGUI(player, block.getLocation(), networkId);
 
             } catch (Exception e) {
-                player.sendMessage(Component.text("Error accessing drive bay: " + e.getMessage(), NamedTextColor.RED));
+                Component message = plugin.getMessageManager().getMessageComponent(player, "errors.access.error-drive-bay", "error", e.getMessage());
+                player.sendMessage(message);
                 plugin.getLogger().severe("Error accessing drive bay: " + e.getMessage());
             }
         }
@@ -911,7 +957,7 @@ public class BlockListener implements Listener {
             if (isCustomExporter(adjacentBlock)) {
                 // Check if this exporter would be a wall/floor mounted on the MSS block we're placing
                 if (isExporterAttachedToBlock(adjacent, mssBlockLocation)) {
-                    return "You cannot attach an exporter directly to the network!";
+                    return plugin.getMessageManager().getMessage((Player) null, "errors.placement.exporter-cannot-attach");
                 }
             }
         }
@@ -1119,64 +1165,74 @@ public class BlockListener implements Listener {
             int totalBlocks = driveBayCount + terminalCount + exporterCount + 1; // +1 for the server itself
             
             // Display comprehensive information
-            player.sendMessage(Component.text("═══ Storage Server Information ═══", NamedTextColor.AQUA));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.header"));
             
             if (networkId != null) {
-                player.sendMessage(Component.text("Network ID: " + networkId.substring(0, Math.min(16, networkId.length())), NamedTextColor.WHITE));
+                Component message = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.network-id", "id", networkId.substring(0, Math.min(16, networkId.length())));
+                player.sendMessage(message);
             } else {
-                player.sendMessage(Component.text("Network ID: Not Assigned", NamedTextColor.GRAY));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.network-id-none"));
             }
             
             // Network Status
-            String status;
-            NamedTextColor statusColor;
+            Component statusMessage;
             if (isValidNetwork) {
-                status = "Online";
-                statusColor = NamedTextColor.GREEN;
+                statusMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.status", "status", plugin.getMessageManager().getMessage(player, "storage-server-info.status-online"));
             } else if (detectedNetwork != null && detectedNetwork.isValid()) {
-                status = "Offline"; // Detected but not registered
-                statusColor = NamedTextColor.YELLOW;
+                statusMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.status", "status", plugin.getMessageManager().getMessage(player, "storage-server-info.status-offline-detected"));
             } else {
-                status = "Offline"; // No valid network detected
-                statusColor = NamedTextColor.RED;
+                statusMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.status", "status", plugin.getMessageManager().getMessage(player, "storage-server-info.status-offline"));
             }
-            player.sendMessage(Component.text("Status: " + status, statusColor));
+            player.sendMessage(statusMessage);
             
             player.sendMessage(Component.text("", NamedTextColor.WHITE)); // Empty line
             
             // Connected Components
-            player.sendMessage(Component.text("Connected Components:", NamedTextColor.YELLOW));
-            player.sendMessage(Component.text("  Drive Bays: " + driveBayCount, NamedTextColor.GREEN));
-            player.sendMessage(Component.text("  Terminals: " + terminalCount, NamedTextColor.GREEN));
-            player.sendMessage(Component.text("  Exporters: " + exporterCount, NamedTextColor.GREEN));
-            player.sendMessage(Component.text("  Importers: " + importerCount, NamedTextColor.GREEN));
-            player.sendMessage(Component.text("  Cables: " + cableCount, NamedTextColor.YELLOW));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.connected-components"));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.drive-bays-count", "count", String.valueOf(driveBayCount)));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.terminals-count", "count", String.valueOf(terminalCount)));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.exporters-count", "count", String.valueOf(exporterCount)));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.importers-count", "count", String.valueOf(importerCount)));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.cables-count", "count", String.valueOf(cableCount)));
             
             player.sendMessage(Component.text("", NamedTextColor.WHITE)); // Empty line
             
             // Network Limits
-            player.sendMessage(Component.text("Network Limits:", NamedTextColor.YELLOW));
-            NamedTextColor blockLimitColor = totalBlocks > maxBlocks ? NamedTextColor.RED : NamedTextColor.GREEN;
-            NamedTextColor cableLimitColor = cableCount > maxCables ? NamedTextColor.RED : NamedTextColor.GREEN;
-            NamedTextColor exporterLimitColor = exporterCount > maxExporters ? NamedTextColor.RED : NamedTextColor.GREEN;
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.network-limits"));
             
-            player.sendMessage(Component.text("  Blocks: " + totalBlocks + "/" + maxBlocks, blockLimitColor));
-            player.sendMessage(Component.text("  Cables: " + cableCount + "/" + maxCables, cableLimitColor));
-            player.sendMessage(Component.text("  Bus Limit: " + exporterCount + "/" + maxExporters, exporterLimitColor));
+            Component blocksMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.blocks-limit", "current", String.valueOf(totalBlocks), "max", String.valueOf(maxBlocks));
+            Component cablesMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.cables-limit", "current", String.valueOf(cableCount), "max", String.valueOf(maxCables));
+            Component busMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.bus-limit", "current", String.valueOf(exporterCount), "max", String.valueOf(maxExporters));
+            
+            // Apply color coding based on limits
+            if (totalBlocks > maxBlocks) blocksMessage = blocksMessage.color(NamedTextColor.RED);
+            else blocksMessage = blocksMessage.color(NamedTextColor.GREEN);
+            
+            if (cableCount > maxCables) cablesMessage = cablesMessage.color(NamedTextColor.RED);
+            else cablesMessage = cablesMessage.color(NamedTextColor.GREEN);
+            
+            if (exporterCount > maxExporters) busMessage = busMessage.color(NamedTextColor.RED);
+            else busMessage = busMessage.color(NamedTextColor.GREEN);
+            
+            player.sendMessage(blocksMessage);
+            player.sendMessage(cablesMessage);
+            player.sendMessage(busMessage);
             
             // Storage Information (only for valid networks)
             if (isValidNetwork) {
                 player.sendMessage(Component.text("", NamedTextColor.WHITE)); // Empty line
                 if (totalStorageCapacity > 0) {
                     int usagePercent = (int) ((double) usedStorageCapacity / totalStorageCapacity * 100);
-                    player.sendMessage(Component.text("Storage: " + usedStorageCapacity + "/" + totalStorageCapacity + " cells (" + usagePercent + "%)", NamedTextColor.BLUE));
+                    Component storageMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.storage-capacity", "used", String.valueOf(usedStorageCapacity), "total", String.valueOf(totalStorageCapacity), "percent", String.valueOf(usagePercent));
+                    player.sendMessage(storageMessage);
                 } else {
-                    player.sendMessage(Component.text("Storage: No disks installed", NamedTextColor.GRAY));
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.storage-no-disks"));
                 }
             }
 
         } catch (Exception e) {
-            player.sendMessage(Component.text("Error retrieving storage server information: " + e.getMessage(), NamedTextColor.RED));
+            Component message = plugin.getMessageManager().getMessageComponent(player, "errors.access.error-storage-server-info", "error", e.getMessage());
+            player.sendMessage(message);
             plugin.getLogger().severe("Error displaying storage server info: " + e.getMessage());
         }
     }
@@ -1299,11 +1355,11 @@ public class BlockListener implements Listener {
             return;
         }
 
-        plugin.getLogger().info("[Direction Debug] Setting direction for " + block.getType() + " at " + block.getLocation());
+        plugin.debugLog("Setting direction for " + block.getType() + " at " + block.getLocation());
 
         // Check if the block data implements Directional (both Crafter and Observer do)
         if (!(block.getBlockData() instanceof Directional directional)) {
-            plugin.getLogger().info("[Direction Debug] Block is not directional: " + block.getBlockData().getClass().getName());
+            plugin.debugLog("Block is not directional: " + block.getBlockData().getClass().getName());
             return;
         }
 
@@ -1322,17 +1378,17 @@ public class BlockListener implements Listener {
             facing = z > 0 ? org.bukkit.block.BlockFace.NORTH : org.bukkit.block.BlockFace.SOUTH;
         }
         
-        plugin.getLogger().info("[Direction Debug] Player direction: x=" + x + ", z=" + z + " -> facing=" + facing);
-        plugin.getLogger().info("[Direction Debug] Available faces: " + directional.getFaces());
-        plugin.getLogger().info("[Direction Debug] Current facing: " + directional.getFacing());
+        plugin.debugLog("Player direction: x=" + x + ", z=" + z + " -> facing=" + facing);
+        plugin.debugLog("Available faces: " + directional.getFaces());
+        plugin.debugLog("Current facing: " + directional.getFacing());
         
         // Set the facing direction if it's a valid option for this block
         if (directional.getFaces().contains(facing)) {
             directional.setFacing(facing);
             block.setBlockData(directional);
-            plugin.getLogger().info("[Direction Debug] Set facing to: " + facing);
+            plugin.debugLog("Set facing to: " + facing);
         } else {
-            plugin.getLogger().info("[Direction Debug] Facing " + facing + " not available for this block");
+            plugin.debugLog("Facing " + facing + " not available for this block");
         }
     }
 
@@ -1369,5 +1425,31 @@ public class BlockListener implements Listener {
             }
         }
         return false;
+    }
+
+    /**
+     * Check if a player can place a cable at the given location without connecting to security terminals they don't own
+     */
+    private boolean canPlaceCableNearSecurityTerminals(Player player, Location cableLocation) {
+        // Admin bypass
+        if (player.hasPermission("mss.admin")) {
+            return true;
+        }
+
+        // Check all adjacent locations for security terminals
+        for (Location adjacent : getAdjacentLocations(cableLocation)) {
+            Block adjacentBlock = adjacent.getBlock();
+            
+            // If there's a security terminal adjacent
+            if (isCustomSecurityTerminal(adjacentBlock)) {
+                // Check if player is the owner of this security terminal
+                if (!plugin.getSecurityManager().isOwner(player, adjacent)) {
+                    plugin.debugLog("Player " + player.getName() + " tried to place cable near security terminal at " + adjacent + " but doesn't own it");
+                    return false;
+                }
+            }
+        }
+        
+        return true;
     }
 }

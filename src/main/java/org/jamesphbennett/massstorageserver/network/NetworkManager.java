@@ -153,6 +153,11 @@ public class NetworkManager {
             return getExporterNetworkId(location);
         }
 
+        // Special handling for security terminals - check their stored network ID first
+        if (isSecurityTerminal(block)) {
+            return getSecurityTerminalNetworkId(location);
+        }
+
         // For other blocks, use normal network detection
         NetworkInfo network = detectNetwork(location);
         return network != null ? network.getNetworkId() : null;
@@ -183,6 +188,35 @@ public class NetworkManager {
             }
         } catch (SQLException e) {
             plugin.getLogger().warning("Error getting exporter network ID: " + e.getMessage());
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the network ID for a security terminal from the database
+     */
+    private String getSecurityTerminalNetworkId(Location location) {
+        try (Connection conn = plugin.getDatabaseManager().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(
+                     "SELECT network_id FROM security_terminals WHERE world_name = ? AND x = ? AND y = ? AND z = ?")) {
+
+            stmt.setString(1, location.getWorld().getName());
+            stmt.setInt(2, location.getBlockX());
+            stmt.setInt(3, location.getBlockY());
+            stmt.setInt(4, location.getBlockZ());
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    String networkId = rs.getString("network_id");
+                    // Only return valid network IDs (not NULL or orphaned)
+                    if (networkId != null && !networkId.startsWith("orphaned_") && isNetworkValid(networkId)) {
+                        return networkId;
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().warning("Error getting security terminal network ID: " + e.getMessage());
         }
 
         return null;
@@ -245,42 +279,21 @@ public class NetworkManager {
             // Register security terminals in their dedicated table
             if (!network.getSecurityTerminals().isEmpty()) {
                 for (Location securityTerminal : network.getSecurityTerminals()) {
-                    String ownerName = "Unknown";
-                    if (ownerUUID != null) {
-                        OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(ownerUUID);
-                        if (offlinePlayer.getName() != null) {
-                            ownerName = offlinePlayer.getName();
-                        }
-                    }
-                    
-                    // Try to update existing record first
+                    // Try to update existing record - ONLY update network_id, preserve existing ownership
                     try (PreparedStatement updateStmt = conn.prepareStatement(
-                            "UPDATE security_terminals SET network_id = ?, owner_uuid = ?, owner_name = ? WHERE world_name = ? AND x = ? AND y = ? AND z = ?")) {
+                            "UPDATE security_terminals SET network_id = ? WHERE world_name = ? AND x = ? AND y = ? AND z = ?")) {
                         updateStmt.setString(1, network.getNetworkId());
-                        updateStmt.setString(2, ownerUUID != null ? ownerUUID.toString() : "00000000-0000-0000-0000-000000000000");
-                        updateStmt.setString(3, ownerName);
-                        updateStmt.setString(4, securityTerminal.getWorld().getName());
-                        updateStmt.setInt(5, securityTerminal.getBlockX());
-                        updateStmt.setInt(6, securityTerminal.getBlockY());
-                        updateStmt.setInt(7, securityTerminal.getBlockZ());
+                        updateStmt.setString(2, securityTerminal.getWorld().getName());
+                        updateStmt.setInt(3, securityTerminal.getBlockX());
+                        updateStmt.setInt(4, securityTerminal.getBlockY());
+                        updateStmt.setInt(5, securityTerminal.getBlockZ());
                         
                         int rowsUpdated = updateStmt.executeUpdate();
                         
-                        // If no rows were updated, insert new record
                         if (rowsUpdated == 0) {
-                            String terminalId = UUID.randomUUID().toString();
-                            try (PreparedStatement insertStmt = conn.prepareStatement(
-                                    "INSERT INTO security_terminals (terminal_id, world_name, x, y, z, owner_uuid, owner_name, network_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")) {
-                                insertStmt.setString(1, terminalId);
-                                insertStmt.setString(2, securityTerminal.getWorld().getName());
-                                insertStmt.setInt(3, securityTerminal.getBlockX());
-                                insertStmt.setInt(4, securityTerminal.getBlockY());
-                                insertStmt.setInt(5, securityTerminal.getBlockZ());
-                                insertStmt.setString(6, ownerUUID != null ? ownerUUID.toString() : "00000000-0000-0000-0000-000000000000");
-                                insertStmt.setString(7, ownerName);
-                                insertStmt.setString(8, network.getNetworkId());
-                                insertStmt.executeUpdate();
-                            }
+                            plugin.debugLog("Found new security terminal at " + securityTerminal + " but no database entry - terminal should be created when placed");
+                        } else {
+                            plugin.debugLog("Updated existing security terminal network association to " + network.getNetworkId() + " - preserved existing ownership");
                         }
                     }
                 }
@@ -313,6 +326,13 @@ public class NetworkManager {
             // Update storage disks to remove network association but keep disk data
             try (PreparedStatement stmt = conn.prepareStatement(
                     "UPDATE storage_disks SET network_id = NULL WHERE network_id = ?")) {
+                stmt.setString(1, networkId);
+                stmt.executeUpdate();
+            }
+
+            // Update security terminals to remove network association
+            try (PreparedStatement stmt = conn.prepareStatement(
+                    "UPDATE security_terminals SET network_id = NULL WHERE network_id = ?")) {
                 stmt.setString(1, networkId);
                 stmt.executeUpdate();
             }

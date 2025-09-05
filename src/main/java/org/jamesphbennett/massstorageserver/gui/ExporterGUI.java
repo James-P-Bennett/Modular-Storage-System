@@ -694,7 +694,7 @@ public class ExporterGUI implements Listener {
                 currentFilterItems.add(filterTemplate);
                 saveFilters();
                 setupGUI();
-                player.sendMessage(Component.text("Added " + cursorItem.getType() + " to filter", NamedTextColor.GREEN));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.filter.item-added", "item", cursorItem.getType().toString()));
             }
             return;
         }
@@ -847,7 +847,7 @@ public class ExporterGUI implements Listener {
                         currentFilterItems.add(filterTemplate);
                         saveFilters();
                         setupGUI();
-                        player.sendMessage(Component.text("Added " + draggedItem.getType() + " to filter", NamedTextColor.GREEN));
+                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.filter.item-added", "item", draggedItem.getType().toString()));
 
                         event.getView().setCursor(draggedItem);
                     }
