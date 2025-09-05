@@ -303,18 +303,9 @@ gui:
     title: "<color:#038541><b>Drive Bay"
     slot:
       empty: "Empty Drive Slot"
-      insert: "Insert storage disks to expand capacity"
       disk: "{tier} Storage Disk"
       usage: "Usage: {used}/{max} cells"
       remove: "Click to remove disk"
-    status:
-      connected: "Network Status: Connected"
-      disconnected: "Network Status: Disconnected"
-      standalone: "You can still manage disks"
-    info:
-      title: "Drive Bay Information"
-      network: "Network: {network}"
-      slots: "Slots: {filled}/{total}"
     disk:
       capacity: "Capacity: {capacity} items per cell"
       total-capacity: "Total Capacity: {total} items"

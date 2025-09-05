@@ -6,12 +6,15 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.Recipe;
+import org.bukkit.Keyed;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.ShapelessRecipe;
 import org.jamesphbennett.massstorageserver.MassStorageServer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -656,11 +659,42 @@ public class RecipeManager {
     public void reloadRecipes() {
         plugin.getLogger().info("Reloading recipes from configuration...");
 
-        // Clear existing recipes (this is complex, so we'll just log a warning)
-        plugin.getLogger().warning("Note: Existing recipes are not cleared - server restart may be required for recipe changes");
+        // Clear existing registered recipes
+        clearExistingRecipes();
 
         // Re-register recipes
         registerRecipes();
+    }
+
+    /**
+     * Clear existing MSS recipes from the server
+     */
+    private void clearExistingRecipes() {
+        try {
+            Iterator<Recipe> recipeIterator = plugin.getServer().recipeIterator();
+            List<NamespacedKey> toRemove = new ArrayList<>();
+            
+            while (recipeIterator.hasNext()) {
+                Recipe recipe = recipeIterator.next();
+                if (recipe instanceof Keyed keyedRecipe) {
+                    NamespacedKey key = keyedRecipe.getKey();
+                    // Remove recipes that belong to our plugin
+                    if (key.getNamespace().equals("massstorageserver")) {
+                        toRemove.add(key);
+                    }
+                }
+            }
+            
+            // Remove the recipes
+            for (NamespacedKey key : toRemove) {
+                plugin.getServer().removeRecipe(key);
+            }
+            
+            plugin.getLogger().info("Cleared " + toRemove.size() + " existing MSS recipes");
+            
+        } catch (Exception e) {
+            plugin.getLogger().warning("Could not clear all existing recipes: " + e.getMessage());
+        }
     }
 
     /**
