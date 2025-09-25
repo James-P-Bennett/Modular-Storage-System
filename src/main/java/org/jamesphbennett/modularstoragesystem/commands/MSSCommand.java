@@ -44,7 +44,8 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
                     sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.usage.recovery"));
                     return true;
                 }
-                handleRecovery(sender, args[1]);
+                boolean forceConfirm = args.length >= 3 && "confirm".equalsIgnoreCase(args[2]);
+                handleRecovery(sender, args[1], forceConfirm);
                 break;
 
             case "give":
@@ -105,7 +106,7 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
         }
     }
 
-    private void handleRecovery(CommandSender sender, String diskId) {
+    private void handleRecovery(CommandSender sender, String diskId, boolean forceConfirm) {
         if (!sender.hasPermission("modularstoragesystem.recovery")) {
             sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.no-permission-recovery"));
             return;
@@ -117,10 +118,40 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
         }
 
         try {
+            // First check if disk is currently active in a drive bay
+            if (!forceConfirm) {
+                try (Connection conn = plugin.getDatabaseManager().getConnection();
+                     PreparedStatement stmt = conn.prepareStatement(
+                             "SELECT dbs.network_id, dbs.world_name, dbs.x, dbs.y, dbs.z, dbs.slot_number " +
+                             "FROM drive_bay_slots dbs WHERE dbs.disk_id = ?")) {
+                    
+                    stmt.setString(1, diskId.toUpperCase());
+                    
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        if (rs.next()) {
+                            // Disk is active - show warning and require confirmation
+                            String networkId = rs.getString("network_id");
+                            String world = rs.getString("world_name");
+                            int x = rs.getInt("x");
+                            int y = rs.getInt("y");
+                            int z = rs.getInt("z");
+                            int slot = rs.getInt("slot_number");
+                            
+                            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.recovery.active-disk-warning"));
+                            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.recovery.active-disk-network", "network_id", networkId));
+                            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.recovery.active-disk-location", "world", world, "x", x, "y", y, "z", z, "slot", slot));
+                            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.recovery.active-disk-confirm"));
+                            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.recovery.active-disk-usage", "disk_id", diskId));
+                            return;
+                        }
+                    }
+                }
+            }
+            
             // Look up disk in database
             try (Connection conn = plugin.getDatabaseManager().getConnection();
                  PreparedStatement stmt = conn.prepareStatement(
-                         "SELECT crafter_uuid, crafter_name, used_cells, max_cells FROM storage_disks WHERE disk_id = ?")) {
+                         "SELECT crafter_uuid, crafter_name, used_cells, max_cells, tier FROM storage_disks WHERE disk_id = ?")) {
 
                 stmt.setString(1, diskId.toUpperCase());
 
@@ -134,9 +165,15 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
                     String crafterName = rs.getString("crafter_name");
                     int usedCells = rs.getInt("used_cells");
                     int maxCells = rs.getInt("max_cells");
+                    String tier = rs.getString("tier");
+                    
+                    // Default to 1k if tier is null
+                    if (tier == null || tier.isEmpty()) {
+                        tier = "1k";
+                    }
 
-                    // Create the storage disk
-                    ItemStack recoveredDisk = plugin.getItemManager().createStorageDisk(crafterUUID, crafterName);
+                    // Create the storage disk with the original ID - this preserves the existing disk ID
+                    ItemStack recoveredDisk = plugin.getItemManager().createStorageDiskWithId(diskId.toUpperCase(), crafterUUID, crafterName);
                     recoveredDisk = plugin.getItemManager().updateStorageDiskLore(recoveredDisk, usedCells, maxCells);
 
                     // Give to player
@@ -151,6 +188,18 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
                     sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.disk-info", "disk_id", diskId));
                     sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.crafter-info", "crafter", crafterName));
                     sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.cells-info", "used", usedCells, "max", maxCells));
+                    
+                    // If this was a forced recovery, remove the disk from drive bay slots
+                    if (forceConfirm) {
+                        try (PreparedStatement removeStmt = conn.prepareStatement(
+                                "DELETE FROM drive_bay_slots WHERE disk_id = ?")) {
+                            removeStmt.setString(1, diskId.toUpperCase());
+                            int removed = removeStmt.executeUpdate();
+                            if (removed > 0) {
+                                sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "errors.recovery.disk-removed-from-bay"));
+                            }
+                        }
+                    }
                 }
             }
 
@@ -237,6 +286,9 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
+        // Display banner and version header
+        sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.help.header"));
+        
         try (Connection conn = plugin.getDatabaseManager().getConnection()) {
             // Count networks
             try (PreparedStatement stmt = conn.prepareStatement("SELECT COUNT(*) FROM networks");
@@ -388,10 +440,21 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
                 }
                 break;
 
+            case "lang":
+            case "language":
+                try {
+                    plugin.getMessageManager().reloadLanguages();
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.reload.lang-success"));
+                } catch (Exception e) {
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.reload.lang-error", "error", e.getMessage()));
+                }
+                break;
+
             case "all":
                 try {
                     plugin.getConfigManager().reloadConfig();
                     plugin.getRecipeManager().reloadRecipes();
+                    plugin.getMessageManager().reloadLanguages();
                     sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.reload.all-success"));
                     sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.reload.recipes-note"));
                 } catch (Exception e) {
@@ -450,7 +513,7 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
                     break;
 
                 case "reload":
-                    List<String> reloadOptions = Arrays.asList("config", "recipes", "all");
+                    List<String> reloadOptions = Arrays.asList("config", "recipes", "lang", "all");
                     for (String option : reloadOptions) {
                         if (option.toLowerCase().startsWith(args[1].toLowerCase())) {
                             completions.add(option);
@@ -469,5 +532,6 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
 
         return completions;
     }
+    
 
 }

@@ -84,7 +84,6 @@ public class ExporterManager {
                 }
             }
 
-            plugin.getLogger().info("Loaded " + activeExporters.size() + " exporters");
 
         } catch (SQLException e) {
             plugin.getLogger().severe("Error loading exporters: " + e.getMessage());
@@ -126,8 +125,6 @@ public class ExporterManager {
 
         // REMOVED: Particle effects disabled for performance
 
-        plugin.getLogger().info("Export task started with " + tickInterval + " tick interval");
-        plugin.getLogger().info("Exporter network validation task started (30 second interval)");
     }
     /**
      * Check if exporter is physically connected to its assigned network
@@ -196,12 +193,9 @@ public class ExporterManager {
             // Check if exporter is physically connected to any network
             String adjacentNetworkId = findAdjacentNetwork(exporter.location);
             if (adjacentNetworkId == null) {
-                plugin.debugLog("Exporter " + exporter.exporterId + " is not connected to any network - auto-disabling");
-
                 // AUTO-DISABLE: Set exporter as disabled when disconnected
                 try {
                     toggleExporter(exporter.exporterId, false);
-                    plugin.debugLog("Auto-disabled exporter " + exporter.exporterId + " - not connected to any network");
 
                     // Refresh any open exporter GUIs to show disabled status
                     refreshExporterGUIs(exporter.exporterId);
@@ -215,7 +209,6 @@ public class ExporterManager {
 
             // If connected to a different network than assigned, update the assignment
             if (!adjacentNetworkId.equals(exporter.networkId)) {
-                plugin.debugLog("Exporter " + exporter.exporterId + " reconnecting from " + exporter.networkId + " to " + adjacentNetworkId);
                 try {
                     // Update database
                     plugin.getDatabaseManager().executeUpdate(
@@ -272,10 +265,8 @@ public class ExporterManager {
             } else {
                 // Use regular round-robin for other containers
                 String itemHashToExport = getNextItemToExport(exporter);
-                plugin.debugLog(" getNextItemToExport returned: " + itemHashToExport + " for exporter " + exporter.exporterId);
                 
                 if (itemHashToExport == null) {
-                    plugin.debugLog(" No items to export for exporter " + exporter.exporterId + ", filter items: " + exporter.filterItems.size());
                     return; // No items to export
                 }
 
@@ -435,7 +426,6 @@ public class ExporterManager {
                 exportItemToFurnace(exporter, itemHash, targetContainer);
             } else if (isBrewingStand) {
                 // Handle brewing stand slot routing
-                plugin.debugLog("Detected brewing stand, calling exportItemToBrewingStand for exporter " + exporter.exporterId);
                 exportItemToBrewingStand(exporter, itemHash, targetContainer);
             } else {
                 // Use generic export for other containers
@@ -492,13 +482,8 @@ public class ExporterManager {
      */
     private void exportBrewingStandWithSlotSelection(ExporterData exporter, Container brewingStandContainer) {
         try {
-            plugin.debugLog("Starting brewing stand export with slot selection for exporter " + exporter.exporterId);
-            
             // Parse brewing stand filters from exporter filter items
             BrewingStandFilters brewingFilters = parseBrewingStandFilters(exporter.exporterId);
-            plugin.debugLog("Parsed brewing filters - fuel enabled: " + brewingFilters.fuelEnabled + 
-                                  ", ingredient: " + (brewingFilters.ingredientFilter != null ? brewingFilters.ingredientFilter.getType() : "null") +
-                                  ", bottles: " + java.util.Arrays.toString(brewingFilters.bottleFilters));
             
             Inventory brewingInventory = brewingStandContainer.getInventory();
             
@@ -544,12 +529,8 @@ public class ExporterManager {
                 // Update cycle index for next time
                 exporterCycleIndex.put(exporter.exporterId, (currentIndex + 1) % potentialExports.size());
                 
-                plugin.debugLog(" Selected " + selectedExport.slotName + " (slot " + selectedExport.targetSlot + ") for export");
-                
                 // Now perform the actual export to the specific slot
                 exportItemToSpecificBrewingSlot(exporter, selectedExport.itemHash, selectedExport.targetSlot, selectedExport.slotName, brewingStandContainer);
-            } else {
-                plugin.debugLog("No brewing stand items available for export (either not in network or slots full)");
             }
             
         } catch (Exception e) {
@@ -562,17 +543,12 @@ public class ExporterManager {
      */
     private void exportItemToSpecificBrewingSlot(ExporterData exporter, String itemHash, int targetSlot, String slotName, Container brewingStandContainer) {
         try {
-            plugin.debugLog("Exporting to specific brewing stand slot " + targetSlot + " (" + slotName + ")");
-            
             // Retrieve item from network first
             ItemStack retrievedItem = plugin.getStorageManager().retrieveItems(exporter.networkId, itemHash, 64);
             
             if (retrievedItem == null || retrievedItem.getAmount() == 0) {
-                plugin.debugLog("No items retrieved for hash " + itemHash);
                 return;
             }
-
-            plugin.debugLog(" Retrieved item: " + retrievedItem.getType() + " (amount: " + retrievedItem.getAmount() + ") for slot " + targetSlot);
 
             // Limit item amount to slot-appropriate stack size
             int maxAmount = getBrewingStandSlotMaxAmount(targetSlot, retrievedItem.getType());
@@ -595,7 +571,6 @@ public class ExporterManager {
             if (existingItem == null || existingItem.getType() == Material.AIR) {
                 // Slot is empty, place the item
                 brewingInventory.setItem(targetSlot, retrievedItem);
-                plugin.debugLog(" Placed " + retrievedItem.getAmount() + " " + retrievedItem.getType() + " in empty slot " + targetSlot);
             } else if (existingItem.isSimilar(retrievedItem)) {
                 // Slot has same item, try to stack
                 int spaceAvailable = existingItem.getMaxStackSize() - existingItem.getAmount();
@@ -604,15 +579,12 @@ public class ExporterManager {
                 if (amountToAdd > 0) {
                     existingItem.setAmount(existingItem.getAmount() + amountToAdd);
                     leftoverAmount = retrievedItem.getAmount() - amountToAdd;
-                    plugin.debugLog(" Added " + amountToAdd + " " + retrievedItem.getType() + " to existing stack in slot " + targetSlot + " (leftover: " + leftoverAmount + ")");
                 } else {
                     leftoverAmount = retrievedItem.getAmount(); // No space
-                    plugin.debugLog(" No space in slot " + targetSlot + ", returning " + leftoverAmount + " items to network");
                 }
             } else {
                 // Slot has different item, can't place
                 leftoverAmount = retrievedItem.getAmount();
-                plugin.debugLog(" Slot " + targetSlot + " has different item, returning " + leftoverAmount + " items to network");
             }
 
             // Handle completion and leftovers
@@ -628,39 +600,28 @@ public class ExporterManager {
      */
     private void exportItemToBrewingStand(ExporterData exporter, String itemHash, Container brewingStandContainer) {
         try {
-            plugin.debugLog("Starting brewing stand export for exporter " + exporter.exporterId + " with item hash " + itemHash);
-            
             // Parse brewing stand filters from exporter filter items
             BrewingStandFilters brewingFilters = parseBrewingStandFilters(exporter.exporterId);
-            
-            plugin.debugLog("Parsed filters - Fuel enabled: " + brewingFilters.fuelEnabled + 
-                                  ", Ingredient filter: " + (brewingFilters.ingredientFilter != null ? brewingFilters.ingredientFilter.getType() : "null") +
-                                  ", Bottle filters: " + java.util.Arrays.toString(brewingFilters.bottleFilters));
             
             // Retrieve item from network first (similar to furnace approach)
             ItemStack retrievedItem = plugin.getStorageManager().retrieveItems(exporter.networkId, itemHash, 64);
             
             if (retrievedItem == null || retrievedItem.getAmount() == 0) {
-                plugin.debugLog("No items retrieved for hash " + itemHash);
                 return; // Nothing retrieved
             }
 
             Material itemType = retrievedItem.getType();
             int targetSlot = -1;
             String slotName = "unknown";
-            
-            plugin.debugLog(" Retrieved item: " + itemType + " (amount: " + retrievedItem.getAmount() + ")");
 
             // Determine target slot based on item type and filters
             if (itemType == Material.BLAZE_POWDER && brewingFilters.fuelEnabled) {
                 targetSlot = 4; // Fuel slot
                 slotName = "fuel";
-                plugin.debugLog(" Targeting fuel slot (4) for blaze powder");
             } else if (brewingFilters.ingredientFilter != null && 
                       itemType == brewingFilters.ingredientFilter.getType()) {
                 targetSlot = 3; // Ingredient slot
                 slotName = "ingredient";
-                plugin.debugLog(" Targeting ingredient slot (3) for " + itemType);
             } else {
                 // Check bottle filters (slots 0, 1, 2)
                 for (int i = 0; i < 3; i++) {
@@ -668,7 +629,6 @@ public class ExporterManager {
                         itemType == brewingFilters.bottleFilters[i].getType()) {
                         targetSlot = i;
                         slotName = "bottle " + (i + 1);
-                        plugin.debugLog(" Targeting bottle slot " + i + " for " + itemType);
                         break;
                     }
                 }
@@ -756,29 +716,23 @@ public class ExporterManager {
         
         try {
             List<ItemStack> filterItems = getExporterFilterItems(exporterId);
-            plugin.debugLog("Found " + filterItems.size() + " filter items for exporter " + exporterId);
             
             for (ItemStack item : filterItems) {
-                plugin.debugLog("Processing filter item: " + item.getType() + " with meta: " + (item.hasItemMeta() ? "yes" : "no"));
-                
                 if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
                     Component displayName = item.getItemMeta().displayName();
                     if (displayName == null) continue;
                     
                     // Use PlainTextComponentSerializer for reliable text extraction
                     String nameText = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(displayName);
-                    plugin.debugLog("Filter item display name: '" + nameText + "'");
                     
                     if ("BREWING_FUEL_ENABLED".equals(nameText)) {
                         filters.fuelEnabled = true;
-                        plugin.debugLog("Found fuel enabled marker");
                     } else if ("BREWING_INGREDIENT".equals(nameText)) {
                         filters.ingredientFilter = item.clone();
                         // Remove the marker name to get the actual item
                         ItemMeta meta = filters.ingredientFilter.getItemMeta();
                         meta.displayName(null);
                         filters.ingredientFilter.setItemMeta(meta);
-                        plugin.debugLog("Found ingredient filter: " + filters.ingredientFilter.getType());
                     } else if (nameText.startsWith("BREWING_BOTTLE_")) {
                         try {
                             int bottleIndex = Integer.parseInt(nameText.substring("BREWING_BOTTLE_".length()));
@@ -788,7 +742,6 @@ public class ExporterManager {
                                 ItemMeta meta = filters.bottleFilters[bottleIndex].getItemMeta();
                                 meta.displayName(null);
                                 filters.bottleFilters[bottleIndex].setItemMeta(meta);
-                                plugin.debugLog("Found bottle filter " + bottleIndex + ": " + filters.bottleFilters[bottleIndex].getType());
                             }
                         } catch (NumberFormatException e) {
                             // Ignore invalid bottle indices
@@ -894,15 +847,11 @@ public class ExporterManager {
                 if (exported > 0) {
                     exporter.lastExport = System.currentTimeMillis();
                     updateLastExport(exporter.exporterId);
-                    plugin.getLogger().info("Exporter " + exporter.exporterId + " exported " + exported + 
-                                          " " + retrievedItem.getType() + " to " + destination);
                 }
             } else {
                 // Everything was exported successfully
                 exporter.lastExport = System.currentTimeMillis();
                 updateLastExport(exporter.exporterId);
-                plugin.getLogger().info("Exporter " + exporter.exporterId + " exported " + 
-                                      retrievedItem.getAmount() + " " + retrievedItem.getType() + " to " + destination);
             }
 
             // Refresh any open terminals
@@ -942,13 +891,11 @@ public class ExporterManager {
                 if (exported > 0) {
                     exporter.lastExport = System.currentTimeMillis();
                     updateLastExport(exporter.exporterId);
-                    plugin.getLogger().info("Exporter " + exporter.exporterId + " exported " + exported + " " + retrievedItem.getType());
                 }
             } else {
                 // Everything was exported successfully
                 exporter.lastExport = System.currentTimeMillis();
                 updateLastExport(exporter.exporterId);
-                plugin.getLogger().info("Exporter " + exporter.exporterId + " exported " + retrievedItem.getAmount() + " " + retrievedItem.getType());
             }
 
             // Refresh any open terminals
@@ -966,48 +913,27 @@ public class ExporterManager {
         try {
             Block attachedBlock = null;
 
-            plugin.debugLog("Checking target for exporter at " + exporterBlock.getLocation() + 
-                                  " of type " + exporterBlock.getType());
-
             if (exporterBlock.getType() == Material.PLAYER_HEAD) {
                 // Floor mounted head - check block below
                 attachedBlock = exporterBlock.getRelative(BlockFace.DOWN);
-                plugin.debugLog("Floor mounted head, checking block below: " + 
-                                      attachedBlock.getType() + " at " + attachedBlock.getLocation());
             } else if (exporterBlock.getType() == Material.PLAYER_WALL_HEAD) {
                 // Wall mounted head - check block it's attached to
                 org.bukkit.block.data.Directional directional = (org.bukkit.block.data.Directional) exporterBlock.getBlockData();
                 BlockFace facing = directional.getFacing();
                 // The block the wall head is attached to is in the opposite direction
                 attachedBlock = exporterBlock.getRelative(facing.getOppositeFace());
-                plugin.debugLog(" Wall mounted head facing " + facing + 
-                                      ", checking attached block: " + attachedBlock.getType() + 
-                                      " at " + attachedBlock.getLocation());
             }
 
             // Check if the attached block is a container
             if (attachedBlock != null) {
-                boolean isContainer = attachedBlock.getState() instanceof Container;
-                plugin.debugLog("Attached block " + attachedBlock.getType() + 
-                                      " is container: " + isContainer);
-                
-                if (isContainer) {
-                    Container container = (Container) attachedBlock.getState();
-                    plugin.debugLog("Returning container: " + container.getClass().getSimpleName());
-                    return container;
-                } else {
-                    plugin.debugLog("Attached block is not a container, returning null");
+                if (attachedBlock.getState() instanceof Container) {
+                    return (Container) attachedBlock.getState();
                 }
-            } else {
-                plugin.debugLog("Could not determine attached block!");
             }
 
         } catch (Exception e) {
             plugin.getLogger().warning("Error checking attached block for exporter: " + e.getMessage());
-            plugin.getLogger().warning("Stack trace: " + java.util.Arrays.toString(e.getStackTrace()));
         }
-
-        plugin.debugLog(" Returning null - no valid target container");
         return null;
     }
 
@@ -1036,7 +962,6 @@ public class ExporterManager {
         activeExporters.put(exporterId, data);
         exporterCycleIndex.put(exporterId, 0);
 
-        plugin.getLogger().info("Created exporter " + exporterId + " at " + location);
         return exporterId;
     }
 
@@ -1054,7 +979,6 @@ public class ExporterManager {
 
         activeExporters.remove(exporterId);
         exporterCycleIndex.remove(exporterId);
-        plugin.getLogger().info("Removed exporter " + exporterId);
     }
 
     /**
@@ -1081,7 +1005,6 @@ public class ExporterManager {
                     "UPDATE exporters SET enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE exporter_id = ?",
                     enabled, exporterId);
 
-            plugin.debugLog("Exporter " + exporterId + " set to " + (enabled ? "enabled" : "disabled"));
         }
     }
 
@@ -1157,8 +1080,6 @@ public class ExporterManager {
             data.filterItems.add(itemHash);
         }
 
-        plugin.getLogger().info("Updated furnace filters for exporter " + exporterId + ": " + 
-                               fuelItems.size() + " fuel items, " + materialItems.size() + " material items");
     }
 
     /**
@@ -1198,8 +1119,6 @@ public class ExporterManager {
             plugin.getLogger().severe("Error loading furnace exporter filters: " + e.getMessage());
         }
 
-        plugin.getLogger().info("Loaded furnace filters for exporter " + exporterId + ": " + 
-                               filters.get("fuel").size() + " fuel, " + filters.get("material").size() + " material");
         return filters;
     }
 
@@ -1249,7 +1168,6 @@ public class ExporterManager {
             data.filterItems.add(itemHash);
         }
 
-        plugin.getLogger().info("Updated filters for exporter " + exporterId + ": " + filterItems.size() + " items");
     }
 
     /**
@@ -1278,7 +1196,6 @@ public class ExporterManager {
             plugin.getLogger().severe("Error loading exporter filters: " + e.getMessage());
         }
 
-        plugin.debugLog("Loaded " + items.size() + " filter items for exporter " + exporterId);
         return items;
     }
 
@@ -1294,8 +1211,6 @@ public class ExporterManager {
      * This should be called when a network is unregistered/dissolved
      */
     public void handleNetworkInvalidated(String networkId) {
-        plugin.debugLog("Handling exporter disconnections for invalidated network: " + networkId);
-
         int disconnectedCount = 0;
         for (ExporterData exporter : activeExporters.values()) {
             if (networkId.equals(exporter.networkId)) {
@@ -1311,7 +1226,6 @@ public class ExporterManager {
                     disconnectedData.filterItems.addAll(exporter.filterItems); // Preserve filters
                     activeExporters.put(exporter.exporterId, disconnectedData);
 
-                    plugin.debugLog("Disconnected exporter " + exporter.exporterId + " from invalidated network " + networkId);
                     disconnectedCount++;
 
                 } catch (SQLException e) {
@@ -1320,9 +1234,6 @@ public class ExporterManager {
             }
         }
 
-        if (disconnectedCount > 0) {
-            plugin.debugLog("Disconnected " + disconnectedCount + " exporters from invalidated network " + networkId);
-        }
     }
 
     /**
@@ -1357,7 +1268,6 @@ public class ExporterManager {
                         updatedData.filterItems.addAll(exporter.filterItems);
                         activeExporters.put(exporter.exporterId, updatedData);
 
-                        plugin.debugLog("Reconnected exporter " + exporter.exporterId + " to network " + newNetworkId);
                         reconnectedCount++;
 
                     } catch (SQLException e) {
@@ -1376,7 +1286,6 @@ public class ExporterManager {
                         disconnectedData.filterItems.addAll(exporter.filterItems);
                         activeExporters.put(exporter.exporterId, disconnectedData);
 
-                        plugin.getLogger().info("Disconnected exporter " + exporter.exporterId + " - no valid network found");
                         disconnectedCount++;
 
                     } catch (SQLException e) {
@@ -1389,7 +1298,6 @@ public class ExporterManager {
                     // Auto-disable exporters that are enabled but physically disconnected
                     try {
                         toggleExporter(exporter.exporterId, false);
-                        plugin.debugLog("Auto-disabled exporter " + exporter.exporterId + " during periodic validation - physically disconnected");
                         refreshExporterGUIs(exporter.exporterId);
                         autoDisabledCount++;
                     } catch (SQLException e) {
@@ -1399,10 +1307,6 @@ public class ExporterManager {
             }
         }
 
-        if (reconnectedCount > 0 || disconnectedCount > 0 || autoDisabledCount > 0) {
-            plugin.debugLog("Exporter network assignment update: " + reconnectedCount + " reconnected, " +
-                    disconnectedCount + " disconnected, " + autoDisabledCount + " auto-disabled");
-        }
     }
 
     /**

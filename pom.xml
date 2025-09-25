@@ -6,7 +6,7 @@
 
     <groupId>org.jamesphbennett</groupId>
     <artifactId>modularstoragesystem</artifactId>
-    <version>BETA-1.5.5</version>
+    <version>BETA-1.5.6</version>
     <packaging>jar</packaging>
 
     <name>Modular Storage System</name>

@@ -1,7 +1,6 @@
 package org.jamesphbennett.modularstoragesystem.gui;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -30,7 +29,6 @@ public class TerminalGUI implements Listener {
     private final String networkId;
     private final Inventory inventory;
     private final Map<Integer, StoredItem> slotToStoredItem = new HashMap<>();
-    private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     private List<StoredItem> allItems = new ArrayList<>();
     private final List<StoredItem> filteredItems = new ArrayList<>();
@@ -57,13 +55,13 @@ public class TerminalGUI implements Listener {
         if (savedSearchTerm != null && !savedSearchTerm.isEmpty()) {
             this.currentSearchTerm = savedSearchTerm;
             this.isSearchActive = true;
-            plugin.getLogger().info("Loaded saved search term '" + savedSearchTerm + "' for terminal at " + terminalLocation);
+            plugin.debugLog("debug.gui.search-term-saved", "term", savedSearchTerm, "key", terminalLocation.toString());
         }
 
         // Check for saved sorting preference for this terminal location
         this.isQuantitySortActive = plugin.getGUIManager().getTerminalQuantitySort(terminalLocation);
         if (isQuantitySortActive) {
-            plugin.getLogger().info("Loaded quantity sort preference for terminal at " + terminalLocation);
+            plugin.debugLog("debug.gui.sort-saved", "key", terminalLocation.toString());
         }
 
         setupGUI();
@@ -208,7 +206,8 @@ public class TerminalGUI implements Listener {
         }
 
         infoLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.terminal.pagination.page-info", "current", (currentPage + 1), "total", maxPages));
-        infoLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.terminal.info.sort-mode", "mode", (isQuantitySortActive ? "By Quantity" : "Alphabetical")));
+        Component sortModeLabel = isQuantitySortActive ? plugin.getMessageManager().getMessageComponent(null, "gui.terminal.sorting.quantity") : plugin.getMessageManager().getMessageComponent(null, "gui.terminal.sorting.alphabetical");
+        infoLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.terminal.info.sort-mode", "mode", sortModeLabel));
 
         // Show items on current page
         int startIndex = currentPage * itemsPerPage;
@@ -219,7 +218,8 @@ public class TerminalGUI implements Listener {
 
         // Calculate total items stored
         long totalItems = displayItems.stream().mapToLong(StoredItem::quantity).sum();
-        infoLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.terminal.info.total-items", "type", (isSearchActive ? "Filtered" : "Total"), "count", String.format("%,d", totalItems)));
+        Component itemTypeLabel = isSearchActive ? plugin.getMessageManager().getMessageComponent(null, "gui.terminal.info.type-filtered") : plugin.getMessageManager().getMessageComponent(null, "gui.terminal.info.type-total");
+        infoLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.terminal.info.total-items", "type", itemTypeLabel, "count", String.format("%,d", totalItems)));
 
         infoLore.add(Component.empty());
 
@@ -249,9 +249,8 @@ public class TerminalGUI implements Listener {
 
             updateDisplayedItems();
 
-            plugin.debugLog("Loaded " + allItems.size() + " total items" +
-                    (isSearchActive ? ", filtered to " + filteredItems.size() + " results" : "") +
-                    ", sorted by " + (isQuantitySortActive ? "quantity" : "alphabetical"));
+            String searchInfo = isSearchActive ? ", filtered to " + filteredItems.size() + " results" : "";
+            plugin.debugLog("debug.gui.items-loaded", "total", allItems.size(), "search", searchInfo, "sorting", (isQuantitySortActive ? "quantity" : "alphabetical"));
         } catch (Exception e) {
             plugin.getLogger().severe("Error loading terminal items: " + e.getMessage());
         }
@@ -271,11 +270,11 @@ public class TerminalGUI implements Listener {
                 // If quantities are equal, fall back to alphabetical
                 return a.itemStack().getType().name().compareTo(b.itemStack().getType().name());
             });
-            plugin.debugLog("Applied quantity sorting (most items first)");
+            plugin.debugLog("debug.gui.sorting-applied", "type", "quantity (most items first)");
         } else {
             // Sort alphabetically by item type name (default)
             allItems.sort(Comparator.comparing(item -> item.itemStack().getType().name()));
-            plugin.debugLog("Applied alphabetical sorting");
+            plugin.debugLog("debug.gui.sorting-applied", "type", "alphabetical");
         }
     }
 
@@ -288,7 +287,6 @@ public class TerminalGUI implements Listener {
         }
 
         String searchLower = currentSearchTerm.toLowerCase().trim();
-        plugin.getLogger().info("Applying search filter for term: '" + searchLower + "'");
 
         // Create a list to hold items with their relevance scores
         List<ScoredItem> scoredItems = new ArrayList<>();
@@ -335,7 +333,7 @@ public class TerminalGUI implements Listener {
             filteredItems.add(scoredItem.item);
         }
 
-        plugin.getLogger().info("Search for '" + currentSearchTerm + "' found " + filteredItems.size() + " matching items out of " + allItems.size() + " total");
+        plugin.debugLog("debug.gui.search-received", "player", "system", "input", currentSearchTerm);
     }
 
     /**
@@ -459,7 +457,7 @@ public class TerminalGUI implements Listener {
         // Save the sorting preference for this terminal
         plugin.getGUIManager().setTerminalQuantitySort(terminalLocation, isQuantitySortActive);
 
-        plugin.getLogger().info("Toggled sorting to: " + (isQuantitySortActive ? "quantity" : "alphabetical"));
+        plugin.debugLog("debug.gui.sorting-applied", "type", (isQuantitySortActive ? "quantity" : "alphabetical"));
 
         // Re-apply sorting to all items
         applySorting();
@@ -474,8 +472,6 @@ public class TerminalGUI implements Listener {
     }
 
     public void setSearch(String searchTerm) {
-        plugin.getLogger().info("setSearch called with term: '" + searchTerm + "'");
-
         if (searchTerm == null || searchTerm.trim().isEmpty()) {
             clearSearch();
             return;
@@ -485,22 +481,18 @@ public class TerminalGUI implements Listener {
         this.isSearchActive = true;
         this.currentPage = 0; // Reset to first page
 
-        plugin.getLogger().info("Setting search term '" + currentSearchTerm + "' for terminal, active: " + isSearchActive);
-
         // Apply the filter
         applySearchFilter();
 
         // Update display
         updateDisplayedItems();
 
-        plugin.getLogger().info("Search applied: " + filteredItems.size() + " results out of " + allItems.size() + " total items");
     }
 
     /**
      * Start search mode - close GUI and prompt for search term
      */
     public void startSearch(Player player) {
-        plugin.getLogger().info("Starting search mode for player " + player.getName());
 
         // Close the inventory
         player.closeInventory();
@@ -529,7 +521,6 @@ public class TerminalGUI implements Listener {
         plugin.getGUIManager().setTerminalSearchTerm(terminalLocation, null);
 
         updateDisplayedItems();
-        plugin.getLogger().info("Search cleared, showing all items");
     }
 
     public void open(Player player) {
@@ -602,7 +593,7 @@ public class TerminalGUI implements Listener {
             event.setCancelled(true);
 
             toggleSorting();
-            String newMode = isQuantitySortActive ? "quantity (most items first)" : "alphabetical (A-Z)";
+            Component newMode = isQuantitySortActive ? plugin.getMessageManager().getMessageComponent(player, "gui.terminal.sorting.mode-quantity") : plugin.getMessageManager().getMessageComponent(player, "gui.terminal.sorting.mode-alphabetical");
             player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.sorting.changed", "mode", newMode));
             return;
         }
@@ -666,8 +657,7 @@ public class TerminalGUI implements Listener {
                     }
                 } catch (Exception e) {
                     player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.storage.error", "error", e.getMessage()));
-                    plugin.getLogger().severe("Error storing items: " + e.getMessage());
-                }
+                        }
             }
             return;
         }
@@ -721,11 +711,10 @@ public class TerminalGUI implements Listener {
 
         // PRIORITY 1: If player has items on cursor, try to store them
         if (!cursorItem.getType().isAir()) {
-            plugin.getLogger().info("Player has " + cursorItem.getAmount() + " " + cursorItem.getType() + " on cursor, attempting to store");
 
             // Check if item can be stored
             if (plugin.getItemManager().isItemBlacklisted(cursorItem)) {
-                player.sendMessage(miniMessage.deserialize("<red>This item cannot be stored in the network!"));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.storage.not-allowed-red"));
                 return;
             }
 
@@ -739,7 +728,6 @@ public class TerminalGUI implements Listener {
                 if (remainders.isEmpty()) {
                     // All items stored successfully
                     event.getView().setCursor(null);
-                    plugin.getLogger().info("Successfully stored all cursor items");
                 } else {
                     // Some items couldn't be stored
                     ItemStack remainder = remainders.getFirst();
@@ -747,10 +735,8 @@ public class TerminalGUI implements Listener {
                     int stored = cursorItem.getAmount() - remainder.getAmount();
                     if (stored > 0) {
                         player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.storage.partial", "stored", stored, "remaining", remainder.getAmount()));
-                        plugin.getLogger().info("Partially stored " + stored + "/" + cursorItem.getAmount() + " cursor items");
                     } else {
                         player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.storage.full"));
-                        plugin.getLogger().warning("Could not store any cursor items - network full");
                     }
                 }
 
@@ -760,7 +746,6 @@ public class TerminalGUI implements Listener {
 
             } catch (Exception e) {
                 player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.storage.error", "error", e.getMessage()));
-                plugin.getLogger().severe("Error storing cursor items: " + e.getMessage());
                 return;
             }
         }
@@ -768,7 +753,6 @@ public class TerminalGUI implements Listener {
         // If no cursor items, handle retrieval
         StoredItem storedItem = slotToStoredItem.get(slot);
         if (storedItem == null) {
-            plugin.getLogger().info("No stored item found in slot " + slot);
             return;
         }
 
@@ -810,7 +794,6 @@ public class TerminalGUI implements Listener {
 
                     if (amountToRetrieve <= 0) {
                         player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.retrieval.inventory-full"));
-                        plugin.getLogger().info("Cancelled shift-click retrieval - player inventory full");
                         return;
                     } else if (amountToRetrieve < Math.min(maxStackSize, storedItem.quantity())) {
                         player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.retrieval.limited-space", "amount", amountToRetrieve));
@@ -818,15 +801,10 @@ public class TerminalGUI implements Listener {
                 }
                 break;
             default:
-                plugin.getLogger().info("Unhandled click type: " + clickType);
                 return;
         }
 
         if (amountToRetrieve > 0) {
-            plugin.getLogger().info("Retrieving " + amountToRetrieve + " items of type " + storedItem.itemStack().getType() +
-                    " (available: " + storedItem.quantity() + ", max stack: " + maxStackSize + ")" +
-                    (directToInventory ? " to inventory" : " to cursor"));
-
             try {
                 ItemStack retrievedItem = plugin.getStorageManager().retrieveItems(
                         networkId, storedItem.itemHash(), amountToRetrieve);
@@ -838,26 +816,16 @@ public class TerminalGUI implements Listener {
 
                         if (!leftover.isEmpty()) {
                             // This should rarely happen since we pre-checked, but handle it
-                            plugin.getLogger().warning("Unexpected: " + leftover.size() + " items didn't fit after pre-check!");
                             // Put the items back in storage
                             try {
                                 List<ItemStack> putBack = new ArrayList<>(leftover.values());
                                 plugin.getStorageManager().storeItems(networkId, putBack);
 
-                                // Calculate what was actually added
-                                int actuallyAdded = retrievedItem.getAmount() - leftover.values().stream().mapToInt(ItemStack::getAmount).sum();
-                                if (actuallyAdded > 0) {
-                                    player.sendMessage(miniMessage.deserialize("<yellow>Retrieved " + actuallyAdded + " items. " +
-                                            (retrievedItem.getAmount() - actuallyAdded) + " items returned to storage (inventory full)"));
-                                } else {
-                                    player.sendMessage(miniMessage.deserialize("<red>Items returned to storage - inventory full"));
-                                }
                             } catch (Exception e) {
                                 // Last resort - drop the items
                                 for (ItemStack item : leftover.values()) {
                                     player.getWorld().dropItemNaturally(player.getLocation(), item);
                                 }
-                                player.sendMessage(miniMessage.deserialize("<red>Critical error - some items were dropped!"));
                             }
                         }
                     } else {
@@ -868,68 +836,39 @@ public class TerminalGUI implements Listener {
                     // Refresh the display
                     refresh();
 
-                    plugin.getLogger().info("Successfully retrieved " + amountToRetrieve + " items");
                 } else {
-                    player.sendMessage(miniMessage.deserialize("<red>Could not retrieve items - they may have been taken by another player."));
-                    plugin.getLogger().warning("Retrieval returned null - items may have been taken");
                     refresh(); // Refresh to show current state
                 }
-            } catch (Exception e) {
-                player.sendMessage(miniMessage.deserialize("<red>Error retrieving items: " + e.getMessage()));
-                plugin.getLogger().severe("Error retrieving items: " + e.getMessage());
+            } catch (Exception ignored) {
             }
         }
     }
 
     private void handleNavigationClick(Player player, int slot) {
-        if (plugin.getConfigManager().isDebugMode()) {
-            plugin.getLogger().info("Navigation click detected in slot " + slot + " by player " + player.getName());
-        }
 
         switch (slot) {
             case 45: // Previous page
-                if (plugin.getConfigManager().isDebugMode()) {
-                    plugin.getLogger().info("Previous page clicked, current page: " + currentPage);
-                }
                 if (currentPage > 0) {
                     currentPage--;
                     updateDisplayedItems();
-                    player.sendMessage(miniMessage.deserialize("<yellow>Page " + (currentPage + 1) + "/" + getMaxPages()));
-                    if (plugin.getConfigManager().isDebugMode()) {
-                        plugin.getLogger().info("Moved to page " + (currentPage + 1));
-                    }
+                    // Page change message removed - info is shown in navigation buttons
                 } else {
-                    player.sendMessage(miniMessage.deserialize("<red>Already on the first page!"));
-                    if (plugin.getConfigManager().isDebugMode()) {
-                        plugin.getLogger().info("Already on first page");
-                    }
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.pagination.first-page-message"));
                 }
                 break;
 
             case 53: // Next page
-                if (plugin.getConfigManager().isDebugMode()) {
-                    plugin.getLogger().info("Next page clicked, current page: " + currentPage);
-                }
                 int maxPages = getMaxPages();
                 if (currentPage < maxPages - 1) {
                     currentPage++;
                     updateDisplayedItems();
-                    player.sendMessage(miniMessage.deserialize("<yellow>Page " + (currentPage + 1) + "/" + maxPages));
-                    if (plugin.getConfigManager().isDebugMode()) {
-                        plugin.getLogger().info("Moved to page " + (currentPage + 1));
-                    }
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.pagination.page-change", "current", (currentPage + 1), "total", maxPages));
                 } else {
-                    player.sendMessage(miniMessage.deserialize("<red>Already on the last page!"));
-                    if (plugin.getConfigManager().isDebugMode()) {
-                        plugin.getLogger().info("Already on last page");
-                    }
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.pagination.last-page-message"));
                 }
                 break;
 
             default:
-                if (plugin.getConfigManager().isDebugMode()) {
-                    plugin.getLogger().info("Unhandled navigation slot: " + slot);
-                }
                 break;
         }
     }
@@ -938,7 +877,6 @@ public class TerminalGUI implements Listener {
     public void onInventoryDrag(InventoryDragEvent event) {
         if (!event.getInventory().equals(inventory)) return;
 
-        plugin.getLogger().info("Drag event detected with " + event.getRawSlots().size() + " slots affected");
 
         // Check if dragging into the terminal area
         boolean draggedIntoItemArea = false;
@@ -955,7 +893,6 @@ public class TerminalGUI implements Listener {
         if (draggedIntoNavArea) {
             // Dragging into navigation area - always cancel
             event.setCancelled(true);
-            plugin.getLogger().info("Cancelled drag - attempted to drag into navigation area");
             return;
         }
 
@@ -965,14 +902,11 @@ public class TerminalGUI implements Listener {
                 ItemStack draggedItem = event.getOldCursor();
 
                 if (!draggedItem.getType().isAir()) {
-                    plugin.getLogger().info("Player " + player.getName() + " dragging " +
-                            draggedItem.getAmount() + " " + draggedItem.getType() + " into terminal");
 
                     // Check if item can be stored
                     if (plugin.getItemManager().isItemBlacklisted(draggedItem)) {
                         event.setCancelled(true);
                         player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.storage.not-allowed"));
-                        plugin.getLogger().info("Cancelled drag - item not allowed: " + draggedItem.getType());
                         return;
                     }
 
@@ -993,7 +927,6 @@ public class TerminalGUI implements Listener {
                             List<ItemStack> toStore = new ArrayList<>();
                             toStore.add(itemToStore);
 
-                            plugin.getLogger().info("Attempting to store " + totalDraggedAmount + " " + draggedItem.getType() + " via drag");
                             List<ItemStack> remainders = plugin.getStorageManager().storeItems(networkId, toStore);
 
                             event.setCancelled(true);
@@ -1021,12 +954,9 @@ public class TerminalGUI implements Listener {
                                 event.getView().setCursor(newCursor);
 
                                 if (stored > 0) {
-                                    player.sendMessage(miniMessage.deserialize("<yellow>Stored " + stored + " items. " +
-                                            remainder.getAmount() + " items couldn't be stored."));
-                                    plugin.getLogger().info("Partially stored " + stored + "/" + totalDraggedAmount + " dragged items");
+                                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.storage.partial-drag", "stored", stored, "remaining", remainder.getAmount()));
                                 } else {
                                     player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.storage.full"));
-                                    plugin.getLogger().warning("No space available for dragged items");
                                 }
                             }
 
@@ -1035,18 +965,14 @@ public class TerminalGUI implements Listener {
                             return;
                         } catch (Exception e) {
                             player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.storage.error", "error", e.getMessage()));
-                            plugin.getLogger().severe("Error storing dragged items: " + e.getMessage());
-                            plugin.getLogger().severe("Stack trace: " + java.util.Arrays.toString(e.getStackTrace()));
                         }
                     }
                 }
             }
             event.setCancelled(true);
-            return;
         }
 
         // If we get here, the drag is only in player inventory - allow it
-        plugin.getLogger().info("Allowing drag - only affects player inventory");
     }
 
     @EventHandler

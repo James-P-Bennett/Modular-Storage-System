@@ -21,7 +21,7 @@ commands:
     cleanup: "<yellow>/mss cleanup - Clean up expired data</yellow>"
     recipes: "<yellow>/mss recipes - List all recipes</yellow>"
     recipe: "<yellow>/mss recipe <name> - Show detailed recipe info</yellow>"
-    reload: "<yellow>/mss reload [config|recipes] - Reload configurations</yellow>"
+    reload: "<yellow>/mss reload [config|recipes|lang|all] - Reload configurations</yellow>"
   
   usage:
     recovery: "<red>Usage: /mss recovery <disk_id></red>"
@@ -44,6 +44,11 @@ commands:
     crafter-info: "<gray>Original Crafter: {crafter}</gray>"
     cells-info: "<gray>Cells Used: {used}/{max}</gray>"
     error: "<red>Error during recovery: {error}</red>"
+    active-disk-warning: "<red>WARNING:</red> <yellow>This disk is currently active in a drive bay!</yellow>"
+    active-disk-network: "<yellow>Network ID: {network_id}</yellow>"
+    active-disk-location: "<yellow>Drive Bay Location: {world} ({x}, {y}, {z}) - Slot {slot}</yellow>"
+    active-disk-confirm: "<red>Recovering this disk will remove it from the active network and could cause data loss!</red>"
+    active-disk-usage: "<red>Use '/mss recovery {disk_id} confirm' to proceed anyway.</red>"
   
   give:
     no-permission: "<red>You don't have permission to use give commands.</red>"
@@ -83,12 +88,14 @@ commands:
   
   reload:
     no-permission: "<red>You don't have permission to use reload commands.</red>"
-    usage: "<red>Usage: /mss reload [config|recipes|all]</red>"
+    usage: "<red>Usage: /mss reload [config|recipes|lang|all]</red>"
     config-success: "<green>Main configuration reloaded successfully!</green>"
     config-error: "<red>Error reloading config: {error}</red>"
     recipes-success: "<green>Recipes configuration reloaded successfully!</green>"
     recipes-note: "<yellow>Note: Server restart may be required for recipe changes to take full effect.</yellow>"
     recipes-error: "<red>Error reloading recipes: {error}</red>"
+    lang-success: "<green>Language files reloaded successfully!</green>"
+    lang-error: "<red>Error reloading language files: {error}</red>"
     all-success: "<green>All configurations reloaded successfully!</green>"
     all-error: "<red>Error reloading configurations: {error}</red>"
 
@@ -118,8 +125,11 @@ errors:
     no-disks: "<red>No storage disks found in network <yellow>{network}</yellow></red>"
   
   gui:
+    network-invalid: "<yellow>Storage network is no longer valid.</yellow>"
     error-opening: "<red>Error opening {gui} GUI: {error}</red>"
-  
+    anvil:
+      mss-items-blocked: "<red>You cannot use MSS items in anvils!</red>"
+
   search:
     timeout: "<red>Search timed out.</red>"
     cancelled: "<red>Search cancelled.</red>"
@@ -157,8 +167,27 @@ errors:
     security-terminal-owner-only: "<red>Only the owner can manage this security terminal.</red>"
     no-drive-bay-permission: "<red>You don't have permission to access this drive bay.</red>"
     access-denied-access-items: "<red>Access Denied: You are not authorized to access network items.</red>"
-    
-    
+
+  recipes:
+    recipe-header: "<gold>=== Recipe: {recipe} ===</gold>"
+    recipes-header: "<gold>=== Modular Storage System Recipes ===</gold>"
+    recipe-status: "Status: {status}"
+    recipes-system-status: "Recipes system: {status}"
+    recipe-type: "Type: {type}"
+    recipe-description: "<gray>Description: {description}</gray>"
+    recipe-result: "<yellow>Result: {amount}x {item}</yellow>"
+    recipe-shape: "<aqua>Shape:</aqua>"
+    recipe-shape-row: "<white> {row}</white>"
+    recipe-ingredients: "<aqua>Ingredients:</aqua>"
+    recipe-ingredient: "<white> {key} = {material}</white>"
+    recipe-custom-note: "<gray>Note: This recipe uses custom components and requires manual crafting validation.</gray>"
+    recipe-not-found: "<red>Recipe '{recipe}' not found!</red>"
+    recipes-empty-line: ""
+    recipes-help: "<yellow>Use '/mss recipe <name>' for detailed recipe information</yellow>"
+    recipes-registered-count: "<white>Registered: {registered}/{total} ({enabled} enabled)</white>"
+
+  recovery:
+    disk-removed-from-bay: "<yellow>Removed disk from active drive bay slot.</yellow>"
   removal:
     error-exporter: "<red>Error removing exporter: {error}</red>"
     error-importer: "<red>Error removing importer: {error}</red>"
@@ -197,7 +226,7 @@ success:
     network-dissolved: "<yellow>Storage network dissolved. Drive bay contents preserved.</yellow>"
     drive-bay-no-network: "<yellow>Opening drive bay (no network connection).</yellow>"
     drive-bay-invalid-network: "<yellow>Opening drive bay (network is no longer valid).</yellow>"
-    search-cancelled: "<yellow>Search cancelled.</yellow>"
+
 
   storage:
     item-stored: "Successfully stored {amount} {item}"
@@ -251,7 +280,25 @@ gui:
     enabled: "<green>{device} enabled</green>"
     disabled: "<yellow>{device} disabled</yellow>"
     toggle-error: "<red>Error toggling {device}: {error}</red>"
-  
+
+  # Storage Disk Lore
+  storage-disk:
+    header: "<blue>Modular Storage System</blue>"
+    capacity: "<gray>Capacity: {capacity} items per cell</gray>"
+    cells-used: "{color}Cells Used: {used}/{max}"
+    total-capacity: "<aqua>Total Capacity: {total} items</aqua>"
+    crafted-by: "<dark_gray>Crafted by: {crafter}</dark_gray>"
+    disk-id: "<dark_gray>ID: {id}</dark_gray>"
+
+  # Component Names
+  components:
+    disk-platter-1k: "Disk Platter [1k]"
+    disk-platter-4k: "Disk Platter [4k]"
+    disk-platter-16k: "Disk Platter [16k]"
+    disk-platter-64k: "Disk Platter [64k]"
+    storage-disk-housing: "Storage Disk Housing"
+    mss-component: "MSS Component"
+
   # Terminal GUI
   terminal:
     title: "<green><b>Terminal"
@@ -267,11 +314,14 @@ gui:
       prompt: "Enter your search term."
       cancel-instruction: "Type 'cancel' to cancel the search."
       cleared: "Search cleared!"
+      search-cancelled: "<yellow>Search cancelled.</yellow>"
     sorting:
       alphabetical: "Sorting: Alphabetically"
       quantity: "Sorting: Quantity"
       to-alphabetical: "Click to sort alphabetically."
       to-quantity: "Click to sort by quantity"
+      mode-quantity: "quantity (most items first)"
+      mode-alphabetical: "alphabetical (A-Z)"
       changed: "Sorting changed to: {mode}"
     pagination:
       previous: "Previous Page"
@@ -289,6 +339,8 @@ gui:
       sort-mode: "Sort: {mode}"
       showing-range: "Showing: {start}-{end} of {total}"
       total-items: "{type} Items: {count}"
+      type-filtered: "Filtered"
+      type-total: "Total"
     item:
       quantity: "<yellow>Quantity: <white>{amount}"
 
@@ -304,6 +356,8 @@ gui:
   # Drive Bay GUI  
   drive-bay:
     title: "<green><b>Drive Bay"
+    info:
+      network: "{network}"
     slot:
       empty: "Empty Drive Slot"
       disk: "{tier} Storage Disk"
@@ -321,6 +375,8 @@ gui:
       inventory-full: "Your inventory is full!"
       database: "Failed to place disk - database error"
       invalid-disk: "Invalid storage disk!"
+      disk-insert-error: "<red>Error inserting disk: {error}</red>"
+      disk-remove-error: "<red>Error removing disk: {error}</red>"
 
   # Exporter GUI
   exporter:
@@ -494,6 +550,8 @@ gui:
     storage-disk-success: "<green>Storage Disk [{tier}] crafted successfully!</green>"
     vanilla-recipe-blocked: "<red>Mass Storage components cannot be used in vanilla recipes!</red>"
     search-expired: "<red>Search input expired. Please try again.</red>"
+    disk-registration-error: "<red>Error registering storage disk: {error}</red>"
+
 
   # Storage Operations
   storage:
@@ -545,7 +603,8 @@ storage-server-info:
   network-limits: "<yellow>Network Limits:</yellow>"
   blocks-limit: "  Blocks: {current}/{max}"
   cables-limit: "  Cables: {current}/{max}"
-  bus-limit: "  Bus Limit: {current}/{max}"
+  exporter-limit: " Exporters: {current}/{max}"
+  importer-limit: " Importers: {current}/{max}"
   storage-capacity: "Storage: {used}/{total} cells ({percent}%)"
   storage-no-disks: "<gray>Storage: No disks installed</gray>"
 
