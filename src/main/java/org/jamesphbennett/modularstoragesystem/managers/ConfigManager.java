@@ -23,6 +23,7 @@ public class ConfigManager {
     private int maxNetworkBlocks;
     private int maxNetworkCables;
     private int maxExporters;
+    private int maxImporters;
     private int maxDriveBaySlots;
     private int exportTickInterval;
     private Set<Material> blacklistedItems;
@@ -102,11 +103,24 @@ public class ConfigManager {
         maxNetworkBlocks = config.getInt("network.max_blocks", 128);
         maxNetworkCables = config.getInt("network.max_cables", 800);
         maxExporters = config.getInt("network.max_exporters", 200);
+        maxImporters = config.getInt("network.max_importers", 200);
+        
+        // Load tick interval (moved from storage section)
+        if (config.contains("storage.import_export_tick_interval")) {
+            exportTickInterval = config.getInt("storage.import_export_tick_interval", 20);
+            plugin.getLogger().warning("Config setting 'storage.import_export_tick_interval' should be moved to 'network.import_export_tick_interval'");
+        } else {
+            exportTickInterval = config.getInt("network.import_export_tick_interval", 20); // Default 20 ticks = 1 second
+        }
     }
 
     private void loadStorageSettings() {
         maxDriveBaySlots = config.getInt("storage.drive_bay_slots", 7);
-        exportTickInterval = config.getInt("storage.export_tick_interval", 20); // Default 20 ticks = 1 second
+        
+        // Legacy support for old export_tick_interval in storage section
+        if (config.contains("storage.export_tick_interval")) {
+            plugin.getLogger().warning("Config setting 'storage.export_tick_interval' is deprecated. Please move to 'network.import_export_tick_interval'");
+        }
 
         // NOTE: default_cells_per_disk config option is now IGNORED - hardcoded to 64
         if (config.contains("storage.default_cells_per_disk")) {
@@ -159,6 +173,10 @@ public class ConfigManager {
 
     public int getMaxExporters() {
         return maxExporters;
+    }
+
+    public int getMaxImporters() {
+        return maxImporters;
     }
 
     /*

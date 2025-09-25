@@ -726,7 +726,7 @@ public class RecipeManager {
     public void sendRecipeInfo(org.bukkit.entity.Player player, String recipeName) {
         ConfigurationSection recipeSection = configManager.getRecipeSection(recipeName);
         if (recipeSection == null) {
-            player.sendMessage(Component.text("Recipe '" + recipeName + "' not found!", NamedTextColor.RED));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recipes.recipe-not-found", "recipe", recipeName));
             return;
         }
 
@@ -738,38 +738,38 @@ public class RecipeManager {
         String resultItem = resultSection != null ? resultSection.getString("item", "unknown") : "unknown";
         int resultAmount = resultSection != null ? resultSection.getInt("amount", 1) : 1;
 
-        player.sendMessage(Component.text("=== Recipe: " + recipeName + " ===", NamedTextColor.GOLD));
-        player.sendMessage(Component.text("Status: " + (enabled ? "Enabled" : "Disabled"),
-                enabled ? NamedTextColor.GREEN : NamedTextColor.RED));
-        player.sendMessage(Component.text("Type: " + (isCustom ? "Custom Component Recipe" : "Vanilla Recipe"),
-                isCustom ? NamedTextColor.AQUA : NamedTextColor.YELLOW));
-        player.sendMessage(Component.text("Description: " + description, NamedTextColor.GRAY));
-        player.sendMessage(Component.text("Result: " + resultAmount + "x " + resultItem, NamedTextColor.YELLOW));
+        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recipes.recipe-header", "recipe", recipeName));
+        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recipes.recipe-status", "status", 
+                (enabled ? "Enabled" : "Disabled")));
+        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recipes.recipe-type", "type",
+                (isCustom ? "Custom Component Recipe" : "Vanilla Recipe")));
+        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recipes.recipe-description", "description", description));
+        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recipes.recipe-result", "amount", String.valueOf(resultAmount), "item", resultItem));
 
         // Show shape
         List<String> shape = recipeSection.getStringList("shape");
         if (!shape.isEmpty()) {
-            player.sendMessage(Component.text("Shape:", NamedTextColor.AQUA));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recipes.recipe-shape"));
             for (String row : shape) {
-                player.sendMessage(Component.text("  " + row, NamedTextColor.WHITE));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recipes.recipe-shape-row", "row", row));
             }
         }
 
         // Show ingredients
         ConfigurationSection ingredientsSection = recipeSection.getConfigurationSection("ingredients");
         if (ingredientsSection != null) {
-            player.sendMessage(Component.text("Ingredients:", NamedTextColor.AQUA));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recipes.recipe-ingredients"));
             for (String key : ingredientsSection.getKeys(false)) {
                 String material = ingredientsSection.getString(key);
                 String displayMaterial = (material != null && material.startsWith("mss:")) ?
                         Component.text(material, NamedTextColor.LIGHT_PURPLE).content() :
                         (material != null ? material : "null");
-                player.sendMessage(Component.text("  " + key + " = " + displayMaterial, NamedTextColor.WHITE));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recipes.recipe-ingredient", "key", key, "material", displayMaterial));
             }
         }
 
         if (isCustom) {
-            player.sendMessage(Component.text("Note: This recipe uses custom components and requires manual crafting validation.", NamedTextColor.GRAY));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recipes.recipe-custom-note"));
         }
     }
 
@@ -779,12 +779,12 @@ public class RecipeManager {
     public void listRecipes(org.bukkit.entity.Player player) {
         Set<String> recipeNames = configManager.getRecipeNames();
 
-        player.sendMessage(Component.text("=== Modular Storage System Recipes ===", NamedTextColor.GOLD));
-        player.sendMessage(Component.text("Recipes system: " + (configManager.areRecipesEnabled() ? "Enabled" : "Disabled"),
-                configManager.areRecipesEnabled() ? NamedTextColor.GREEN : NamedTextColor.RED));
-        player.sendMessage(Component.text("Registered: " + registeredRecipeCount + "/" + recipeNames.size() +
-                " (" + customComponentRecipes.size() + " custom)", NamedTextColor.YELLOW));
-        player.sendMessage(Component.text("", NamedTextColor.WHITE));
+        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recipes.recipes-header"));
+        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recipes.recipes-system-status", "status",
+                (configManager.areRecipesEnabled() ? "Enabled" : "Disabled")));
+        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recipes.recipes-registered-count", 
+                "registered", String.valueOf(registeredRecipeCount), "total", String.valueOf(recipeNames.size()), "enabled", String.valueOf(customComponentRecipes.size())));
+        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recipes.recipes-empty-line"));
 
         for (String recipeName : recipeNames) {
             boolean enabled = configManager.isRecipeEnabled(recipeName);
@@ -801,7 +801,7 @@ public class RecipeManager {
             player.sendMessage(message);
         }
 
-        player.sendMessage(Component.text("", NamedTextColor.WHITE));
-        player.sendMessage(Component.text("Use '/mss recipe <name>' for detailed recipe information", NamedTextColor.YELLOW));
+        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recipes.recipes-empty-line"));
+        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recipes.recipes-help"));
     }
 }

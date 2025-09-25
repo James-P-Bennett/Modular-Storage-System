@@ -1,7 +1,6 @@
 package org.jamesphbennett.modularstoragesystem.listeners;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -40,8 +39,6 @@ public class PistonListener implements Listener {
             if (isCustomNetworkBlockOrCable(block)) {
                 // Found a custom MSS block or cable in the path - cancel the entire piston event
                 event.setCancelled(true);
-                plugin.getLogger().info("Cancelled piston extend at " + event.getBlock().getLocation() +
-                        " - would move custom MSS block/cable at " + block.getLocation());
 
                 // Notify nearby players
                 notifyNearbyPlayers(event.getBlock().getLocation(),
@@ -74,8 +71,7 @@ public class PistonListener implements Listener {
             if (isCustomNetworkBlockOrCable(targetLocation.getBlock())) {
                 // A block would be pushed into a custom MSS block - cancel
                 event.setCancelled(true);
-                plugin.getLogger().info("Cancelled piston extend at " + event.getBlock().getLocation() +
-                        " - would push block into custom MSS block/cable at " + targetLocation);
+
 
                 // Notify nearby players
                 notifyNearbyPlayers(event.getBlock().getLocation(),
@@ -95,8 +91,7 @@ public class PistonListener implements Listener {
 
             if (isCustomNetworkBlockOrCable(frontTarget.getBlock())) {
                 event.setCancelled(true);
-                plugin.getLogger().info("Cancelled piston extend at " + event.getBlock().getLocation() +
-                        " - would push into custom MSS block/cable at " + frontTarget);
+
 
                 // Notify nearby players
                 notifyNearbyPlayers(event.getBlock().getLocation(),
@@ -119,8 +114,7 @@ public class PistonListener implements Listener {
             if (isCustomNetworkBlockOrCable(block)) {
                 // Found a custom MSS block or cable in the path - cancel the entire piston event
                 event.setCancelled(true);
-                plugin.getLogger().info("Cancelled piston retract at " + event.getBlock().getLocation() +
-                        " - would move custom MSS block/cable at " + block.getLocation());
+
 
                 // Notify nearby players
                 notifyNearbyPlayers(event.getBlock().getLocation(),
@@ -152,8 +146,7 @@ public class PistonListener implements Listener {
             if (isCustomNetworkBlockOrCable(targetLocation.getBlock())) {
                 // A block would be pulled into a custom MSS block - cancel
                 event.setCancelled(true);
-                plugin.getLogger().info("Cancelled piston retract at " + event.getBlock().getLocation() +
-                        " - would pull block into custom MSS block/cable at " + targetLocation);
+
 
                 // Notify nearby players
                 notifyNearbyPlayers(event.getBlock().getLocation(),

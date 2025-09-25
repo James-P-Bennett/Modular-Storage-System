@@ -519,7 +519,7 @@ public class DriveBayGUI implements Listener {
             plugin.debugLog("Successfully placed disk " + diskId + " in slot " + slotIndex);
             return true;
         } catch (Exception e) {
-            player.sendMessage(Component.text("Error inserting disk: " + e.getMessage(), NamedTextColor.RED));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "drive-bay.error.disk-insert-error", "error", e.getMessage()));
             plugin.getLogger().severe("Error inserting disk " + diskId + ": " + e.getMessage());
             plugin.getLogger().severe("Stack trace: " + java.util.Arrays.toString(e.getStackTrace()));
             return false;
@@ -561,7 +561,7 @@ public class DriveBayGUI implements Listener {
             player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.storage.disk-removed"));
             return true;
         } catch (Exception e) {
-            player.sendMessage(Component.text("Error removing disk: " + e.getMessage(), NamedTextColor.RED));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "drive-bay.error.disk-remove-error", "error", e.getMessage()));
             plugin.getLogger().severe("Error removing disk: " + e.getMessage());
             return false;
         }

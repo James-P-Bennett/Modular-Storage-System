@@ -57,7 +57,7 @@ public class CableManager {
             return true;
 
         } catch (Exception e) {
-            player.sendMessage(Component.text("Error placing cable: " + e.getMessage(), NamedTextColor.RED));
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.cable.placement-error", "error", e.getMessage()));
             plugin.getLogger().severe("Error placing cable: " + e.getMessage());
             return false;
         }

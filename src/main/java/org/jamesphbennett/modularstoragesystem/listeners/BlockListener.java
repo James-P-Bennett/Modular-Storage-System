@@ -7,7 +7,6 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.Directional;
-import org.bukkit.block.data.type.Crafter;
 import org.bukkit.util.Vector;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -25,7 +24,7 @@ import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
 import org.jamesphbennett.modularstoragesystem.managers.ItemManager;
 import org.jamesphbennett.modularstoragesystem.managers.ExporterManager;
 import org.jamesphbennett.modularstoragesystem.managers.ImporterManager;
-import org.jamesphbennett.modularstoragesystem.managers.NetworkSecurityManager;
+
 import static org.jamesphbennett.modularstoragesystem.managers.NetworkSecurityManager.PermissionType;
 import org.jamesphbennett.modularstoragesystem.network.NetworkConnectivityManager;
 import org.jamesphbennett.modularstoragesystem.network.NetworkManager;
@@ -142,8 +141,6 @@ public class BlockListener implements Listener {
 
                 // Create the exporter in the manager
                 String exporterId = plugin.getExporterManager().createExporter(location, nearbyNetworkId);
-                plugin.getLogger().info("Created exporter " + exporterId + " for player " + player.getName() + " at " + location +
-                        (nearbyNetworkId.equals("UNCONNECTED") ? " (unconnected)" : " (connected to " + nearbyNetworkId + ")"));
 
             } catch (Exception e) {
                 Component message = plugin.getMessageManager().getMessageComponent(player, "errors.placement.block-error", "error", e.getMessage());
@@ -190,8 +187,6 @@ public class BlockListener implements Listener {
 
                 // Create the importer in the manager
                 String importerId = plugin.getImporterManager().createImporter(location, nearbyNetworkId);
-                plugin.getLogger().info("Created importer " + importerId + " for player " + player.getName() + " at " + location +
-                        (nearbyNetworkId.equals("UNCONNECTED") ? " (unconnected)" : " (connected to " + nearbyNetworkId + ")"));
 
             } catch (Exception e) {
                 Component message = plugin.getMessageManager().getMessageComponent(player, "errors.placement.block-error", "error", e.getMessage());
@@ -218,8 +213,6 @@ public class BlockListener implements Listener {
             // THEN: Mark this location as containing our custom block in the database (SYNCHRONOUSLY)
             try {
                 markLocationAsCustomBlock(location, "SECURITY_TERMINAL");
-                Component message = plugin.getMessageManager().getMessageComponent(player, "success.placement.security-terminal");
-                player.sendMessage(message);
             } catch (Exception e) {
                 plugin.getLogger().severe("Error marking security terminal location: " + e.getMessage());
                 event.setCancelled(true);
@@ -331,12 +324,10 @@ public class BlockListener implements Listener {
                             }
                         }
                         plugin.getSecurityManager().createSecurityTerminal(location, player, networkId);
-                        plugin.debugLog("Created security terminal at " + location + " for player " + player.getName() + " with networkId " + networkId);
                         
                         // If we have a network, update the association immediately
                         if (networkId != null) {
                             plugin.getSecurityManager().updateTerminalNetwork(location, networkId);
-                            plugin.debugLog("Immediately updated security terminal network association to " + networkId);
                         } else {
                             // Schedule a delayed network association check in case network forms later
                             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
@@ -379,7 +370,6 @@ public class BlockListener implements Listener {
                         try {
                             String networkId = networkManager.getNetworkId(location);
                             plugin.getSecurityManager().updateTerminalNetwork(location, networkId);
-                            plugin.debugLog("Updated security terminal network association to " + networkId);
                         } catch (Exception e) {
                             plugin.getLogger().severe("Error updating security terminal network: " + e.getMessage());
                         }
@@ -404,9 +394,7 @@ public class BlockListener implements Listener {
                 } else {
                     if (itemManager.isStorageServer(item)) {
                         player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.storage-server-requirements"));
-                    } else if (itemManager.isNetworkCable(item)) {
-                        // Remove cable placement message - too spammy during network construction
-                    } else {
+                    }  else {
                         player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.block-needs-connection"));
                     }
                 }
@@ -461,7 +449,6 @@ public class BlockListener implements Listener {
                     if (exporterData != null) {
                         // Remove from exporter manager
                         plugin.getExporterManager().removeExporter(exporterData.exporterId);
-                        plugin.getLogger().info("Removed exporter " + exporterData.exporterId + " at " + location);
                     }
 
                     // Drop the custom item
@@ -490,7 +477,6 @@ public class BlockListener implements Listener {
                     if (importerData != null) {
                         // Remove from importer manager
                         plugin.getImporterManager().removeImporter(importerData.importerId);
-                        plugin.getLogger().info("Removed importer " + importerData.importerId + " at " + location);
                     }
 
                     // Drop the custom item
@@ -516,7 +502,6 @@ public class BlockListener implements Listener {
                 try {
                     // Remove from security manager
                     plugin.getSecurityManager().removeSecurityTerminal(location);
-                    plugin.getLogger().info("Removed security terminal at " + location);
 
                     // Drop the custom item
                     event.setDropItems(false);
@@ -542,7 +527,6 @@ public class BlockListener implements Listener {
                     plugin.getDisksManager().dropDriveBayContents(location, networkId);
                 } else {
                     // Drive bay is not part of a network - check for orphaned/standalone contents
-                    plugin.getLogger().info("Drive bay at " + location + " is not part of a network, checking for standalone contents");
                     plugin.getDisksManager().dropDriveBayContentsWithoutNetwork(location);
                 }
             }
@@ -583,8 +567,6 @@ public class BlockListener implements Listener {
                                     if (newNetworkId != null) {
                                         plugin.getGUIManager().refreshNetworkTerminals(newNetworkId);
                                     }
-                                    
-                                    plugin.debugLog("Detected network segment with " + updatedNetwork.getAllBlocks().size() + " blocks and " + updatedNetwork.getNetworkCables().size() + " cables");
                                 }
                             }
                         }
@@ -661,8 +643,7 @@ public class BlockListener implements Listener {
             // Player is in search mode - cancel the search and the interaction
             event.setCancelled(true);
             plugin.getGUIManager().cancelSearchInput(player);
-            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.search-cancelled"));
-            plugin.getLogger().info("Cancelled search input for player " + player.getName() + " due to block interaction");
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.search.search-cancelled"));
             return;
         }
 
@@ -891,11 +872,6 @@ public class BlockListener implements Listener {
         return isCustomNetworkBlock(block) || cableManager.isCustomNetworkCable(block) || isCustomExporter(block) || isCustomImporter(block) || isCustomSecurityTerminal(block);
     }
 
-    // Helper method for network signal carriers (excludes importers since they don't carry network signals)
-    private boolean isCustomNetworkBlockOrCableOrExporter(Block block) {
-        return isCustomNetworkBlock(block) || cableManager.isCustomNetworkCable(block) || isCustomExporter(block);
-    }
-
     private boolean isCustomNetworkBlock(Block block) {
         return isCustomStorageServer(block) || isCustomDriveBay(block) || isCustomMSSTerminal(block) || isCustomSecurityTerminal(block);
     }
@@ -1067,10 +1043,7 @@ public class BlockListener implements Listener {
                         stmt.setInt(4, driveBayLoc.getBlockY());
                         stmt.setInt(5, driveBayLoc.getBlockZ());
                         
-                        int updated = stmt.executeUpdate();
-                        if (updated > 0) {
-                            plugin.debugLog("Updated " + updated + " drive bay slots to network " + networkId + " at " + driveBayLoc);
-                        }
+                        stmt.executeUpdate();
                     }
                 }
             });
@@ -1160,9 +1133,10 @@ public class BlockListener implements Listener {
             int maxBlocks = plugin.getConfigManager().getMaxNetworkBlocks();
             int maxCables = plugin.getConfigManager().getMaxNetworkCables();
             int maxExporters = plugin.getConfigManager().getMaxExporters();
+            int maxImporters = plugin.getConfigManager().getMaxImporters();
             
             // Calculate total connected blocks (excluding cables)
-            int totalBlocks = driveBayCount + terminalCount + exporterCount + 1; // +1 for the server itself
+            int totalBlocks = driveBayCount + terminalCount + exporterCount + importerCount + 1; // +1 for the server itself
             
             // Display comprehensive information
             player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.header"));
@@ -1202,7 +1176,8 @@ public class BlockListener implements Listener {
             
             Component blocksMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.blocks-limit", "current", String.valueOf(totalBlocks), "max", String.valueOf(maxBlocks));
             Component cablesMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.cables-limit", "current", String.valueOf(cableCount), "max", String.valueOf(maxCables));
-            Component busMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.bus-limit", "current", String.valueOf(exporterCount), "max", String.valueOf(maxExporters));
+            Component exporterMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.exporter-limit", "current", String.valueOf(exporterCount), "max", String.valueOf(maxExporters));
+            Component importerMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.importer-limit", "current", String.valueOf(importerCount), "max", String.valueOf(maxImporters));
             
             // Apply color coding based on limits
             if (totalBlocks > maxBlocks) blocksMessage = blocksMessage.color(NamedTextColor.RED);
@@ -1211,12 +1186,16 @@ public class BlockListener implements Listener {
             if (cableCount > maxCables) cablesMessage = cablesMessage.color(NamedTextColor.RED);
             else cablesMessage = cablesMessage.color(NamedTextColor.GREEN);
             
-            if (exporterCount > maxExporters) busMessage = busMessage.color(NamedTextColor.RED);
-            else busMessage = busMessage.color(NamedTextColor.GREEN);
+            if (exporterCount > maxExporters) exporterMessage = exporterMessage.color(NamedTextColor.RED);
+            else exporterMessage = exporterMessage.color(NamedTextColor.GREEN);
+            
+            if (importerCount > maxImporters) importerMessage = importerMessage.color(NamedTextColor.RED);
+            else importerMessage = importerMessage.color(NamedTextColor.GREEN);
             
             player.sendMessage(blocksMessage);
             player.sendMessage(cablesMessage);
-            player.sendMessage(busMessage);
+            player.sendMessage(exporterMessage);
+            player.sendMessage(importerMessage);
             
             // Storage Information (only for valid networks)
             if (isValidNetwork) {
@@ -1355,11 +1334,8 @@ public class BlockListener implements Listener {
             return;
         }
 
-        plugin.debugLog("Setting direction for " + block.getType() + " at " + block.getLocation());
-
         // Check if the block data implements Directional (both Crafter and Observer do)
         if (!(block.getBlockData() instanceof Directional directional)) {
-            plugin.debugLog("Block is not directional: " + block.getBlockData().getClass().getName());
             return;
         }
 
@@ -1378,53 +1354,11 @@ public class BlockListener implements Listener {
             facing = z > 0 ? org.bukkit.block.BlockFace.NORTH : org.bukkit.block.BlockFace.SOUTH;
         }
         
-        plugin.debugLog("Player direction: x=" + x + ", z=" + z + " -> facing=" + facing);
-        plugin.debugLog("Available faces: " + directional.getFaces());
-        plugin.debugLog("Current facing: " + directional.getFacing());
-        
         // Set the facing direction if it's a valid option for this block
         if (directional.getFaces().contains(facing)) {
             directional.setFacing(facing);
             block.setBlockData(directional);
-            plugin.debugLog("Set facing to: " + facing);
-        } else {
-            plugin.debugLog("Facing " + facing + " not available for this block");
         }
-    }
-
-    /**
-     * Check if a network already has a security terminal using database lookup
-     */
-    private boolean hasExistingSecurityTerminalInNetwork(String networkId) {
-        try (Connection conn = plugin.getDatabaseManager().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(
-                     "SELECT COUNT(*) FROM security_terminals WHERE network_id = ?")) {
-            
-            stmt.setString(1, networkId);
-            
-            try (ResultSet rs = stmt.executeQuery()) {
-                int count = rs.next() ? rs.getInt(1) : 0;
-                plugin.getLogger().info("[Security Terminal Debug] Database query result: " + count + " security terminals in network " + networkId);
-                return count > 0;
-            }
-        } catch (SQLException e) {
-            plugin.getLogger().severe("Error checking existing security terminals in network: " + e.getMessage());
-            // If database check fails, allow placement to avoid blocking legitimate placements
-            return false;
-        }
-    }
-
-    /**
-     * Check if there are any adjacent MSS blocks or cables
-     */
-    private boolean hasAdjacentMSSBlocks(Location location) {
-        for (Location adjacent : getAdjacentLocations(location)) {
-            Block block = adjacent.getBlock();
-            if (isCustomNetworkBlock(block) || cableManager.isCustomNetworkCable(block)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
@@ -1444,7 +1378,6 @@ public class BlockListener implements Listener {
             if (isCustomSecurityTerminal(adjacentBlock)) {
                 // Check if player is the owner of this security terminal
                 if (!plugin.getSecurityManager().isOwner(player, adjacent)) {
-                    plugin.debugLog("Player " + player.getName() + " tried to place cable near security terminal at " + adjacent + " but doesn't own it");
                     return false;
                 }
             }

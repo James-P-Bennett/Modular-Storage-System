@@ -134,11 +134,7 @@ public class DatabaseManager {
                         "UPDATE storage_disks SET max_cells = ? WHERE max_cells != ?")) {
                     stmt.setInt(1, 64); // New standard
                     stmt.setInt(2, 64); // Only update if not already 64
-                    int updatedCount = stmt.executeUpdate();
 
-                    if (updatedCount > 0) {
-                        plugin.getLogger().info("Updated " + updatedCount + " storage disks to have 64 max_cells");
-                    }
                 }
 
                 conn.commit();

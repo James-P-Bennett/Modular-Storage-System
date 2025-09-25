@@ -22,7 +22,7 @@ public class MessageManager {
     private final ModularStorageSystem plugin;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
     private final Map<String, YamlConfiguration> loadedLanguages = new ConcurrentHashMap<>();
-    private final Pattern placeholderPattern = Pattern.compile("\\{([^}]+)\\}");
+    private final Pattern placeholderPattern = Pattern.compile("\\{([^}]+)}");
     
     // Default language fallback
     private static final String DEFAULT_LANGUAGE = "en_US";
@@ -31,13 +31,13 @@ public class MessageManager {
         this.plugin = plugin;
         loadLanguages();
     }
-    
+
     /**
      * Load all available language files from resources and custom folder
      */
     private void loadLanguages() {
         // Always load default English from resources
-        loadLanguageFromResources(DEFAULT_LANGUAGE);
+        loadLanguageFromResources();
         
         // Create lang directory if it doesn't exist and copy default files
         File langDir = new File(plugin.getDataFolder(), "lang");
@@ -83,15 +83,15 @@ public class MessageManager {
     /**
      * Load language file from plugin resources
      */
-    private void loadLanguageFromResources(String langCode) {
-        try (InputStream stream = plugin.getResource("lang/" + langCode + ".yml")) {
+    private void loadLanguageFromResources() {
+        try (InputStream stream = plugin.getResource("lang/" + MessageManager.DEFAULT_LANGUAGE + ".yml")) {
             if (stream != null) {
                 YamlConfiguration config = YamlConfiguration.loadConfiguration(new InputStreamReader(stream, StandardCharsets.UTF_8));
-                loadedLanguages.put(langCode, config);
-                plugin.getLogger().info("Loaded language: " + langCode + " from resources");
+                loadedLanguages.put(MessageManager.DEFAULT_LANGUAGE, config);
+                plugin.getLogger().info("Loaded language: " + MessageManager.DEFAULT_LANGUAGE + " from resources");
             }
         } catch (Exception e) {
-            plugin.getLogger().warning("Failed to load language " + langCode + " from resources: " + e.getMessage());
+            plugin.getLogger().warning("Failed to load language " + MessageManager.DEFAULT_LANGUAGE + " from resources: " + e.getMessage());
         }
     }
     
@@ -131,15 +131,7 @@ public class MessageManager {
         
         return miniMessage.deserialize(message);
     }
-    
-    /**
-     * Get message component without prefix for a specific player (for cases where prefix is not wanted)
-     */
-    public Component getMessageComponentNoPrefix(Player player, String key, Object... placeholders) {
-        String message = getMessage(player, key, placeholders);
-        return miniMessage.deserialize(message);
-    }
-    
+
     /**
      * Get message for console/server (always uses default language)
      * Console messages do NOT get the [MSS] prefix - they remain as-is
@@ -148,14 +140,7 @@ public class MessageManager {
         String message = getMessage(DEFAULT_LANGUAGE, key, placeholders);
         return stripFormatting(message);
     }
-    
-    /**
-     * Get message for console/server without prefix (always uses default language)
-     */
-    public String getConsoleMessageNoPrefix(String key, Object... placeholders) {
-        return getMessage(DEFAULT_LANGUAGE, key, placeholders);
-    }
-    
+
     /**
      * Strip MiniMessage formatting for console output
      */
@@ -220,7 +205,7 @@ public class MessageManager {
             }
             
             Matcher matcher = placeholderPattern.matcher(message);
-            StringBuffer result = new StringBuffer();
+            StringBuilder result = new StringBuilder();
             
             while (matcher.find()) {
                 String key = matcher.group(1);
@@ -277,14 +262,7 @@ public class MessageManager {
         loadedLanguages.clear();
         loadLanguages();
     }
-    
-    /**
-     * Get all loaded languages
-     */
-    public Map<String, YamlConfiguration> getLoadedLanguages() {
-        return new HashMap<>(loadedLanguages);
-    }
-    
+
     /**
      * Determine if a message key should include the [MSS] prefix
      * Only CHAT messages should have the prefix - GUI elements and console remain as-is

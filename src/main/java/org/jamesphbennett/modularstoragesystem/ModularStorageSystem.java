@@ -3,6 +3,7 @@ package org.jamesphbennett.modularstoragesystem;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jamesphbennett.modularstoragesystem.commands.MSSCommand;
 import org.jamesphbennett.modularstoragesystem.database.DatabaseManager;
+import org.jamesphbennett.modularstoragesystem.listeners.AnvilListener;
 import org.jamesphbennett.modularstoragesystem.listeners.BlockListener;
 import org.jamesphbennett.modularstoragesystem.listeners.PlayerListener;
 import org.jamesphbennett.modularstoragesystem.listeners.PistonListener;
@@ -72,6 +73,7 @@ public final class ModularStorageSystem extends JavaPlugin {
             getServer().getPluginManager().registerEvents(new BlockListener(this), this);
             getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
             getServer().getPluginManager().registerEvents(new PistonListener(this), this);
+            getServer().getPluginManager().registerEvents(new AnvilListener(this), this);
 
             Objects.requireNonNull(getCommand("mss")).setExecutor(new MSSCommand(this));
 

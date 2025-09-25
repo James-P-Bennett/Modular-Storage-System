@@ -461,14 +461,14 @@ public class ItemManager {
                 (usedCells >= maxCells * 0.8) ? "<yellow>" : "<green>";
 
         List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<blue>Modular Storage System"));
+        lore.add(plugin.getMessageManager().getMessageComponent(null, "gui.storage-disk.header"));
         lore.add(Component.empty());
-        lore.add(miniMessage.deserialize("<gray>Capacity: " + String.format("%,d", itemsPerCell) + " items per cell"));
-        lore.add(miniMessage.deserialize(usageColor + "Cells Used: " + usedCells + "/" + maxCells));
-        lore.add(miniMessage.deserialize("<aqua>Total Capacity: " + String.format("%,d", totalCapacity) + " items"));
+        lore.add(plugin.getMessageManager().getMessageComponent(null, "gui.storage-disk.capacity", "capacity", String.format("%,d", itemsPerCell)));
+        lore.add(miniMessage.deserialize(plugin.getMessageManager().getMessage("en_US", "gui.storage-disk.cells-used", "color", usageColor, "used", String.valueOf(usedCells), "max", String.valueOf(maxCells))));
+        lore.add(plugin.getMessageManager().getMessageComponent(null, "gui.storage-disk.total-capacity", "total", String.format("%,d", totalCapacity)));
         lore.add(Component.empty());
-        lore.add(miniMessage.deserialize("<dark_gray>Crafted by: " + crafterName));
-        lore.add(miniMessage.deserialize("<dark_gray>ID: " + diskId));
+        lore.add(plugin.getMessageManager().getMessageComponent(null, "gui.storage-disk.crafted-by", "crafter", crafterName));
+        lore.add(plugin.getMessageManager().getMessageComponent(null, "gui.storage-disk.disk-id", "id", diskId));
         meta.lore(lore);
 
         // Update persistent data

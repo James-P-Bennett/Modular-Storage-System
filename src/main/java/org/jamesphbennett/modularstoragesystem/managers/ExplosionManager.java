@@ -53,9 +53,6 @@ public class ExplosionManager {
             return; // No MSS blocks affected
         }
 
-        plugin.getLogger().info("Explosion at " + explosionLocation + " affecting " + customBlocksToHandle.size() +
-                " MSS blocks (" + driveBayLocations.size() + " drive bays, " + exporterLocations.size() + " exporters, " + 
-                importerLocations.size() + " importers, " + securityTerminalLocations.size() + " security terminals)");
 
         // Handle drive bay contents BEFORE blocks are destroyed
         for (Location driveBayLoc : driveBayLocations) {
@@ -68,61 +65,45 @@ public class ExplosionManager {
                 }
 
                 if (networkId != null) {
-                    plugin.debugLog("Dropping drive bay contents at " + driveBayLoc + " (network: " + networkId + ") due to explosion");
                     plugin.getDisksManager().dropDriveBayContents(driveBayLoc, networkId);
                 } else {
-                    plugin.debugLog("Drive bay at " + driveBayLoc + " has no network association, checking for orphaned contents");
                     plugin.getDisksManager().dropDriveBayContentsWithoutNetwork(driveBayLoc);
                 }
             } catch (Exception e) {
                 plugin.getLogger().severe("Error handling drive bay explosion at " + driveBayLoc + ": " + e.getMessage());
-                plugin.getLogger().severe("Stack trace: " + java.util.Arrays.toString(e.getStackTrace()));
             }
         }
 
         // Handle exporter cleanup BEFORE blocks are destroyed
         for (Location exporterLoc : exporterLocations) {
             try {
-                plugin.getLogger().info("Cleaning up exporter data at " + exporterLoc + " due to explosion");
                 var exporterData = plugin.getExporterManager().getExporterAtLocation(exporterLoc);
                 if (exporterData != null) {
                     plugin.getExporterManager().removeExporter(exporterData.exporterId);
-                    plugin.getLogger().info("Removed exporter " + exporterData.exporterId + " due to explosion");
-                } else {
-                    plugin.getLogger().warning("No exporter data found at " + exporterLoc + " during explosion cleanup");
                 }
             } catch (Exception e) {
                 plugin.getLogger().severe("Error handling exporter explosion at " + exporterLoc + ": " + e.getMessage());
-                plugin.getLogger().severe("Stack trace: " + java.util.Arrays.toString(e.getStackTrace()));
             }
         }
 
         // Handle importer cleanup BEFORE blocks are destroyed
         for (Location importerLoc : importerLocations) {
             try {
-                plugin.getLogger().info("Cleaning up importer data at " + importerLoc + " due to explosion");
                 var importerData = plugin.getImporterManager().getImporterAtLocation(importerLoc);
                 if (importerData != null) {
                     plugin.getImporterManager().removeImporter(importerData.importerId);
-                    plugin.getLogger().info("Removed importer " + importerData.importerId + " due to explosion");
-                } else {
-                    plugin.getLogger().warning("No importer data found at " + importerLoc + " during explosion cleanup");
                 }
             } catch (Exception e) {
                 plugin.getLogger().severe("Error handling importer explosion at " + importerLoc + ": " + e.getMessage());
-                plugin.getLogger().severe("Stack trace: " + java.util.Arrays.toString(e.getStackTrace()));
             }
         }
 
         // Handle security terminal cleanup BEFORE blocks are destroyed
         for (Location securityTerminalLoc : securityTerminalLocations) {
             try {
-                plugin.getLogger().info("Cleaning up security terminal data at " + securityTerminalLoc + " due to explosion");
                 plugin.getSecurityManager().removeSecurityTerminal(securityTerminalLoc);
-                plugin.getLogger().info("Removed security terminal at " + securityTerminalLoc + " due to explosion");
             } catch (Exception e) {
                 plugin.getLogger().severe("Error handling security terminal explosion at " + securityTerminalLoc + ": " + e.getMessage());
-                plugin.getLogger().severe("Stack trace: " + java.util.Arrays.toString(e.getStackTrace()));
             }
         }
 
@@ -146,7 +127,6 @@ public class ExplosionManager {
                     // Drop our custom item
                     if (customItem != null) {
                         block.getWorld().dropItemNaturally(block.getLocation(), customItem);
-                        plugin.getLogger().info("Dropped custom item for " + getBlockTypeFromBlock(block) + " at " + block.getLocation());
                     }
 
                 } catch (Exception e) {
@@ -223,7 +203,6 @@ public class ExplosionManager {
                                 if (updatedNetwork != null && updatedNetwork.isValid()) {
                                     plugin.getNetworkManager().registerNetwork(updatedNetwork, null); // No player for explosions
                                     networkStillValid = true;
-                                    plugin.getLogger().info("Network " + networkId + " updated after explosion");
                                 }
                             }
                         }
@@ -235,7 +214,6 @@ public class ExplosionManager {
                 if (!networkStillValid) {
                     // Network is destroyed, unregister it
                     plugin.getNetworkManager().unregisterNetwork(networkId);
-                    plugin.getLogger().info("Network " + networkId + " dissolved due to explosion");
                 }
 
             } catch (Exception e) {

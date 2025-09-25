@@ -43,7 +43,6 @@ public class NetworkSecurityManager {
             }
         });
         
-        plugin.getLogger().info("Created security terminal " + terminalId + " at " + location + " for " + owner.getName());
         return terminalId;
     }
 
@@ -64,7 +63,6 @@ public class NetworkSecurityManager {
             }
         });
         
-        plugin.getLogger().info("Removed security terminal at " + location);
     }
 
     /**
@@ -92,7 +90,6 @@ public class NetworkSecurityManager {
                 }
             }
         } catch (SQLException e) {
-            plugin.getLogger().severe("Error getting security terminal: " + e.getMessage());
         }
         return null;
     }
@@ -108,18 +105,14 @@ public class NetworkSecurityManager {
      * Check if a player has permission to access a network resource at a specific location
      */
     public boolean hasPermission(Player player, String networkId, PermissionType permissionType, Location accessLocation) {
-        plugin.debugLog("=== SECURITY CHECK DEBUG ===");
-        plugin.debugLog("Player: " + player.getName() + ", NetworkID: " + networkId + ", PermissionType: " + permissionType);
         
         // Admin bypass - mss.admin permission overrides all security restrictions
         if (player.hasPermission("mss.admin")) {
-            plugin.debugLog("Admin bypass granted for " + player.getName());
             return true;
         }
         
         // If no network ID, allow access (networks without security terminals are open)
         if (networkId == null) {
-            plugin.debugLog("No network ID - allowing access");
             return true;
         }
         
@@ -127,24 +120,19 @@ public class NetworkSecurityManager {
         SecurityTerminalData terminal = accessLocation != null ? 
             getSecurityTerminalForNetwork(networkId, accessLocation) : 
             getSecurityTerminalForNetworkLegacy(networkId);
-        plugin.debugLog("Security terminal found: " + (terminal != null ? "YES (Owner: " + terminal.ownerName + ")" : "NO"));
         
         if (terminal == null) {
             // No security terminal for this network - allow access
-            plugin.debugLog("No security terminal found for network " + networkId + " - allowing access");
             return true;
         }
         
         // Check if player is the owner
         if (player.getUniqueId().toString().equals(terminal.ownerUuid)) {
-            plugin.debugLog("Player is owner - allowing access");
             return true;
         }
         
         // Check if player is trusted
         boolean isTrusted = isPlayerTrusted(terminal.terminalId, player.getUniqueId().toString(), permissionType);
-        plugin.debugLog("Player trusted: " + isTrusted);
-        plugin.debugLog("=== END SECURITY CHECK DEBUG ===");
         return isTrusted;
     }
 
@@ -169,7 +157,6 @@ public class NetworkSecurityManager {
                 }
             }
         } catch (SQLException e) {
-            plugin.getLogger().severe("Error checking player trust: " + e.getMessage());
         }
         return false;
     }
@@ -178,7 +165,6 @@ public class NetworkSecurityManager {
      * Legacy method: Get security terminal without connectivity check (for backward compatibility)
      */
     private SecurityTerminalData getSecurityTerminalForNetworkLegacy(String networkId) {
-        plugin.debugLog("--- Getting security terminal for network (legacy): " + networkId);
         
         try (Connection conn = plugin.getDatabaseManager().getConnection();
              PreparedStatement stmt = conn.prepareStatement(
@@ -200,11 +186,9 @@ public class NetworkSecurityManager {
                     
                     // Check what network this terminal is ACTUALLY connected to right now
                     String actualNetworkId = plugin.getNetworkManager().getNetworkId(terminalLocation);
-                    plugin.debugLog("Security terminal at " + terminalLocation + " is connected to network: " + actualNetworkId);
                     
                     // If this terminal is connected to the network we're checking
                     if (networkId.equals(actualNetworkId)) {
-                        plugin.debugLog("Found security terminal for network " + networkId + " owned by " + rs.getString("owner_name"));
                         return new SecurityTerminalData(
                             rs.getString("terminal_id"),
                             rs.getString("owner_uuid"),
@@ -215,10 +199,8 @@ public class NetworkSecurityManager {
                 }
             }
         } catch (SQLException e) {
-            plugin.getLogger().severe("Error getting security terminal for network: " + e.getMessage());
         }
         
-        plugin.debugLog("No security terminal found for network " + networkId);
         return null;
     }
 
@@ -227,7 +209,6 @@ public class NetworkSecurityManager {
      * Uses connectivity check to see if the terminal can actually reach the block being accessed
      */
     private SecurityTerminalData getSecurityTerminalForNetwork(String networkId, Location accessLocation) {
-        plugin.debugLog("--- Getting security terminal for network: " + networkId + " accessible from: " + accessLocation);
         
         try (Connection conn = plugin.getDatabaseManager().getConnection();
              PreparedStatement stmt = conn.prepareStatement(
@@ -249,13 +230,11 @@ public class NetworkSecurityManager {
                     
                     // Check what network this terminal is ACTUALLY connected to right now
                     String actualNetworkId = plugin.getNetworkManager().getNetworkId(terminalLocation);
-                    plugin.debugLog("Security terminal at " + terminalLocation + " is connected to network: " + actualNetworkId);
                     
                     // If this terminal is connected to the network we're checking
                     if (networkId.equals(actualNetworkId)) {
                         // Additional check: Can the terminal actually reach the access location?
                         if (isConnectedViaNetwork(terminalLocation, accessLocation)) {
-                            plugin.debugLog("Found REACHABLE security terminal for network " + networkId + " owned by " + rs.getString("owner_name"));
                             return new SecurityTerminalData(
                                 rs.getString("terminal_id"),
                                 rs.getString("owner_uuid"),
@@ -263,16 +242,13 @@ public class NetworkSecurityManager {
                                 actualNetworkId
                             );
                         } else {
-                            plugin.debugLog("Security terminal found but NOT REACHABLE from access location - network may be split");
                         }
                     }
                 }
             }
         } catch (SQLException e) {
-            plugin.getLogger().severe("Error getting security terminal for network: " + e.getMessage());
         }
         
-        plugin.debugLog("No reachable security terminal found for network " + networkId);
         return null;
     }
 
@@ -347,10 +323,8 @@ public class NetworkSecurityManager {
             
             int updated = stmt.executeUpdate();
             if (updated > 0) {
-                plugin.debugLog("Cleaned up orphaned security terminal association at " + terminalLocation);
             }
         } catch (SQLException e) {
-            plugin.getLogger().severe("Error cleaning up security terminal association: " + e.getMessage());
         }
     }
 
@@ -403,10 +377,8 @@ public class NetworkSecurityManager {
             int updated = stmt.executeUpdate();
             
             if (updated > 0) {
-                plugin.debugLog("Disconnected " + updated + " security terminals from invalidated network " + networkId);
             }
         } catch (SQLException e) {
-            plugin.getLogger().severe("Error handling security terminal network invalidation: " + e.getMessage());
         }
     }
 
@@ -424,11 +396,9 @@ public class NetworkSecurityManager {
                 
                 int updated = stmt.executeUpdate();
                 if (updated > 0) {
-                    plugin.debugLog("Cleaned up " + updated + " orphaned security terminal network associations");
                 }
             }
         } catch (SQLException e) {
-            plugin.getLogger().severe("Error cleaning up orphaned security terminals: " + e.getMessage());
         }
     }
 

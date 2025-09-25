@@ -1,7 +1,5 @@
 package org.jamesphbennett.modularstoragesystem.listeners;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -43,7 +41,6 @@ public class PlayerListener implements Listener {
 
         // Check if player is awaiting search input
         if (plugin.getGUIManager().isAwaitingSearchInput(player)) {
-            plugin.getLogger().info("Player " + player.getName() + " sent search input: '" + message + "'");
 
             // Cancel the chat event so it doesn't appear in public chat
             event.setCancelled(true);
@@ -60,7 +57,6 @@ public class PlayerListener implements Listener {
 
         // Check if player is awaiting player input for security terminal
         if (plugin.getGUIManager().isAwaitingPlayerInput(player)) {
-            plugin.getLogger().info("Player " + player.getName() + " sent player input: '" + message + "'");
 
             // Cancel the chat event so it doesn't appear in public chat
             event.setCancelled(true);
@@ -113,7 +109,7 @@ public class PlayerListener implements Listener {
         }
 
         // Check if the disk has any contents (used capacity > 0)
-        if (hasStorageContent(item, player)) {
+        if (hasStorageContent(item)) {
             player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.disk.cannot-dismantle-with-items"));
             return;
         }
@@ -163,9 +159,8 @@ public class PlayerListener implements Listener {
         }
 
         // Remove disk from database if it exists
-        removeStorageDiskFromDatabase(item, player);
+        removeStorageDiskFromDatabase(item);
 
-        plugin.getLogger().info("Player " + player.getName() + " dismantled a " + diskTier + " storage disk");
     }
 
     /**
@@ -191,9 +186,6 @@ public class PlayerListener implements Listener {
         // Check for custom component recipes FIRST
         if (customRecipeName != null) {
             // This matches a custom component recipe
-            if (plugin.getConfigManager().isDebugMode()) {
-                plugin.getLogger().info("Custom component recipe matched: " + customRecipeName);
-            }
 
             // Check if recipe is enabled
             if (!plugin.getConfigManager().isRecipeEnabled(customRecipeName)) {
@@ -205,9 +197,6 @@ public class PlayerListener implements Listener {
             ItemStack result = plugin.getRecipeManager().getCustomRecipeResult(customRecipeName);
             if (result != null) {
                 event.getInventory().setResult(result);
-                if (plugin.getConfigManager().isDebugMode()) {
-                    plugin.getLogger().info("Set custom recipe result: " + result.getType() + " for " + customRecipeName);
-                }
             }
             return; // IMPORTANT: Return here to avoid blocking the recipe
         }
@@ -221,23 +210,16 @@ public class PlayerListener implements Listener {
 
                 // Allow display recipes to show results (we'll validate during crafting)
                 if (namespace.equals(plugin.getName().toLowerCase()) && recipeKey.endsWith("_display")) {
-                    plugin.getLogger().info("Allowing display recipe to show result: " + recipeKey);
                     return; // Let the display recipe work normally
                 }
 
                 // If this is not an MSS recipe, prevent crafting
                 if (!namespace.equals(plugin.getName().toLowerCase())) {
                     event.getInventory().setResult(null);
-                    plugin.getLogger().info("Prevented MSS items from being used in vanilla recipe: " + shapedRecipe.getKey().getKey());
                 }
             } else if (recipe != null) {
                 // Not a shaped recipe but contains MSS items - prevent it
                 event.getInventory().setResult(null);
-                plugin.getLogger().info("Prevented MSS items from being used in non-shaped recipe");
-            } else {
-                // No recipe detected but MSS items present - this might be a custom component recipe that wasn't matched
-                // Don't block it here, let the crafting event handle it
-                plugin.getLogger().info("MSS items detected but no recipe matched - allowing for potential custom component recipe");
             }
         }
     }
@@ -276,10 +258,6 @@ public class PlayerListener implements Listener {
 
             // Handle display recipes - these work automatically with RecipeChoice, but we add logging
             if (recipeKey.endsWith("_display")) {
-                String realRecipeName = recipeKey.replace("_display", "");
-                String componentName = getComponentDisplayName(realRecipeName);
-                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.crafting.component-success", "component", componentName));
-                plugin.getLogger().info("Player " + player.getName() + " crafted " + realRecipeName + " using display recipe");
                 return;
             }
 
@@ -290,7 +268,6 @@ public class PlayerListener implements Listener {
             }
 
             // Other MSS items (blocks, cables) are handled normally by vanilla system
-            plugin.getLogger().info("Player " + player.getName() + " crafted vanilla MSS item: " + recipeKey);
             return;
         }
 
@@ -339,7 +316,6 @@ public class PlayerListener implements Listener {
             if (!isMSSRecipe) {
                 event.setCancelled(true);
                 player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.crafting.vanilla-recipe-blocked"));
-                plugin.getLogger().info("Prevented player " + player.getName() + " from using MSS items in non-MSS recipe");
             }
         }
     }
@@ -390,9 +366,8 @@ public class PlayerListener implements Listener {
             // Register the disk in the database
             try {
                 registerStorageDisk(storageDisk, player, diskType);
-                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.crafting.storage-disk-success", "tier", diskType.toUpperCase()));
             } catch (SQLException e) {
-                player.sendMessage(Component.text("Error registering storage disk: " + e.getMessage(), NamedTextColor.RED));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.crafting.disk-registration-error", "error", e.getMessage()));
                 plugin.getLogger().severe("Error registering storage disk: " + e.getMessage());
             }
         }
@@ -411,7 +386,6 @@ public class PlayerListener implements Listener {
         if (result != null) {
             String componentName = getComponentDisplayName(recipeName);
             player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.crafting.component-success", "component", componentName));
-            plugin.getLogger().info("Player " + player.getName() + " crafted custom component: " + recipeName);
         }
     }
 
@@ -459,10 +433,8 @@ public class PlayerListener implements Listener {
             // Register the disk in the database
             try {
                 registerStorageDisk(storageDisk, player, diskType);
-                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.crafting.storage-disk-success", "tier", diskType.toUpperCase()));
-                plugin.getLogger().info("Player " + player.getName() + " crafted " + diskType + " storage disk via alternative recipe: " + recipeName);
             } catch (SQLException e) {
-                player.sendMessage(Component.text("Error registering storage disk: " + e.getMessage(), NamedTextColor.RED));
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.crafting.disk-registration-error", "error", e.getMessage()));
                 plugin.getLogger().severe("Error registering storage disk: " + e.getMessage());
             }
         }
@@ -473,12 +445,12 @@ public class PlayerListener implements Listener {
      */
     private String getComponentDisplayName(String recipeName) {
         return switch (recipeName) {
-            case "disk_platter_1k" -> "Disk Platter [1k]";
-            case "disk_platter_4k" -> "Disk Platter [4k]";
-            case "disk_platter_16k" -> "Disk Platter [16k]";
-            case "disk_platter_64k" -> "Disk Platter [64k]";
-            case "storage_disk_housing" -> "Storage Disk Housing";
-            default -> "MSS Component";
+            case "disk_platter_1k" -> plugin.getMessageManager().getMessage("en_US", "gui.components.disk-platter-1k");
+            case "disk_platter_4k" -> plugin.getMessageManager().getMessage("en_US", "gui.components.disk-platter-4k");
+            case "disk_platter_16k" -> plugin.getMessageManager().getMessage("en_US", "gui.components.disk-platter-16k");
+            case "disk_platter_64k" -> plugin.getMessageManager().getMessage("en_US", "gui.components.disk-platter-64k");
+            case "storage_disk_housing" -> plugin.getMessageManager().getMessage("en_US", "gui.components.storage-disk-housing");
+            default -> plugin.getMessageManager().getMessage("en_US", "gui.components.mss-component");
         };
     }
 
@@ -517,7 +489,6 @@ public class PlayerListener implements Listener {
             }
         });
 
-        plugin.getLogger().info("Registered " + tier + " storage disk " + diskId + " for player " + player.getName() + " with " + maxCells + " cells");
     }
 
     private boolean isMSSRecipe(ShapedRecipe recipe) {
@@ -527,7 +498,7 @@ public class PlayerListener implements Listener {
     /**
      * Check if a storage disk has any contents (used capacity > 0)
      */
-    private boolean hasStorageContent(ItemStack disk, Player player) {
+    private boolean hasStorageContent(ItemStack disk) {
         String diskId = itemManager.getStorageDiskId(disk);
         if (diskId == null) {
             return false; // If no disk ID, assume it's empty
@@ -553,7 +524,7 @@ public class PlayerListener implements Listener {
     /**
      * Remove a storage disk from the database when recycled
      */
-    private void removeStorageDiskFromDatabase(ItemStack disk, Player player) {
+    private void removeStorageDiskFromDatabase(ItemStack disk) {
         String diskId = itemManager.getStorageDiskId(disk);
         if (diskId == null) {
             return; // No disk ID, nothing to remove
@@ -564,19 +535,11 @@ public class PlayerListener implements Listener {
                 // First, remove any storage items associated with this disk
                 try (var stmt1 = conn.prepareStatement("DELETE FROM storage_items WHERE disk_id = ?")) {
                     stmt1.setString(1, diskId);
-                    int itemsRemoved = stmt1.executeUpdate();
-                    if (itemsRemoved > 0) {
-                        plugin.getLogger().info("Removed " + itemsRemoved + " storage items for recycled disk " + diskId);
-                    }
                 }
 
                 // Then, remove the disk record
                 try (var stmt2 = conn.prepareStatement("DELETE FROM storage_disks WHERE disk_id = ?")) {
                     stmt2.setString(1, diskId);
-                    int disksRemoved = stmt2.executeUpdate();
-                    if (disksRemoved > 0) {
-                        plugin.getLogger().info("Removed disk record for recycled disk " + diskId);
-                    }
                 }
             });
         } catch (SQLException e) {

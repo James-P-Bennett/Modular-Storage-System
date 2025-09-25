@@ -644,7 +644,7 @@ public class GUIManager {
         }
 
         for (Player player : terminalsToClose) {
-            forceCloseGUI(player, "Storage network is no longer valid.");
+            forceCloseGUI(player, plugin.getMessageManager().getMessage(player, "errors.gui.network-invalid"));
         }
 
         if (!terminalsToClose.isEmpty()) {
