@@ -206,8 +206,8 @@ public class TerminalGUI implements Listener {
         }
 
         infoLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.terminal.pagination.page-info", "current", (currentPage + 1), "total", maxPages));
-        Component sortModeLabel = isQuantitySortActive ? plugin.getMessageManager().getMessageComponent(null, "gui.terminal.sorting.quantity") : plugin.getMessageManager().getMessageComponent(null, "gui.terminal.sorting.alphabetical");
-        infoLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.terminal.info.sort-mode", "mode", sortModeLabel));
+        String sortModeKey = isQuantitySortActive ? "gui.terminal.info.sort-mode-quantity" : "gui.terminal.info.sort-mode-alphabetical";
+        infoLore.add(plugin.getMessageManager().getMessageComponent(null, sortModeKey));
 
         // Show items on current page
         int startIndex = currentPage * itemsPerPage;
@@ -218,8 +218,8 @@ public class TerminalGUI implements Listener {
 
         // Calculate total items stored
         long totalItems = displayItems.stream().mapToLong(StoredItem::quantity).sum();
-        Component itemTypeLabel = isSearchActive ? plugin.getMessageManager().getMessageComponent(null, "gui.terminal.info.type-filtered") : plugin.getMessageManager().getMessageComponent(null, "gui.terminal.info.type-total");
-        infoLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.terminal.info.total-items", "type", itemTypeLabel, "count", String.format("%,d", totalItems)));
+        String itemTypeKey = isSearchActive ? "gui.terminal.info.total-items-filtered" : "gui.terminal.info.total-items-all";
+        infoLore.add(plugin.getMessageManager().getMessageComponent(null, itemTypeKey, "count", String.format("%,d", totalItems)));
 
         infoLore.add(Component.empty());
 
@@ -593,8 +593,8 @@ public class TerminalGUI implements Listener {
             event.setCancelled(true);
 
             toggleSorting();
-            Component newMode = isQuantitySortActive ? plugin.getMessageManager().getMessageComponent(player, "gui.terminal.sorting.mode-quantity") : plugin.getMessageManager().getMessageComponent(player, "gui.terminal.sorting.mode-alphabetical");
-            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.sorting.changed", "mode", newMode));
+            String messageKey = isQuantitySortActive ? "gui.terminal.sorting.changed-to-quantity" : "gui.terminal.sorting.changed-to-alphabetical";
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, messageKey));
             return;
         }
 

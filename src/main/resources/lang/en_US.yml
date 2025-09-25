@@ -1,6 +1,10 @@
 # Modular Storage System - English Language File
-# This file contains all translatable text for the Modular Storage System plugin
-# 
+# This file contains all translatable text for the Modular Storage System plugin. Feel free to edit as desired.
+#
+# Want to translate this plugin to another language?
+# Copy this file as a reference and once finished, save as your desired lang. (Example: Spanish would be es_ES.yml)
+# Clients with Spanish (es_ES selected) will have the items, texts, GUI and info displayed as such.
+#
 # MiniMessage formatting is supported for colors and styling:
 # <red>, <green>, <blue>, <yellow>, <gold>, <gray>, <white>, <black>
 # <bold>, <italic>, <underlined>, <strikethrough>, <obfuscated>
@@ -8,278 +12,291 @@
 # Learn more: https://docs.advntr.dev/minimessage/format.html
 
 # Global Settings
-prefix: "<gradient:#00D4FF:#0099CC><bold>[MSS]</bold></gradient> "
+prefix: "<gradient:#00D4FF:#0099CC><bold>[MSS]</bold></gradient>  "
 
 # Command Messages
 commands:
   help:
-    header: "<gold>=== Modular Storage System Commands ===</gold>"
-    main-help: "<yellow>/mss help - Show this help message</yellow>"
-    recovery: "<yellow>/mss recovery <disk_id> - Recover a storage disk by ID</yellow>"
-    give: "<yellow>/mss give <item> [player] - Give MSS items</yellow>"
-    info: "<yellow>/mss info - Show plugin information</yellow>"
-    cleanup: "<yellow>/mss cleanup - Clean up expired data</yellow>"
-    recipes: "<yellow>/mss recipes - List all recipes</yellow>"
-    recipe: "<yellow>/mss recipe <name> - Show detailed recipe info</yellow>"
-    reload: "<yellow>/mss reload [config|recipes|lang|all] - Reload configurations</yellow>"
+    header: "{mss-prefix}<gold>=== Modular Storage System Commands ===</gold>"
+    main-help: "{mss-prefix}<yellow>/mss help - Show this help message</yellow>"
+    recovery: "{mss-prefix}<yellow>/mss recovery <disk_id> - Recover a storage disk by ID</yellow>"
+    give: "{mss-prefix}<yellow>/mss give <item> [player] - Give MSS items</yellow>"
+    info: "{mss-prefix}<yellow>/mss info - Show plugin information</yellow>"
+    cleanup: "{mss-prefix}<yellow>/mss cleanup - Clean up expired data</yellow>"
+    recipes: "{mss-prefix}<yellow>/mss recipes - List all recipes</yellow>"
+    recipe: "{mss-prefix}<yellow>/mss recipe <name> - Show detailed recipe info</yellow>"
+    reload: "{mss-prefix}<yellow>/mss reload [config|recipes|lang|all] - Reload configurations</yellow>"
   
   usage:
-    recovery: "<red>Usage: /mss recovery <disk_id></red>"
-    give: "<red>Usage: /mss give <item_type> [player]</red>"
-    recipe: "<red>Usage: /mss recipe <recipe_name></red>"
+    recovery: "{mss-prefix}<red>Usage: /mss recovery <disk_id></red>"
+    give: "{mss-prefix}<red>Usage: /mss give <item_type> [player]</red>"
+    recipe: "{mss-prefix}<red>Usage: /mss recipe <recipe_name></red>"
   
-  no-permission: "<red>You don't have permission to use this command.</red>"
-  no-permission-recovery: "<red>You don't have permission to use recovery commands.</red>"
-  players-only: "<red>Only players can use this command.</red>"
-  unknown-command: "<red>Unknown command. Use <yellow>/mss help</yellow> for available commands.</red>"
-  reload-success: "<green>Plugin configuration reloaded successfully!</green>"
-  debug-enabled: "<green>Debug mode enabled</green>"
-  debug-disabled: "<yellow>Debug mode disabled</yellow>"
+  no-permission: "{mss-prefix}<red>You don't have permission to use this command.</red>"
+  no-permission-recovery: "{mss-prefix}<red>You don't have permission to use recovery commands.</red>"
+  players-only: "{mss-prefix}<red>Only players can use this command.</red>"
+  unknown-command: "{mss-prefix}<red>Unknown command. Use <yellow>/mss help</yellow> for available commands.</red>"
+  reload-success: "{mss-prefix}<green>Plugin configuration reloaded successfully!</green>"
+  debug-enabled: "{mss-prefix}<green>Debug mode enabled</green>"
+  debug-disabled: "{mss-prefix}<yellow>Debug mode disabled</yellow>"
   
   recovery:
-    not-found: "<red>Storage disk with ID '{disk_id}' not found.</red>"
-    success-dropped: "<green>Recovery successful! Disk dropped at your location (inventory full).</green>"
-    success-inventory: "<green>Recovery successful! Disk added to your inventory.</green>"
+    not-found: "{mss-prefix}<red>Storage disk with ID '{disk_id}' not found.</red>"
+    success-dropped: "{mss-prefix}<green>Recovery successful! Disk dropped at your location (inventory full).</green>"
+    success-inventory: "{mss-prefix}<green>Recovery successful! Disk added to your inventory.</green>"
     disk-info: "<gray>Disk ID: {disk_id}</gray>"
     crafter-info: "<gray>Original Crafter: {crafter}</gray>"
     cells-info: "<gray>Cells Used: {used}/{max}</gray>"
-    error: "<red>Error during recovery: {error}</red>"
-    active-disk-warning: "<red>WARNING:</red> <yellow>This disk is currently active in a drive bay!</yellow>"
+    error: "{mss-prefix}<red>Error during recovery: {error}</red>"
+    active-disk-warning: "{mss-prefix}<red>WARNING:</red> <yellow>This disk is currently active in a drive bay!</yellow>"
     active-disk-network: "<yellow>Network ID: {network_id}</yellow>"
     active-disk-location: "<yellow>Drive Bay Location: {world} ({x}, {y}, {z}) - Slot {slot}</yellow>"
-    active-disk-confirm: "<red>Recovering this disk will remove it from the active network and could cause data loss!</red>"
-    active-disk-usage: "<red>Use '/mss recovery {disk_id} confirm' to proceed anyway.</red>"
+    active-disk-confirm: "{mss-prefix}<red>Recovering this disk will remove it from the active network and could cause data loss!</red>"
+    active-disk-usage: "{mss-prefix}<red>Use '/mss recovery {disk_id} confirm' to proceed anyway.</red>"
   
   give:
-    no-permission: "<red>You don't have permission to use give commands.</red>"
-    player-not-found: "<red>Player '{player}' not found.</red>"
-    console-needs-player: "<red>You must specify a player when using this command from console.</red>"
-    invalid-item: "<red>Invalid item type. Available:</red>"
-    available-blocks: "<yellow>Blocks: server, bay, terminal, cable, exporter, importer</yellow>"
-    available-disks: "<yellow>Disks: disk1k, disk4k, disk16k, disk64k</yellow>"
-    available-components: "<yellow>Components: housing, platter1k, platter4k, platter16k, platter64k</yellow>"
-    success-dropped: "<green>Item given to {player} (dropped due to full inventory).</green>"
-    success-inventory: "<green>Item given to {player}.</green>"
-    received: "<green>You received a {item} from {sender}.</green>"
+    no-permission: "{mss-prefix}<red>You don't have permission to use give commands.</red>"
+    player-not-found: "{mss-prefix}<red>Player '{player}' not found.</red>"
+    console-needs-player: "{mss-prefix}<red>You must specify a player when using this command from console.</red>"
+    invalid-item: "{mss-prefix}<red>Invalid item type. Available:</red>"
+    available-blocks: "{mss-prefix}<yellow>Blocks: server, bay, terminal, cable, exporter, importer</yellow>"
+    available-disks: "{mss-prefix}<yellow>Disks: disk1k, disk4k, disk16k, disk64k</yellow>"
+    available-components: "{mss-prefix}<yellow>Components: housing, platter1k, platter4k, platter16k, platter64k</yellow>"
+    success-dropped: "{mss-prefix}<green>Item given to {player} (dropped due to full inventory).</green>"
+    success-inventory: "{mss-prefix}<green>Item given to {player}.</green>"
+    received: "{mss-prefix}<green>You received a {item} from {sender}.</green>"
   
   info:
-    no-permission: "<red>You don't have permission to use info commands.</red>"
-    networks: "<yellow>Active Networks: {count}</yellow>"
-    disks: "<yellow>Total Storage Disks: {count}</yellow>"
-    item-types: "<yellow>Item Types Stored: {types}</yellow>"
-    total-items: "<yellow>Total Items Stored: {total}</yellow>"
-    cables: "<yellow>Network Cables Placed: {count}</yellow>"
-    exporters: "<yellow>Exporters Placed: {count}</yellow>"
-    importers: "<yellow>Importers Placed: {count}</yellow>"
-    recipes-enabled: "<green>Recipes: Enabled ({registered}/{total} registered)</green>"
-    recipes-disabled: "<red>Recipes: Disabled ({registered}/{total} registered)</red>"
-    error: "<red>Error retrieving information: {error}</red>"
+    no-permission: "{mss-prefix}<red>You don't have permission to use info commands.</red>"
+    networks: "{mss-prefix}<yellow>Active Networks: {count}</yellow>"
+    disks: "{mss-prefix}<yellow>Total Storage Disks: {count}</yellow>"
+    item-types: "{mss-prefix}<yellow>Item Types Stored: {types}</yellow>"
+    total-items: "{mss-prefix}<yellow>Total Items Stored: {total}</yellow>"
+    cables: "{mss-prefix}<yellow>Network Cables Placed: {count}</yellow>"
+    exporters: "{mss-prefix}<yellow>Exporters Placed: {count}</yellow>"
+    importers: "{mss-prefix}<yellow>Importers Placed: {count}</yellow>"
+    recipes-enabled: "{mss-prefix}<green>Recipes: Enabled ({registered}/{total} registered)</green>"
+    recipes-disabled: "<{mss-prefix}red>Recipes: Disabled ({registered}/{total} registered)</red>"
+    error: "{mss-prefix}<red>Error retrieving information: {error}</red>"
   
   cleanup:
-    no-permission: "<red>You don't have permission to use cleanup commands.</red>"
-    orphaned-items: "<green>Cleaned up {count} orphaned storage items.</green>"
-    reset-disks: "<green>Reset {count} empty storage disk cell counts.</green>"
-    success: "<green>Cleanup completed successfully!</green>"
-    error: "<red>Error during cleanup: {error}</red>"
+    no-permission: "{mss-prefix}<red>You don't have permission to use cleanup commands.</red>"
+    orphaned-items: "{mss-prefix}<green>Cleaned up {count} orphaned storage items.</green>"
+    reset-disks: "{mss-prefix}<green>Reset {count} empty storage disk cell counts.</green>"
+    success: "{mss-prefix}<green>Cleanup completed successfully!</green>"
+    error: "{mss-prefix}<red>Error during cleanup: {error}</red>"
   
   recipes:
-    no-permission: "<red>You don't have permission to use recipe commands.</red>"
-    players-only: "<red>This command can only be used by players.</red>"
+    no-permission: "{mss-prefix}<red>You don't have permission to use recipe commands.</red>"
+    players-only: "{mss-prefix}<red>This command can only be used by players.</red>"
   
   reload:
-    no-permission: "<red>You don't have permission to use reload commands.</red>"
-    usage: "<red>Usage: /mss reload [config|recipes|lang|all]</red>"
-    config-success: "<green>Main configuration reloaded successfully!</green>"
-    config-error: "<red>Error reloading config: {error}</red>"
-    recipes-success: "<green>Recipes configuration reloaded successfully!</green>"
-    recipes-note: "<yellow>Note: Server restart may be required for recipe changes to take full effect.</yellow>"
-    recipes-error: "<red>Error reloading recipes: {error}</red>"
-    lang-success: "<green>Language files reloaded successfully!</green>"
-    lang-error: "<red>Error reloading language files: {error}</red>"
-    all-success: "<green>All configurations reloaded successfully!</green>"
-    all-error: "<red>Error reloading configurations: {error}</red>"
+    no-permission: "{mss-prefix}<red>You don't have permission to use reload commands.</red>"
+    usage: "{mss-prefix}<red>Usage: /mss reload [config|recipes|lang|all]</red>"
+    config-success: "{mss-prefix}<green>Main configuration reloaded successfully!</green>"
+    config-error: "{mss-prefix}<red>Error reloading config: {error}</red>"
+    recipes-success: "{mss-prefix}<green>Recipes configuration reloaded successfully!</green>"
+    recipes-note: "{mss-prefix}<yellow>Note: Server restart may be required for recipe changes to take full effect.</yellow>"
+    recipes-error: "{mss-prefix}<red>Error reloading recipes: {error}</red>"
+    lang-success: "{mss-prefix}<green>Language files reloaded successfully!</green>"
+    lang-error: "{mss-prefix}<red>Error reloading language files: {error}</red>"
+    all-success: "{mss-prefix}<green>All configurations reloaded successfully!</green>"
+    all-error: "{mss-prefix}<red>Error reloading configurations: {error}</red>"
 
 # Error Messages  
 errors:
+  general:
+    missing-message: "{mss-prefix}<red>Missing message: {key}</red>"
+    invalid-item: "{mss-prefix}<red>Invalid item</red>"
+    no-permission: "{mss-prefix}<red>You don't have permission to do that</red>"
+
   network:
-    invalid: "<red>This network is no longer valid</red>"
-    not-connected: "<red>Not connected to any network</red>"
-    not-connected-assigned: "<red>This {device} is not connected to its assigned network</red>"
-    not-connected-any: "<red>This {device} is not connected to any network</red>"
-    connection-lost: "<red>Network connection lost - please check your storage system</red>"
-    dissolved: "<red>Storage network dissolved - blocks have been disconnected</red>"
-    dissolved-drive-bay: "<yellow>Storage network dissolved - you can still manage disks in this drive bay</yellow>"
-    security-terminal-limit: "<red>MSS networks can only have one security terminal.</red>"
-    exporter-not-connected: "<red>This exporter is not connected to a valid network.</red>"
-    importer-not-connected: "<red>This importer is not connected to a valid network.</red>"
-    terminal-not-connected: "<red>This terminal is not connected to a valid network.</red>"
-    exporter-data-not-found: "<red>Exporter data not found. Try breaking and replacing the block.</red>"
-    importer-data-not-found: "<red>Importer data not found. Try breaking and replacing the block.</red>"
-    security-terminal-data-not-found: "<red>Security terminal data not found. Try breaking and replacing the block.</red>"
+    invalid: "{mss-prefix}<red>This network is no longer valid</red>"
+    not-connected: "{mss-prefix}<red>Not connected to any network</red>"
+    not-connected-assigned: "{mss-prefix}<red>This {device} is not connected to its assigned network</red>"
+    not-connected-any: "{mss-prefix}<red>This {device} is not connected to any network</red>"
+    connection-lost: "{mss-prefix}<red>Network connection lost - please check your storage system</red>"
+    dissolved: "{mss-prefix}<red>Storage network dissolved - blocks have been disconnected</red>"
+    dissolved-drive-bay: "{mss-prefix}<yellow>Storage network dissolved - you can still manage disks in this drive bay</yellow>"
+    security-terminal-limit: "{mss-prefix}<red>MSS networks can only have one security terminal.</red>"
+    exporter-not-connected: "{mss-prefix}<red>This exporter is not connected to a valid network.</red>"
+    importer-not-connected: "{mss-prefix}<red>This importer is not connected to a valid network.</red>"
+    terminal-not-connected: "{mss-prefix}<red>This terminal is not connected to a valid network.</red>"
+    exporter-data-not-found: "{mss-prefix}<red>Exporter data not found. Try breaking and replacing the block.</red>"
+    importer-data-not-found: "{mss-prefix}<red>Importer data not found. Try breaking and replacing the block.</red>"
+    security-terminal-data-not-found: "{mss-prefix}<red>Security terminal data not found. Try breaking and replacing the block.</red>"
     
   storage:
-    full: "<red>Storage network is full!</red>"
-    disk-full: "<red>Storage disk is full</red>"
-    item-blacklisted: "<red>Item not allowed: <yellow>{item}</yellow></red>"
-    item-blacklisted-filter: "<red>You cannot add occupied containers or disks to the network!</red>"
-    no-disks: "<red>No storage disks found in network <yellow>{network}</yellow></red>"
+    full: "{mss-prefix}<red>Storage network is full!</red>"
+    disk-full: "{mss-prefix}<red>Storage disk is full!</red>"
+    item-blacklisted: "{mss-prefix}<red>Item not allowed: <yellow>{item}</yellow></red>"
+    item-blacklisted-filter: "{mss-prefix}<red>You cannot add occupied containers or disks to the network!</red>"
+    no-disks: "{mss-prefix}<red>No storage disks found in network <yellow>{network}</yellow></red>"
   
   gui:
-    network-invalid: "<yellow>Storage network is no longer valid.</yellow>"
-    error-opening: "<red>Error opening {gui} GUI: {error}</red>"
+    network-invalid: "{mss-prefix}<yellow>Storage network is no longer valid.</yellow>"
+    error-opening: "{mss-prefix}<red>Error opening {gui} GUI: {error}</red>"
     anvil:
-      mss-items-blocked: "<red>You cannot use MSS items in anvils!</red>"
+      mss-items-blocked: "{mss-prefix}<red>You cannot use MSS items in anvils!</red>"
 
   search:
-    timeout: "<red>Search timed out.</red>"
-    cancelled: "<red>Search cancelled.</red>"
-    cleared: "<yellow>Search cleared.</yellow>"
-    saved: "<green>Search saved: '{term}'.</green>"
+    timeout: "{mss-prefix}<red>Search timed out.</red>"
+    cancelled: "{mss-prefix}<red>Search cancelled.</red>"
+    cleared: "{mss-prefix}<yellow>Search cleared.</yellow>"
+    saved: "{mss-prefix}<green>Search saved: '{term}'.</green>"
   
   placement:
-    multiple-storage-servers: "<red>Cannot connect networks: Multiple networks have Storage Servers!</red>"
-    multiple-security-terminals: "<red>Cannot connect networks: Multiple networks have Security Terminals!</red>"
-    storage-server-conflict: "<red>Cannot place Storage Server: Adjacent network already has a Storage Server!</red>"
-    security-terminal-conflict: "<red>Cannot place Security Terminal: Adjacent network already has a Security Terminal!</red>"
-    network-limit-exceeded: "<red>Network limit exceeded!</red>"
-    cable-limit-exceeded: "<red>Network cable limit exceeded! Maximum <yellow>{max}</yellow> cables per network.</red>"
-    invalid-network-formation: "<red>Cannot form network: Network configuration violates constraints!</red>"
-    storage-disks-blocks: "<red>Storage disks cannot be placed as blocks!</red>"
-    mss-components-blocks: "<red>Mass Storage components cannot be placed as blocks!</red>"
-    no-use-permission: "<red>You don't have permission to place Mass Storage blocks.</red>"
-    no-block-modification-permission: "<red>You don't have permission to modify blocks in this network.</red>"
-    exporter-cannot-attach: "<red>You cannot attach an exporter directly to the network!</red>"
-    importer-cannot-attach: "<red>You cannot attach an importer directly to the network!</red>"
-    network-size-limit: "<red>Network size limit exceeded! Maximum <yellow>{max}</yellow> blocks per network.</red>"
-    block-error: "<red>Error placing block: <gray>{error}</gray></red>"
-    access-denied-place-blocks: "<red>🔒 Access Denied: You are not authorized to place network blocks.</red>"
-    access-denied-remove-blocks: "<red>🔒 Access Denied: You are not authorized to remove network blocks.</red>"
-    access-denied-manage-network: "<red>🔒 Access Denied: You are not authorized to manage this network.</red>"
+    multiple-storage-servers: "{mss-prefix}<red>Cannot connect networks: Multiple networks have Storage Servers!</red>"
+    multiple-security-terminals: "{mss-prefix}<red>Cannot connect networks: Multiple networks have Security Terminals!</red>"
+    storage-server-conflict: "{mss-prefix}<red>Cannot place Server: Adjacent network already has a Server!</red>"
+    security-terminal-conflict: "{mss-prefix}<red>Cannot place Security Terminal: Adjacent network already has a Security Terminal!</red>"
+    network-limit-exceeded: "{mss-prefix}<red>Network limit exceeded!</red>"
+    cable-limit-exceeded: "{mss-prefix}<red>Network cable limit exceeded! Maximum <yellow>{max}</yellow> cables per network.</red>"
+    invalid-network-formation: "{mss-prefix}<red>Cannot form network: Network configuration violates constraints!</red>"
+    storage-disks-blocks: "{mss-prefix}<red>Storage disks cannot be placed as blocks!</red>"
+    mss-components-blocks: "{mss-prefix}<red>Mass Storage components cannot be placed as blocks!</red>"
+    no-use-permission: "{mss-prefix}<red>You don't have permission to place Mass Storage blocks.</red>"
+    no-block-modification-permission: "{mss-prefix}<red>You don't have permission to modify blocks in this network.</red>"
+    exporter-cannot-attach: "{mss-prefix}<red>You cannot attach an exporter directly to the network!</red>"
+    importer-cannot-attach: "{mss-prefix}<red>You cannot attach an importer directly to the network!</red>"
+    network-size-limit: "{mss-prefix}<red>Network size limit exceeded! Maximum <yellow>{max}</yellow> blocks per network.</red>"
+    block-error: "{mss-prefix}<red>Error placing block: <gray>{error}</gray></red>"
+    access-denied-place-blocks: "{mss-prefix}<red>🔒 Access Denied: You are not authorized to place network blocks.</red>"
+    access-denied-remove-blocks: "{mss-prefix}<red>🔒 Access Denied: You are not authorized to remove network blocks.</red>"
+    access-denied-manage-network: "{mss-prefix}<red>🔒 Access Denied: You are not authorized to manage this network.</red>"
     
   interaction:
-    no-use-permission-exporters: "<red>You don't have permission to use Exporters.</red>"
-    no-use-permission-importers: "<red>You don't have permission to use importers.</red>"
-    no-use-permission-terminals: "<red>You don't have permission to use terminals.</red>"
-    no-use-permission-storage-server: "<red>You don't have permission to view storage server info.</red>"
-    no-use-permission-security-terminals: "<red>You don't have permission to use security terminals.</red>"
-    no-use-permission-drive-bays: "<red>You don't have permission to use drive bays.</red>"
-    no-block-modification-permission: "<red>You don't have permission to remove blocks from this network.</red>"
-    security-terminal-owner-only: "<red>Only the owner can manage this security terminal.</red>"
-    no-drive-bay-permission: "<red>You don't have permission to access this drive bay.</red>"
-    access-denied-access-items: "<red>Access Denied: You are not authorized to access network items.</red>"
+    no-use-permission-exporters: "{mss-prefix}<red>You don't have permission to use Exporters.</red>"
+    no-use-permission-importers: "{mss-prefix}<red>You don't have permission to use importers.</red>"
+    no-use-permission-terminals: "{mss-prefix}<red>You don't have permission to use terminals.</red>"
+    no-use-permission-storage-server: "{mss-prefix}<red>You don't have permission to view storage server info.</red>"
+    no-use-permission-security-terminals: "{mss-prefix}<red>You don't have permission to use security terminals.</red>"
+    no-use-permission-drive-bays: "{mss-prefix}<red>You don't have permission to use drive bays.</red>"
+    no-block-modification-permission: "{mss-prefix}<red>You don't have permission to remove blocks from this network.</red>"
+    security-terminal-owner-only: "{mss-prefix}<red>Only the owner can manage this security terminal.</red>"
+    no-drive-bay-permission: "{mss-prefix}<red>You don't have permission to access this drive bay.</red>"
+    access-denied-access-items: "{mss-prefix}<red>Access Denied: You are not authorized to access network items.</red>"
 
   recipes:
-    recipe-header: "<gold>=== Recipe: {recipe} ===</gold>"
-    recipes-header: "<gold>=== Modular Storage System Recipes ===</gold>"
-    recipe-status: "Status: {status}"
-    recipes-system-status: "Recipes system: {status}"
-    recipe-type: "Type: {type}"
-    recipe-description: "<gray>Description: {description}</gray>"
-    recipe-result: "<yellow>Result: {amount}x {item}</yellow>"
-    recipe-shape: "<aqua>Shape:</aqua>"
-    recipe-shape-row: "<white> {row}</white>"
-    recipe-ingredients: "<aqua>Ingredients:</aqua>"
-    recipe-ingredient: "<white> {key} = {material}</white>"
-    recipe-custom-note: "<gray>Note: This recipe uses custom components and requires manual crafting validation.</gray>"
-    recipe-not-found: "<red>Recipe '{recipe}' not found!</red>"
+    recipe-header: "{mss-prefix}<gold>=== Recipe: {recipe} ===</gold>"
+    recipes-header: "{mss-prefix}<gold>=== Modular Storage System Recipes ===</gold>"
+    recipe-status: "{mss-prefix}Status: {status}"
+    recipes-system-status: "{mss-prefix}Recipes system: {status}"
+    recipe-type: "{mss-prefix}Type: {type}"
+    recipe-description: "{mss-prefix}<gray>Description: {description}</gray>"
+    recipe-result: "{mss-prefix}<yellow>Result: {amount}x {item}</yellow>"
+    recipe-shape: "{mss-prefix}<aqua>Shape:</aqua>"
+    recipe-shape-row: "{mss-prefix}<white> {row}</white>"
+    recipe-ingredients: "{mss-prefix}<aqua>Ingredients:</aqua>"
+    recipe-ingredient: "{mss-prefix}<white> {key} = {material}</white>"
+    recipe-custom-note: "{mss-prefix}<gray>Note: This recipe uses custom components and requires manual crafting validation.</gray>"
+    recipe-not-found: "{mss-prefix}<red>Recipe '{recipe}' not found!</red>"
     recipes-empty-line: ""
-    recipes-help: "<yellow>Use '/mss recipe <name>' for detailed recipe information</yellow>"
-    recipes-registered-count: "<white>Registered: {registered}/{total} ({enabled} enabled)</white>"
+    recipes-help: "{mss-prefix}<yellow>Use '/mss recipe <name>' for detailed recipe information</yellow>"
+    recipes-registered-count: "{mss-prefix}<white>Registered: {registered}/{total} ({enabled} enabled)</white>"
 
   recovery:
-    disk-removed-from-bay: "<yellow>Removed disk from active drive bay slot.</yellow>"
+    disk-removed-from-bay: "{mss-prefix}<yellow>Uninstalled disk from active drive bay slot. Retained items are no longer spooled on that network.</yellow>"
+
   removal:
-    error-exporter: "<red>Error removing exporter: {error}</red>"
-    error-importer: "<red>Error removing importer: {error}</red>"
-    error-security-terminal: "<red>Error removing security terminal: {error}</red>"
-    error-network-update: "<red>Error updating network: {error}</red>"
-    error-block-break: "<red>Error processing block break: {error}</red>"
+    error-exporter: "{mss-prefix}<red>Error removing exporter: {error}</red>"
+    error-importer: "{mss-prefix}<red>Error removing importer: {error}</red>"
+    error-security-terminal: "{mss-prefix}<red>Error removing security terminal: {error}</red>"
+    error-network-update: "{mss-prefix}<red>Error updating network: {error}</red>"
+    error-block-break: "{mss-prefix}<red>Error processing block break: {error}</red>"
     
   access:
-    error-exporter: "<red>Error accessing exporter: {error}</red>"
-    error-importer: "<red>Error accessing importer: {error}</red>"
-    error-terminal: "<red>Error accessing terminal: {error}</red>"
-    error-storage-server: "<red>Error accessing storage server: {error}</red>"
-    error-security-terminal: "<red>Error accessing security terminal: {error}</red>"
-    error-drive-bay: "<red>Error accessing drive bay: {error}</red>"
-    error-storage-server-info: "<red>Error retrieving storage server information: {error}</red>"
+    error-exporter: "{mss-prefix}<red>Error accessing exporter: {error}</red>"
+    error-importer: "{mss-prefix}<red>Error accessing importer: {error}</red>"
+    error-terminal: "{mss-prefix}<red>Error accessing terminal: {error}</red>"
+    error-storage-server: "{mss-prefix}<red>Error accessing storage server: {error}</red>"
+    error-security-terminal: "{mss-prefix}<red>Error accessing security terminal: {error}</red>"
+    error-drive-bay: "{mss-prefix}<red>Error accessing drive bay: {error}</red>"
+    error-storage-server-info: "{mss-prefix}<red>Error retrieving storage server information: {error}</red>"
 
-  general:
-    missing-message: "<red>Missing message: {key}</red>"
-    invalid-item: "<red>Invalid item</red>"
-    no-permission: "<red>You don't have permission to do that</red>"
+  cable:
+    placement-error: "{mss-prefix}<red>Error placing cable: {error}</red>"
+
+# Drive Bay Errors (referenced as drive-bay.error.*)
+# This is a separate top-level section, not under errors.
+drive-bay:
+  error:
+    disk-insert-error: "{mss-prefix}<red>Error inserting disk: {error}</red>"
+    disk-remove-error: "{mss-prefix}<red>Error removing disk: {error}</red>"
+
+
 
 # Success Messages
 success:
   placement:
-    security-terminal: "<green>Security Terminal placed successfully!</green>"
-    exporter-unconnected: "<yellow>Exporter placed! Connect it to a network to activate.</yellow>"
-    exporter-connected: "<green>Exporter created successfully! Right-click to configure.</green>"
-    importer-unconnected: "<yellow>Importer placed! Connect it to a network to activate.</yellow>"
-    importer-connected: "<green>Importer created successfully! Right-click to configure.</green>"
-    storage-server-requirements: "<yellow>Storage Server requires Drive Bays and Terminals to form a network.</yellow>"
-    block-needs-connection: "<yellow>This block needs to be connected to a Storage Server to function.</yellow>"
-    network-connected: "<green>Connected to network with <aqua>{drive_bays}</aqua> drive bay(s) and <aqua>{terminals}</aqua> terminal(s).</green>"
-    drive-bay-restored: "<aqua>Drive bay contents have been restored!</aqua>"
-    check-terminals: "<yellow>Check your terminals to see restored items.</yellow>"
-    network-updated: "<green>Network updated after block removal.</green>"
-    network-dissolved: "<yellow>Storage network dissolved. Drive bay contents preserved.</yellow>"
-    drive-bay-no-network: "<yellow>Opening drive bay (no network connection).</yellow>"
-    drive-bay-invalid-network: "<yellow>Opening drive bay (network is no longer valid).</yellow>"
+    security-terminal: "{mss-prefix}<green>Security Terminal placed successfully!</green>"
+    exporter-unconnected: "{mss-prefix}<yellow>Exporter placed! Connect it to a network to activate.</yellow>"
+    exporter-connected: "{mss-prefix}<green>Exporter created successfully! Right-click to configure.</green>"
+    importer-unconnected: "{mss-prefix}<yellow>Importer placed! Connect it to a network to activate.</yellow>"
+    importer-connected: "{mss-prefix}<green>Importer created successfully! Right-click to configure.</green>"
+    storage-server-requirements: "{mss-prefix}<yellow>Storage Server requires Drive Bays and Terminals to form a network.</yellow>"
+    block-needs-connection: "{mss-prefix}<yellow>This block needs to be connected to a Storage Server to function.</yellow>"
+    network-connected: "{mss-prefix}<green>Connected to network with <aqua>{drive_bays}</aqua> drive bay(s) and <aqua>{terminals}</aqua> terminal(s).</green>"
+    drive-bay-restored: "{mss-prefix}<aqua>Drive bay disks have successfully booted.</aqua>"
+    check-terminals: "{mss-prefix}<yellow>Check your terminals to see newly spooled items.</yellow>"
+    network-updated: "{mss-prefix}<green>Network updated after block removal.</green>"
+    network-dissolved: "{mss-prefix}<yellow>Network has been dismantled.</yellow>"
+    drive-bay-no-network: "{mss-prefix}<yellow>Opening drive bay. Disks are not currently running.</yellow> <red>(Offline)</red>"
+    drive-bay-invalid-network: "{mss-prefix}<yellow>Opening drive bay. Disks are not currently running.</yellow> <red>(Network Error)</red>"
 
 
   storage:
-    item-stored: "Successfully stored {amount} {item}"
-    item-retrieved: "Retrieved {amount} {item}"
+    item-stored: "{mss-prefix}Successfully stored {amount} {item}"
+    item-retrieved: "{mss-prefix}Retrieved {amount} {item}"
   
   disk:
-    placed: "Storage disk placed successfully!"
-    removed: "Storage disk removed successfully!"
-    created: "Created {tier} storage disk"
-    cannot-dismantle-with-items: "<red>Cannot dismantle disks that contain items!</red>"
+    placed: "{mss-prefix}Storage disk installed successfully."
+    removed: "{mss-prefix}Storage disk uninstalled successfully."
+    created: "{mss-prefix}Created {tier} storage disk."
+    cannot-dismantle-with-items: "{mss-prefix}<red>Cannot dismantle disks that contain items. You must empty them first.</red>"
   
   device:
-    created: "Created {device} {id}"
-    removed: "Removed {device} {id}"
-    enabled: "{device} enabled"
-    disabled: "{device} disabled"
+    created: "{mss-prefix}Created {device} {id}"
+    removed: "{mss-prefix}Removed {device} {id}"
+    enabled: "{mss-prefix}{device} enabled"
+    disabled: "{mss-prefix}{device} disabled"
   
   storage-server-info:
-    header: "<green><b>Mass Storage Network Info:"
-    network-id: "<white>Network ID: {network_id}</white>"
-    network-id-none: "<gray>Network ID: Not Assigned</gray>"
-    status-operational: "<green>Operational</green>"
-    status-no-network: "<red>Not Connected</red>"
-    connected-components: "<yellow>Connected Components:</yellow>"
-    drive-bays: "<green>  Drive Bays: {count}</green>"
-    terminals: "<green>  Terminals: {count}</green>"
-    exporters: "<green>  Exporters: {count}</green>"
-    importers: "<green>  Importers: {count}</green>"
-    cables: "<yellow>  Cables: {count}</yellow>"
-    network-limits: "<yellow>Network Limits:</yellow>"
-    blocks-limit: "  Blocks: {current}/{max}"
-    cables-limit: "  Cables: {current}/{max}"
-    bus-limit: "  Bus Limit: {current}/{max}"
-    storage-info: "Storage: {used}/{total} cells ({percent}%)"
-    storage-no-disks: "<gray>Storage: No disks installed</gray>"
+    header: "{mss-prefix}<green><b>Mass Storage Network Info:"
+    network-id: "{mss-prefix}<white>Network ID: {network_id}</white>"
+    network-id-none: "{mss-prefix}<gray>Network ID: Not Assigned</gray>"
+    status-operational: "{mss-prefix}<green>Operational</green>"
+    status-no-network: "{mss-prefix}<red>Not Connected</red>"
+    connected-components: "{mss-prefix}<yellow>Connected Components:</yellow>"
+    drive-bays: "{mss-prefix}<green>  Drive Bays: {count}</green>"
+    terminals: "{mss-prefix}<green>  Terminals: {count}</green>"
+    exporters: "{mss-prefix}<green>  Exporters: {count}</green>"
+    importers: "{mss-prefix}<green>  Importers: {count}</green>"
+    cables: "{mss-prefix}<yellow>  Cables: {count}</yellow>"
+    network-limits: "{mss-prefix}<yellow>Network Limits:</yellow>"
+    blocks-limit: "{mss-prefix}  Blocks: {current}/{max}"
+    cables-limit: "{mss-prefix}  Cables: {current}/{max}"
+    bus-limit: "{mss-prefix}  Bus Limit: {current}/{max}"
+    storage-info: "{mss-prefix}Storage: {used}/{total} cells ({percent}%)"
+    storage-no-disks: "{mss-prefix}<gray>Storage: No disks installed</gray>"
 
 # GUI Text
 gui:
   # Common Messages
   filter:
-    item-blacklisted: "<red>You cannot add occupied containers or disks to the network!</red>"
-    already-exists: "<red>This item is already in the filter!</red>"
-    full: "<red>Filter is full! Remove items first.</red>"
-    added: "<green>Added {item} to {type} filter</green>"
-    removed: "<yellow>Removed item from {type} filter</yellow>"
-    cleared: "<yellow>Cleared all filters - will now {action} everything</yellow>"
-    no-filters: "<yellow>No filters to clear</yellow>"
-    item-added: "<green>Added {item} to filter</green>"
+    item-blacklisted: "{mss-prefix}<red>You cannot add occupied containers or disks to the network. Empty them first.</red>"
+    already-exists: "{mss-prefix}<red>This item is already configured in the filter.</red>"
+    full: "{mss-prefix}<red>Filter is full! Remove some items first.</red>"
+    added: "{mss-prefix}<green>Added {item} to {type} filter</green>"
+    removed: "{mss-prefix}<yellow>Removed item from {type} filter</yellow>"
+    cleared: "{mss-prefix}<yellow>Cleared all filters - will now {action} everything</yellow>"
+    no-filters: "{mss-prefix}<yellow>No filters to clear</yellow>"
+    item-added: "{mss-prefix}<green>Added {item} to filter</green>"
   
   device:
-    enabled: "<green>{device} enabled</green>"
-    disabled: "<yellow>{device} disabled</yellow>"
-    toggle-error: "<red>Error toggling {device}: {error}</red>"
+    enabled: "{mss-prefix}<green>{device} enabled</green>"
+    disabled: "{mss-prefix}<yellow>{device} disabled</yellow>"
+    toggle-error: "{mss-prefix}<red>Error toggling {device}: {error}</red>"
 
   # Storage Disk Lore
   storage-disk:
@@ -301,7 +318,7 @@ gui:
 
   # Terminal GUI
   terminal:
-    title: "<green><b>Terminal"
+    title: "<green><b>Terminal</b></green>"
     search:
       button: "Search"
       instruction: "Left-click to open search"
@@ -313,51 +330,63 @@ gui:
       header: "<gold><bold>=== MSS Terminal Search ==="
       prompt: "Enter your search term."
       cancel-instruction: "Type 'cancel' to cancel the search."
-      cleared: "Search cleared!"
-      search-cancelled: "<yellow>Search cancelled.</yellow>"
+      cleared: "{mss-prefix}Search cleared!"
+      search-cancelled: "{mss-prefix}<yellow>Search cancelled.</yellow>"
     sorting:
-      alphabetical: "Sorting: Alphabetically"
-      quantity: "Sorting: Quantity"
-      to-alphabetical: "Click to sort alphabetically."
-      to-quantity: "Click to sort by quantity"
-      mode-quantity: "quantity (most items first)"
-      mode-alphabetical: "alphabetical (A-Z)"
-      changed: "Sorting changed to: {mode}"
+      alphabetical: "<blue>Sorting: Alphabetically</blue>"
+      quantity: "<blue>Sorting: Quantity</blue>"
+      to-alphabetical: "Click to sort Alphabetically."
+      to-quantity: "Click to sort by Quantity"
+      mode-quantity: "<blue>Quantity</blue>"
+      mode-alphabetical: "<blue>Alphabetical (A-Z)</blue>"
+      changed: "<yellow>Sorting changed to: {mode}</yellow>"
+      changed-to-quantity: "<yellow>Sorting changed to: Quantity</yellow>"
+      changed-to-alphabetical: "<yellow>Sorting changed to: Alphabetical (A-Z)</yellow>"
     pagination:
       previous: "Previous Page"
       next: "Next Page"
       page-info: "Page {current}/{total}"
       prev-available: "Click to go to previous page"
       first-page: "Already on first page"
+      first-page-message: "{mss-prefix}You are already on the first page"
       next-available: "Click to go to next page"
       last-page: "Already on last page"
+      last-page-message: "{mss-prefix}You are already on the last page"
+      page-change: "Page changed to {page}"
     info:
       title: "Storage Info"
       search-results: "Search Results: {count} types"
       total-types: "Total Item Types: {count}"
       search-term: "Search: '{term}'"
       sort-mode: "Sort: {mode}"
+      sort-mode-quantity: "Sort: quantity (most items first)"
+      sort-mode-alphabetical: "Sort: alphabetical (A-Z)"
       showing-range: "Showing: {start}-{end} of {total}"
       total-items: "{type} Items: {count}"
+      total-items-filtered: "Filtered Items: {count}"
+      total-items-all: "Total Items: {count}"
       type-filtered: "Filtered"
       type-total: "Total"
     item:
       quantity: "<yellow>Quantity: <white>{amount}"
 
     storage:
-      not-allowed: "This item cannot be stored in the network!"
-      partial: "Stored {stored} items. {remaining} items couldn't be stored (network full?)"
-      full: "No space available in the network!"
-      error: "Error storing items: {error}"
+      not-allowed: "{mss-prefix}This item cannot be stored in the network!"
+      not-allowed-red: "{mss-prefix}<red>This item cannot be stored in the network!</red>"
+      partial: "{mss-prefix}Stored {stored} items. {remaining} items couldn't be stored (network full?)"
+      partial-drag: "{mss-prefix}Partially stored items from drag operation"
+      full: "{mss-prefix}No space available in the network!"
+      error: "{mss-prefix}Error storing items: {error}"
     retrieval:
-      inventory-full: "Your inventory is full!"
-      limited-space: "Only retrieving {amount} items due to inventory space"
+      inventory-full: "{mss-prefix}Your inventory is full!"
+      limited-space: "{mss-prefix}Only retrieving {amount} items due to inventory space!"
 
   # Drive Bay GUI  
   drive-bay:
     title: "<green><b>Drive Bay"
     info:
       network: "{network}"
+      slots: "<yellow>Slots: {filled}/{total}</yellow>"
     slot:
       empty: "Empty Drive Slot"
       disk: "{tier} Storage Disk"
@@ -375,8 +404,6 @@ gui:
       inventory-full: "Your inventory is full!"
       database: "Failed to place disk - database error"
       invalid-disk: "Invalid storage disk!"
-      disk-insert-error: "<red>Error inserting disk: {error}</red>"
-      disk-remove-error: "<red>Error removing disk: {error}</red>"
 
   # Exporter GUI
   exporter:
@@ -545,12 +572,12 @@ gui:
 
   # Crafting Messages
   crafting:
-    no-permission: "<red>You don't have permission to craft Mass Storage items.</red>"
-    component-success: "<green>{component} crafted successfully!</green>"
-    storage-disk-success: "<green>Storage Disk [{tier}] crafted successfully!</green>"
-    vanilla-recipe-blocked: "<red>Mass Storage components cannot be used in vanilla recipes!</red>"
-    search-expired: "<red>Search input expired. Please try again.</red>"
-    disk-registration-error: "<red>Error registering storage disk: {error}</red>"
+    no-permission: "{mss-prefix}<red>You don't have permission to craft Mass Storage items.</red>"
+    component-success: "{mss-prefix}<green>{component} crafted successfully!</green>"
+    storage-disk-success: "{mss-prefix}<green>Storage Disk [{tier}] crafted successfully!</green>"
+    vanilla-recipe-blocked: "{mss-prefix}<red>Mass Storage components cannot be used in vanilla recipes!</red>"
+    search-expired: "{mss-prefix}<red>Search input expired. Please try again.</red>"
+    disk-registration-error: "{mss-prefix}<red>Error registering storage disk: {error}</red>"
 
 
   # Storage Operations
@@ -603,8 +630,8 @@ storage-server-info:
   network-limits: "<yellow>Network Limits:</yellow>"
   blocks-limit: "  Blocks: {current}/{max}"
   cables-limit: "  Cables: {current}/{max}"
-  exporter-limit: " Exporters: {current}/{max}"
-  importer-limit: " Importers: {current}/{max}"
+  exporter-limit: "  Exporters: {current}/{max}"
+  importer-limit: "  Importers: {current}/{max}"
   storage-capacity: "Storage: {used}/{total} cells ({percent}%)"
   storage-no-disks: "<gray>Storage: No disks installed</gray>"
 
@@ -785,3 +812,7 @@ console:
     
   recipes:
     registered: "Registered {count} recipes"
+
+# Dynamic status messages (used in various contexts)
+registered: "<green>Registered</green>"
+status: "<yellow>{status}</yellow>"

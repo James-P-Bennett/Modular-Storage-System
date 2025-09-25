@@ -118,17 +118,10 @@ public class MessageManager {
     
     /**
      * Get message component for a specific player (auto-detects their locale)
-     * Automatically adds prefix for chat messages, but not GUI elements
+     * Uses {mss-prefix} placeholder system for prefix handling
      */
     public Component getMessageComponent(Player player, String key, Object... placeholders) {
         String message = getMessage(player, key, placeholders);
-        
-        // Only add prefix for non-GUI messages
-        if (shouldIncludePrefix(key)) {
-            String prefix = getMessage(player, "prefix");
-            message = prefix + message;
-        }
-        
         return miniMessage.deserialize(message);
     }
 
@@ -193,6 +186,9 @@ public class MessageManager {
      * Supports both {key} format and positional {0}, {1}, etc.
      */
     private String applyPlaceholders(String message, Object... placeholders) {
+        // First, handle the special {mss-prefix} placeholder
+        message = handlePrefixPlaceholder(message);
+
         if (placeholders == null || placeholders.length == 0) {
             return message;
         }
@@ -225,7 +221,19 @@ public class MessageManager {
             return result;
         }
     }
-    
+
+    /**
+     * Handle the special {mss-prefix} placeholder
+     */
+    private String handlePrefixPlaceholder(String message) {
+        if (message.contains("{mss-prefix}")) {
+            // Get the prefix from the language file
+            String prefix = getMessage(DEFAULT_LANGUAGE, "prefix");
+            message = message.replace("{mss-prefix}", prefix);
+        }
+        return message;
+    }
+
     /**
      * Get player's locale, with fallback to default
      */
@@ -263,27 +271,4 @@ public class MessageManager {
         loadLanguages();
     }
 
-    /**
-     * Determine if a message key should include the [MSS] prefix
-     * Only CHAT messages should have the prefix - GUI elements and console remain as-is
-     */
-    private boolean shouldIncludePrefix(String key) {
-        if (key == null) return false;
-        
-        // Only these chat message categories should have the [MSS] prefix
-        String[] chatMessageKeys = {
-            "errors.",        // Error messages shown to players
-            "success.",       // Success messages shown to players
-            "commands."       // Command responses shown to players
-        };
-        
-        for (String chatKey : chatMessageKeys) {
-            if (key.startsWith(chatKey)) {
-                return true;
-            }
-        }
-        
-        // Everything else (GUI, console, debug, info displays) should NOT have prefix
-        return false;
-    }
 }
