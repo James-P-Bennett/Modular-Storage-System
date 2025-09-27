@@ -3,7 +3,6 @@ package org.jamesphbennett.modularstoragesystem.gui;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -29,19 +28,17 @@ import java.util.UUID;
 public class SecurityTerminalGUI implements Listener {
 
     private final ModularStorageSystem plugin;
-    private final Location terminalLocation;
     private final String terminalId;
     private final String ownerUuid;
     private final Player viewer;
     private final Inventory inventory;
     
-    private List<TrustedPlayer> trustedPlayers = new ArrayList<>();
+    private final List<TrustedPlayer> trustedPlayers = new ArrayList<>();
     private int currentPage = 0;
     private final int playersPerPage = 36; // 4 rows of 9 slots
 
-    public SecurityTerminalGUI(ModularStorageSystem plugin, Location terminalLocation, String terminalId, String ownerUuid, Player viewer) {
+    public SecurityTerminalGUI(ModularStorageSystem plugin, String terminalId, String ownerUuid, Player viewer) {
         this.plugin = plugin;
-        this.terminalLocation = terminalLocation;
         this.terminalId = terminalId;
         this.ownerUuid = ownerUuid;
         this.viewer = viewer;
@@ -365,14 +362,10 @@ public class SecurityTerminalGUI implements Listener {
     }
 
     public void addTrustedPlayer(String playerName) {
-        @SuppressWarnings("deprecation")
         OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(playerName);
-        
-        if (offlinePlayer.getUniqueId() == null) {
-            viewer.sendMessage(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.messages.player-not-found", "player", playerName));
-            return;
-        }
-        
+
+        offlinePlayer.getUniqueId();
+
         String playerUuid = offlinePlayer.getUniqueId().toString();
         
         // Check if player is already trusted
@@ -422,14 +415,6 @@ public class SecurityTerminalGUI implements Listener {
         if (event.getPlayer() instanceof Player player) {
             plugin.getGUIManager().closeGUI(player);
         }
-    }
-
-    public Location getTerminalLocation() {
-        return terminalLocation;
-    }
-
-    public String getTerminalId() {
-        return terminalId;
     }
 
     private static class TrustedPlayer {

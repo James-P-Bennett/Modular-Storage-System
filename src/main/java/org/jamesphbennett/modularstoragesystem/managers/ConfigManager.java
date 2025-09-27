@@ -24,7 +24,6 @@ public class ConfigManager {
     private int maxNetworkCables;
     private int maxExporters;
     private int maxImporters;
-    private int maxDriveBaySlots;
     private int exportTickInterval;
     private Set<Material> blacklistedItems;
     private boolean requireUsePermission;
@@ -115,8 +114,7 @@ public class ConfigManager {
     }
 
     private void loadStorageSettings() {
-        maxDriveBaySlots = config.getInt("storage.drive_bay_slots", 7);
-        
+
         // Legacy support for old export_tick_interval in storage section
         if (config.contains("storage.export_tick_interval")) {
             plugin.getLogger().warning("Config setting 'storage.export_tick_interval' is deprecated. Please move to 'network.import_export_tick_interval'");
@@ -191,10 +189,6 @@ public class ConfigManager {
      */
     public int getDefaultCellsPerDisk() {
         return HARDCODED_CELLS_PER_DISK;
-    }
-
-    public int getMaxDriveBaySlots() {
-        return maxDriveBaySlots;
     }
 
     /**

@@ -1,7 +1,5 @@
 package org.jamesphbennett.modularstoragesystem.commands;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -137,11 +135,11 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
                             int z = rs.getInt("z");
                             int slot = rs.getInt("slot_number");
                             
-                            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.recovery.active-disk-warning"));
-                            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.recovery.active-disk-network", "network_id", networkId));
-                            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.recovery.active-disk-location", "world", world, "x", x, "y", y, "z", z, "slot", slot));
-                            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.recovery.active-disk-confirm"));
-                            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.recovery.active-disk-usage", "disk_id", diskId));
+                            sender.sendMessage(plugin.getMessageManager().getMessageComponent((Player) sender, "commands.recovery.active-disk-warning"));
+                            sender.sendMessage(plugin.getMessageManager().getMessageComponent((Player) sender, "commands.recovery.active-disk-network", "network_id", networkId));
+                            sender.sendMessage(plugin.getMessageManager().getMessageComponent((Player) sender, "commands.recovery.active-disk-location", "world", world, "x", x, "y", y, "z", z, "slot", slot));
+                            sender.sendMessage(plugin.getMessageManager().getMessageComponent((Player) sender, "commands.recovery.active-disk-confirm"));
+                            sender.sendMessage(plugin.getMessageManager().getMessageComponent((Player) sender, "commands.recovery.active-disk-usage", "disk_id", diskId));
                             return;
                         }
                     }
@@ -157,7 +155,7 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
 
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (!rs.next()) {
-                        sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.recovery.not-found", "disk_id", diskId));
+                        sender.sendMessage(plugin.getMessageManager().getMessageComponent((Player) sender, "commands.recovery.not-found", "disk_id", diskId));
                         return;
                     }
 
@@ -165,12 +163,9 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
                     String crafterName = rs.getString("crafter_name");
                     int usedCells = rs.getInt("used_cells");
                     int maxCells = rs.getInt("max_cells");
-                    String tier = rs.getString("tier");
-                    
+                    rs.getString("tier");
+
                     // Default to 1k if tier is null
-                    if (tier == null || tier.isEmpty()) {
-                        tier = "1k";
-                    }
 
                     // Create the storage disk with the original ID - this preserves the existing disk ID
                     ItemStack recoveredDisk = plugin.getItemManager().createStorageDiskWithId(diskId.toUpperCase(), crafterUUID, crafterName);
@@ -196,7 +191,7 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
                             removeStmt.setString(1, diskId.toUpperCase());
                             int removed = removeStmt.executeUpdate();
                             if (removed > 0) {
-                                sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "errors.recovery.disk-removed-from-bay"));
+                                sender.sendMessage(plugin.getMessageManager().getMessageComponent((Player) sender, "errors.recovery.disk-removed-from-bay"));
                             }
                         }
                     }
@@ -204,7 +199,7 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
             }
 
         } catch (Exception e) {
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.recovery.error", "error", e.getMessage()));
+            sender.sendMessage(plugin.getMessageManager().getMessageComponent((Player) sender, "commands.recovery.error", "error", e.getMessage()));
             plugin.getLogger().severe("Error during disk recovery: " + e.getMessage());
         }
     }

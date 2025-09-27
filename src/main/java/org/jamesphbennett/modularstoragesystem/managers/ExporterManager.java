@@ -454,23 +454,20 @@ public class ExporterManager {
 
             Inventory furnaceInventory = furnaceContainer.getInventory();
             int targetSlot;
-            String slotName;
 
             // Determine target slot based on filter type
             if ("fuel".equals(slotTarget)) {
                 targetSlot = 1; // Fuel slot (bottom)
-                slotName = "fuel";
             } else {
                 targetSlot = 0; // Input slot (top) - default for material and generic
-                slotName = "input";
             }
 
             // Try to add to the specific furnace slot
             int leftoverAmount = addItemToSpecificSlot(furnaceInventory, retrievedItem, targetSlot);
 
             // Handle leftovers and logging
-            handleExportCompletion(exporter, retrievedItem, leftoverAmount, 
-                                 slotName + " slot");
+            handleExportCompletion(exporter, retrievedItem, leftoverAmount
+            );
 
         } catch (Exception e) {
             plugin.getLogger().severe("Error exporting to furnace: " + e.getMessage());
@@ -530,7 +527,7 @@ public class ExporterManager {
                 exporterCycleIndex.put(exporter.exporterId, (currentIndex + 1) % potentialExports.size());
                 
                 // Now perform the actual export to the specific slot
-                exportItemToSpecificBrewingSlot(exporter, selectedExport.itemHash, selectedExport.targetSlot, selectedExport.slotName, brewingStandContainer);
+                exportItemToSpecificBrewingSlot(exporter, selectedExport.itemHash, selectedExport.targetSlot, brewingStandContainer);
             }
             
         } catch (Exception e) {
@@ -541,7 +538,7 @@ public class ExporterManager {
     /**
      * Export item to a specific brewing stand slot (knows the exact slot to target)
      */
-    private void exportItemToSpecificBrewingSlot(ExporterData exporter, String itemHash, int targetSlot, String slotName, Container brewingStandContainer) {
+    private void exportItemToSpecificBrewingSlot(ExporterData exporter, String itemHash, int targetSlot, Container brewingStandContainer) {
         try {
             // Retrieve item from network first
             ItemStack retrievedItem = plugin.getStorageManager().retrieveItems(exporter.networkId, itemHash, 64);
@@ -588,7 +585,7 @@ public class ExporterManager {
             }
 
             // Handle completion and leftovers
-            handleExportCompletion(exporter, retrievedItem, leftoverAmount, "brewing stand " + slotName + " slot");
+            handleExportCompletion(exporter, retrievedItem, leftoverAmount);
 
         } catch (Exception e) {
             plugin.getLogger().severe("Error exporting to specific brewing stand slot: " + e.getMessage());
@@ -611,28 +608,7 @@ public class ExporterManager {
             }
 
             Material itemType = retrievedItem.getType();
-            int targetSlot = -1;
-            String slotName = "unknown";
-
-            // Determine target slot based on item type and filters
-            if (itemType == Material.BLAZE_POWDER && brewingFilters.fuelEnabled) {
-                targetSlot = 4; // Fuel slot
-                slotName = "fuel";
-            } else if (brewingFilters.ingredientFilter != null && 
-                      itemType == brewingFilters.ingredientFilter.getType()) {
-                targetSlot = 3; // Ingredient slot
-                slotName = "ingredient";
-            } else {
-                // Check bottle filters (slots 0, 1, 2)
-                for (int i = 0; i < 3; i++) {
-                    if (brewingFilters.bottleFilters[i] != null && 
-                        itemType == brewingFilters.bottleFilters[i].getType()) {
-                        targetSlot = i;
-                        slotName = "bottle " + (i + 1);
-                        break;
-                    }
-                }
-            }
+            int targetSlot = getTargetSlot(itemType, brewingFilters);
 
             if (targetSlot == -1) {
                 // No valid target slot - return items to network
@@ -684,12 +660,34 @@ public class ExporterManager {
             }
 
             // Handle completion and leftovers
-            handleExportCompletion(exporter, retrievedItem, leftoverAmount, 
-                                 "brewing stand " + slotName + " slot");
+            handleExportCompletion(exporter, retrievedItem, leftoverAmount
+            );
 
         } catch (Exception e) {
             plugin.getLogger().severe("Error exporting to brewing stand: " + e.getMessage());
         }
+    }
+
+    private static int getTargetSlot(Material itemType, BrewingStandFilters brewingFilters) {
+        int targetSlot = -1;
+
+        // Determine target slot based on item type and filters
+        if (itemType == Material.BLAZE_POWDER && brewingFilters.fuelEnabled) {
+            targetSlot = 4; // Fuel slot
+        } else if (brewingFilters.ingredientFilter != null &&
+                  itemType == brewingFilters.ingredientFilter.getType()) {
+            targetSlot = 3; // Ingredient slot
+        } else {
+            // Check bottle filters (slots 0, 1, 2)
+            for (int i = 0; i < 3; i++) {
+                if (brewingFilters.bottleFilters[i] != null &&
+                    itemType == brewingFilters.bottleFilters[i].getType()) {
+                    targetSlot = i;
+                    break;
+                }
+            }
+        }
+        return targetSlot;
     }
 
     /**
@@ -831,7 +829,7 @@ public class ExporterManager {
      * Handle export completion (leftovers, logging, etc.)
      */
     private void handleExportCompletion(ExporterData exporter, ItemStack retrievedItem, 
-                                       int leftoverAmount, String destination) {
+                                       int leftoverAmount) {
         try {
             // If there's leftover, put it back in the network
             if (leftoverAmount > 0) {
@@ -935,34 +933,6 @@ public class ExporterManager {
             plugin.getLogger().warning("Error checking attached block for exporter: " + e.getMessage());
         }
         return null;
-    }
-
-    /**
-     * Create a new exporter at the given location
-     */
-    public String createExporter(Location location, String networkId) throws SQLException {
-        String exporterId = generateExporterId();
-
-        plugin.getDatabaseManager().executeTransaction(conn -> {
-            try (PreparedStatement stmt = conn.prepareStatement(
-                    "INSERT INTO exporters (exporter_id, network_id, world_name, x, y, z, enabled) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
-                stmt.setString(1, exporterId);
-                stmt.setString(2, networkId);
-                stmt.setString(3, location.getWorld().getName());
-                stmt.setInt(4, location.getBlockX());
-                stmt.setInt(5, location.getBlockY());
-                stmt.setInt(6, location.getBlockZ());
-                stmt.setBoolean(7, false); // Start disabled (no filters)
-                stmt.executeUpdate();
-            }
-        });
-
-        // Add to active exporters
-        ExporterData data = new ExporterData(exporterId, networkId, location, false);
-        activeExporters.put(exporterId, data);
-        exporterCycleIndex.put(exporterId, 0);
-
-        return exporterId;
     }
 
     /**
@@ -1200,18 +1170,10 @@ public class ExporterManager {
     }
 
     /**
-     * Generate a unique exporter ID
-     */
-    private String generateExporterId() {
-        return "EXP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-    }
-
-    /**
      * ADDED: Handle network invalidation - disconnect exporters from invalid networks
      * This should be called when a network is unregistered/dissolved
      */
     public void handleNetworkInvalidated(String networkId) {
-        int disconnectedCount = 0;
         for (ExporterData exporter : activeExporters.values()) {
             if (networkId.equals(exporter.networkId)) {
                 try {
@@ -1226,8 +1188,6 @@ public class ExporterManager {
                     disconnectedData.filterItems.addAll(exporter.filterItems); // Preserve filters
                     activeExporters.put(exporter.exporterId, disconnectedData);
 
-                    disconnectedCount++;
-
                 } catch (SQLException e) {
                     plugin.getLogger().warning("Failed to disconnect exporter " + exporter.exporterId + ": " + e.getMessage());
                 }
@@ -1241,9 +1201,6 @@ public class ExporterManager {
      * This should be called after network detection/updates
      */
     public void updateExporterNetworkAssignments() {
-        int reconnectedCount = 0;
-        int disconnectedCount = 0;
-        int autoDisabledCount = 0;
 
         for (ExporterData exporter : activeExporters.values()) {
             // Check if current network is valid
@@ -1268,8 +1225,6 @@ public class ExporterManager {
                         updatedData.filterItems.addAll(exporter.filterItems);
                         activeExporters.put(exporter.exporterId, updatedData);
 
-                        reconnectedCount++;
-
                     } catch (SQLException e) {
                         plugin.getLogger().warning("Failed to reconnect exporter " + exporter.exporterId + ": " + e.getMessage());
                     }
@@ -1286,8 +1241,6 @@ public class ExporterManager {
                         disconnectedData.filterItems.addAll(exporter.filterItems);
                         activeExporters.put(exporter.exporterId, disconnectedData);
 
-                        disconnectedCount++;
-
                     } catch (SQLException e) {
                         plugin.getLogger().warning("Failed to disconnect exporter " + exporter.exporterId + ": " + e.getMessage());
                     }
@@ -1299,7 +1252,6 @@ public class ExporterManager {
                     try {
                         toggleExporter(exporter.exporterId, false);
                         refreshExporterGUIs(exporter.exporterId);
-                        autoDisabledCount++;
                     } catch (SQLException e) {
                         plugin.getLogger().warning("Failed to auto-disable exporter " + exporter.exporterId + ": " + e.getMessage());
                     }

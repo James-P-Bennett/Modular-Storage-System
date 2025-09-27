@@ -270,7 +270,6 @@ public class RecipeManager {
         // Register the recipe with the server
         plugin.getServer().addRecipe(recipe);
 
-        String description = recipeSection.getString("description", "No description");
         // Removed verbose console output - summary shown at plugin startup
     }
 

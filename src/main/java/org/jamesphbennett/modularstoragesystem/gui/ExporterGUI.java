@@ -1,8 +1,6 @@
 package org.jamesphbennett.modularstoragesystem.gui;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -33,7 +31,6 @@ public class ExporterGUI implements Listener {
     private final String exporterId;
     private final String networkId;
     private final Inventory inventory;
-    private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     private final Map<Integer, ItemStack> slotToFilterItem = new HashMap<>();
     private final List<ItemStack> currentFilterItems = new ArrayList<>();
@@ -204,7 +201,7 @@ public class ExporterGUI implements Listener {
         infoLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.exporter.filter.add-instruction"));
         infoMeta.lore(infoLore);
         info.setItemMeta(infoMeta);
-        inventory.setItem(35, info);
+        inventory.setItem(33, info);
     }
 
     /**

@@ -1,9 +1,7 @@
 package org.jamesphbennett.modularstoragesystem.network;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.block.Block;
 import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
 

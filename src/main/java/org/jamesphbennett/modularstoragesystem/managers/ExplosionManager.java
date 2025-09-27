@@ -23,9 +23,8 @@ public class ExplosionManager {
     /**
      * Handle explosion damage to MSS blocks
      * @param blockList The list of blocks affected by the explosion
-     * @param explosionLocation The location where the explosion occurred
      */
-    public void handleExplosion(List<Block> blockList, Location explosionLocation) {
+    public void handleExplosion(List<Block> blockList) {
         List<Block> customBlocksToHandle = new ArrayList<>();
         List<Location> driveBayLocations = new ArrayList<>();
         List<Location> exporterLocations = new ArrayList<>();
@@ -371,16 +370,4 @@ public class ExplosionManager {
         return null;
     }
 
-    /**
-     * Get the block type string for a destroyed block
-     */
-    private String getBlockTypeFromBlock(Block block) {
-        if (isCustomStorageServer(block)) return "STORAGE_SERVER";
-        if (isCustomDriveBay(block)) return "DRIVE_BAY";
-        if (isCustomMSSTerminal(block)) return "MSS_TERMINAL";
-        if (isCustomSecurityTerminal(block)) return "SECURITY_TERMINAL";
-        if (isCustomExporter(block)) return "EXPORTER";
-        if (isCustomImporter(block)) return "IMPORTER";
-        return "UNKNOWN";
-    }
 }

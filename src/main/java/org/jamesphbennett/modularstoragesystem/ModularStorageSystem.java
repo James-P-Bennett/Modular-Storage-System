@@ -42,7 +42,7 @@ public final class ModularStorageSystem extends JavaPlugin {
         // Display ASCII art on startup
         displayStartupArt();
 
-        getLogger().info(messageManager != null ? messageManager.getConsoleMessage("console.startup.loading", "version", getDescription().getVersion()) : "Loading Modular Storage System v" + getDescription().getVersion());
+        getLogger().info(messageManager != null ? messageManager.getConsoleMessage("console.startup.loading", "version", getPluginMeta().getVersion()) : "Loading Modular Storage System v" + getPluginMeta().getVersion());
 
         try {
             configManager = new ConfigManager(this);

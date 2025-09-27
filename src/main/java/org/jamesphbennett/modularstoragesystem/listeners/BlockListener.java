@@ -6,6 +6,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.Directional;
 import org.bukkit.util.Vector;
 import org.bukkit.entity.Player;
@@ -30,6 +31,7 @@ import org.jamesphbennett.modularstoragesystem.network.NetworkConnectivityManage
 import org.jamesphbennett.modularstoragesystem.network.NetworkManager;
 import org.jamesphbennett.modularstoragesystem.network.NetworkInfo;
 import org.jamesphbennett.modularstoragesystem.network.CableManager;
+import org.jetbrains.annotations.NotNull;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -129,7 +131,6 @@ public class BlockListener implements Listener {
 
             // If no network found, use placeholder - exporter will remain inactive until connected
             if (nearbyNetworkId == null) {
-                nearbyNetworkId = "UNCONNECTED";
                 player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.exporter-unconnected"));
             } else {
                 player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.exporter-connected"));
@@ -140,7 +141,6 @@ public class BlockListener implements Listener {
                 markLocationAsCustomBlock(location, "EXPORTER");
 
                 // Create the exporter in the manager
-                String exporterId = plugin.getExporterManager().createExporter(location, nearbyNetworkId);
 
             } catch (Exception e) {
                 Component message = plugin.getMessageManager().getMessageComponent(player, "errors.placement.block-error", "error", e.getMessage());
@@ -175,7 +175,6 @@ public class BlockListener implements Listener {
 
             // If no network found, use placeholder - importer will remain inactive until connected
             if (nearbyNetworkId == null) {
-                nearbyNetworkId = "UNCONNECTED";
                 player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.importer-unconnected"));
             } else {
                 player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.importer-connected"));
@@ -186,7 +185,6 @@ public class BlockListener implements Listener {
                 markLocationAsCustomBlock(location, "IMPORTER");
 
                 // Create the importer in the manager
-                String importerId = plugin.getImporterManager().createImporter(location, nearbyNetworkId);
 
             } catch (Exception e) {
                 Component message = plugin.getMessageManager().getMessageComponent(player, "errors.placement.block-error", "error", e.getMessage());
@@ -343,7 +341,6 @@ public class BlockListener implements Listener {
                         }
                     } catch (Exception e) {
                         plugin.getLogger().severe("Error creating security terminal: " + e.getMessage());
-                        e.printStackTrace();
                     }
                 }
 
@@ -609,7 +606,7 @@ public class BlockListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onEntityExplode(EntityExplodeEvent event) {
         if (event.isCancelled()) return;
-        plugin.getExplosionManager().handleExplosion(event.blockList(), event.getLocation());
+        plugin.getExplosionManager().handleExplosion(event.blockList());
     }
 
     /**
@@ -618,7 +615,7 @@ public class BlockListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onBlockExplode(BlockExplodeEvent event) {
         if (event.isCancelled()) return;
-        plugin.getExplosionManager().handleExplosion(event.blockList(), event.getBlock().getLocation());
+        plugin.getExplosionManager().handleExplosion(event.blockList());
     }
 
     @EventHandler(priority = EventPriority.NORMAL)
@@ -809,7 +806,7 @@ public class BlockListener implements Listener {
 
             try {
                 // Check if player is the owner
-                if (!plugin.getSecurityManager().isOwner(player, block.getLocation())) {
+                if (plugin.getSecurityManager().isOwner(player, block.getLocation())) {
                     player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.placement.access-denied-manage-network"));
                     return;
                 }
@@ -822,7 +819,7 @@ public class BlockListener implements Listener {
                 }
 
                 // Open security terminal GUI
-                plugin.getGUIManager().openSecurityTerminalGUI(player, block.getLocation(), terminalData.terminalId, terminalData.ownerUuid);
+                plugin.getGUIManager().openSecurityTerminalGUI(player, terminalData.terminalId(), terminalData.ownerUuid());
 
             } catch (Exception e) {
                 Component message = plugin.getMessageManager().getMessageComponent(player, "errors.access.error-security-terminal", "error", e.getMessage());
@@ -1340,25 +1337,30 @@ public class BlockListener implements Listener {
         }
 
         // Calculate player direction
-        Vector playerDirection = player.getLocation().getDirection();
-        
-        // Get horizontal direction (ignore Y component for facing)
-        double x = playerDirection.getX();
-        double z = playerDirection.getZ();
-        
-        // Determine the closest cardinal direction (opposite of player direction to face toward player)
-        org.bukkit.block.BlockFace facing;
-        if (Math.abs(x) > Math.abs(z)) {
-            facing = x > 0 ? org.bukkit.block.BlockFace.WEST : org.bukkit.block.BlockFace.EAST;
-        } else {
-            facing = z > 0 ? org.bukkit.block.BlockFace.NORTH : org.bukkit.block.BlockFace.SOUTH;
-        }
-        
+        BlockFace facing = getBlockFace(player);
+
         // Set the facing direction if it's a valid option for this block
         if (directional.getFaces().contains(facing)) {
             directional.setFacing(facing);
             block.setBlockData(directional);
         }
+    }
+
+    private static @NotNull BlockFace getBlockFace(Player player) {
+        Vector playerDirection = player.getLocation().getDirection();
+
+        // Get horizontal direction (ignore Y component for facing)
+        double x = playerDirection.getX();
+        double z = playerDirection.getZ();
+
+        // Determine the closest cardinal direction (opposite of player direction to face toward player)
+        BlockFace facing;
+        if (Math.abs(x) > Math.abs(z)) {
+            facing = x > 0 ? BlockFace.WEST : BlockFace.EAST;
+        } else {
+            facing = z > 0 ? BlockFace.NORTH : BlockFace.SOUTH;
+        }
+        return facing;
     }
 
     /**
@@ -1377,7 +1379,7 @@ public class BlockListener implements Listener {
             // If there's a security terminal adjacent
             if (isCustomSecurityTerminal(adjacentBlock)) {
                 // Check if player is the owner of this security terminal
-                if (!plugin.getSecurityManager().isOwner(player, adjacent)) {
+                if (plugin.getSecurityManager().isOwner(player, adjacent)) {
                     return false;
                 }
             }

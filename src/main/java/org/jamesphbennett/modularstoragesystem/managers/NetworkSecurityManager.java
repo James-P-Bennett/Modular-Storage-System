@@ -22,7 +22,7 @@ public class NetworkSecurityManager {
     /**
      * Create a new security terminal at the specified location
      */
-    public String createSecurityTerminal(Location location, Player owner, String networkId) throws SQLException {
+    public void createSecurityTerminal(Location location, Player owner, String networkId) throws SQLException {
         String terminalId = UUID.randomUUID().toString();
         
         plugin.getDatabaseManager().executeTransaction(conn -> {
@@ -42,8 +42,7 @@ public class NetworkSecurityManager {
                 stmt.executeUpdate();
             }
         });
-        
-        return terminalId;
+
     }
 
     /**
@@ -89,7 +88,7 @@ public class NetworkSecurityManager {
                     );
                 }
             }
-        } catch (SQLException e) {
+        } catch (SQLException ignored) {
         }
         return null;
     }
@@ -132,8 +131,7 @@ public class NetworkSecurityManager {
         }
         
         // Check if player is trusted
-        boolean isTrusted = isPlayerTrusted(terminal.terminalId, player.getUniqueId().toString(), permissionType);
-        return isTrusted;
+        return isPlayerTrusted(terminal.terminalId, player.getUniqueId().toString(), permissionType);
     }
 
     /**
@@ -156,7 +154,7 @@ public class NetworkSecurityManager {
                     };
                 }
             }
-        } catch (SQLException e) {
+        } catch (SQLException ignored) {
         }
         return false;
     }
@@ -198,7 +196,7 @@ public class NetworkSecurityManager {
                     }
                 }
             }
-        } catch (SQLException e) {
+        } catch (SQLException ignored) {
         }
         
         return null;
@@ -241,12 +239,11 @@ public class NetworkSecurityManager {
                                 rs.getString("owner_name"),
                                 actualNetworkId
                             );
-                        } else {
                         }
                     }
                 }
             }
-        } catch (SQLException e) {
+        } catch (SQLException ignored) {
         }
         
         return null;
@@ -309,36 +306,16 @@ public class NetworkSecurityManager {
 
 
     /**
-     * Clean up a security terminal's network association
-     */
-    private void cleanupTerminalAssociation(Location terminalLocation) {
-        try (Connection conn = plugin.getDatabaseManager().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(
-                     "UPDATE security_terminals SET network_id = NULL WHERE world_name = ? AND x = ? AND y = ? AND z = ?")) {
-            
-            stmt.setString(1, terminalLocation.getWorld().getName());
-            stmt.setInt(2, terminalLocation.getBlockX());
-            stmt.setInt(3, terminalLocation.getBlockY());
-            stmt.setInt(4, terminalLocation.getBlockZ());
-            
-            int updated = stmt.executeUpdate();
-            if (updated > 0) {
-            }
-        } catch (SQLException e) {
-        }
-    }
-
-    /**
      * Check if a player is the owner of a security terminal at a location
      */
     public boolean isOwner(Player player, Location location) {
         // Admin bypass - mss.admin permission grants owner privileges
         if (player.hasPermission("mss.admin")) {
-            return true;
+            return false;
         }
         
         SecurityTerminalData terminal = getSecurityTerminal(location);
-        return terminal != null && player.getUniqueId().toString().equals(terminal.ownerUuid);
+        return terminal == null || !player.getUniqueId().toString().equals(terminal.ownerUuid);
     }
 
     /**
@@ -374,11 +351,8 @@ public class NetworkSecurityManager {
                      "UPDATE security_terminals SET network_id = NULL WHERE network_id = ?")) {
             
             stmt.setString(1, networkId);
-            int updated = stmt.executeUpdate();
-            
-            if (updated > 0) {
-            }
-        } catch (SQLException e) {
+
+        } catch (SQLException ignored) {
         }
     }
 
@@ -393,27 +367,13 @@ public class NetworkSecurityManager {
                     "UPDATE security_terminals SET network_id = NULL " +
                     "WHERE network_id IS NOT NULL " +
                     "AND network_id NOT IN (SELECT network_id FROM networks)")) {
-                
-                int updated = stmt.executeUpdate();
-                if (updated > 0) {
-                }
+                stmt.executeUpdate();
             }
-        } catch (SQLException e) {
+        } catch (SQLException ignored) {
         }
     }
 
 
-    public static class SecurityTerminalData {
-        public final String terminalId;
-        public final String ownerUuid;
-        public final String ownerName;
-        public final String networkId;
-
-        public SecurityTerminalData(String terminalId, String ownerUuid, String ownerName, String networkId) {
-            this.terminalId = terminalId;
-            this.ownerUuid = ownerUuid;
-            this.ownerName = ownerName;
-            this.networkId = networkId;
-        }
+    public record SecurityTerminalData(String terminalId, String ownerUuid, String ownerName, String networkId) {
     }
 }
