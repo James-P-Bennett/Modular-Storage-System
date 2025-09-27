@@ -38,7 +38,7 @@ recipes:
       N: "NETHERITE_INGOT"
       R: "REDSTONE"
       A: "AMETHYST_SHARD"
-    description: "The core of the Mass Storage Network"
+    description: "The core of the Modular Storage Network"
 
   drive_bay:
     enabled: true

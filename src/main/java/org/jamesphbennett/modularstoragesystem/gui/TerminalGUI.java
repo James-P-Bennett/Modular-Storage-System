@@ -426,15 +426,8 @@ public class TerminalGUI implements Listener {
         ItemStack displayItem = storedItem.getDisplayStack();
         ItemMeta meta = displayItem.getItemMeta();
 
-        // NEW BEHAVIOR: Display logic based on quantity and max stack size
-        int maxStackSize = displayItem.getMaxStackSize();
-        if (storedItem.quantity() > maxStackSize) {
-            // For items > max stack size, show as single item (no number)
-            displayItem.setAmount(1);
-        } else {
-            // For items ≤ max stack size, show actual quantity
-            displayItem.setAmount(storedItem.quantity());
-        }
+        // Always display as 1 item (no stack count numbers in GUI)
+        displayItem.setAmount(1);
 
         // Add quantity information to lore
         List<Component> lore = (meta.hasLore() && meta.lore() != null) ? new ArrayList<>(Objects.requireNonNull(meta.lore())) : new ArrayList<>();

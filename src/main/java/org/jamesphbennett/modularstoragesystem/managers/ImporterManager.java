@@ -292,7 +292,7 @@ public class ImporterManager {
 
             // Calculate what was actually imported
             int originalAmount = outputItem.getAmount();
-            int leftoverAmount = leftoverItems.isEmpty() ? 0 : leftoverItems.get(0).getAmount();
+            int leftoverAmount = leftoverItems.isEmpty() ? 0 : leftoverItems.getFirst().getAmount();
             int importedAmount = originalAmount - leftoverAmount;
 
             if (importedAmount > 0) {
@@ -348,7 +348,7 @@ public class ImporterManager {
 
                 // Calculate what was actually imported
                 int originalAmount = potionItem.getAmount();
-                int leftoverAmount = leftoverItems.isEmpty() ? 0 : leftoverItems.get(0).getAmount();
+                int leftoverAmount = leftoverItems.isEmpty() ? 0 : leftoverItems.getFirst().getAmount();
                 int importedAmount = originalAmount - leftoverAmount;
 
                 if (importedAmount > 0) {
@@ -411,7 +411,7 @@ public class ImporterManager {
 
                 // Calculate what was actually imported
                 int originalAmount = slotItem.getAmount();
-                int leftoverAmount = leftoverItems.isEmpty() ? 0 : leftoverItems.get(0).getAmount();
+                int leftoverAmount = leftoverItems.isEmpty() ? 0 : leftoverItems.getFirst().getAmount();
                 int importedAmount = originalAmount - leftoverAmount;
 
                 if (importedAmount > 0) {
@@ -474,34 +474,6 @@ public class ImporterManager {
         }
 
         return null;
-    }
-
-    /**
-     * Create a new importer at the given location
-     */
-    public String createImporter(Location location, String networkId) throws SQLException {
-        String importerId = generateImporterId();
-
-        plugin.getDatabaseManager().executeTransaction(conn -> {
-            try (PreparedStatement stmt = conn.prepareStatement(
-                    "INSERT INTO importers (importer_id, network_id, world_name, x, y, z, enabled) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
-                stmt.setString(1, importerId);
-                stmt.setString(2, networkId);
-                stmt.setString(3, location.getWorld().getName());
-                stmt.setInt(4, location.getBlockX());
-                stmt.setInt(5, location.getBlockY());
-                stmt.setInt(6, location.getBlockZ());
-                stmt.setBoolean(7, false); // Start disabled by default
-                stmt.executeUpdate();
-            }
-        });
-
-        // Add to active importers
-        ImporterData data = new ImporterData(importerId, networkId, location, false);
-        activeImporters.put(importerId, data);
-        importerCycleIndex.put(importerId, 0);
-
-        return importerId;
     }
 
     /**
@@ -625,17 +597,9 @@ public class ImporterManager {
     }
 
     /**
-     * Generate a unique importer ID
-     */
-    private String generateImporterId() {
-        return "IMP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-    }
-
-    /**
      * Handle network invalidation - disconnect importers from invalid networks
      */
     public void handleNetworkInvalidated(String networkId) {
-        int disconnectedCount = 0;
         for (ImporterData importer : activeImporters.values()) {
             if (networkId.equals(importer.networkId)) {
                 try {
@@ -650,8 +614,6 @@ public class ImporterManager {
                     disconnectedData.filterItems.addAll(importer.filterItems);
                     activeImporters.put(importer.importerId, disconnectedData);
 
-                    disconnectedCount++;
-
                 } catch (SQLException e) {
                     plugin.getLogger().warning("Failed to disconnect importer " + importer.importerId + ": " + e.getMessage());
                 }
@@ -664,9 +626,6 @@ public class ImporterManager {
      * Update importer network assignments when networks change
      */
     public void updateImporterNetworkAssignments() {
-        int reconnectedCount = 0;
-        int disconnectedCount = 0;
-        int autoDisabledCount = 0;
 
         for (ImporterData importer : activeImporters.values()) {
             // Check if current network is valid
@@ -691,8 +650,6 @@ public class ImporterManager {
                         updatedData.filterItems.addAll(importer.filterItems);
                         activeImporters.put(importer.importerId, updatedData);
 
-                        reconnectedCount++;
-
                     } catch (SQLException e) {
                         plugin.getLogger().warning("Failed to reconnect importer " + importer.importerId + ": " + e.getMessage());
                     }
@@ -709,8 +666,6 @@ public class ImporterManager {
                         disconnectedData.filterItems.addAll(importer.filterItems);
                         activeImporters.put(importer.importerId, disconnectedData);
 
-                        disconnectedCount++;
-
                     } catch (SQLException e) {
                         plugin.getLogger().warning("Failed to disconnect importer " + importer.importerId + ": " + e.getMessage());
                     }
@@ -722,7 +677,6 @@ public class ImporterManager {
                     try {
                         toggleImporter(importer.importerId, false);
                         refreshImporterGUIs(importer.importerId);
-                        autoDisabledCount++;
                     } catch (SQLException e) {
                         plugin.getLogger().warning("Failed to auto-disable importer " + importer.importerId + ": " + e.getMessage());
                     }

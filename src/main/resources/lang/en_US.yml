@@ -154,8 +154,8 @@ errors:
     cable-limit-exceeded: "{mss-prefix}<red>Network cable limit exceeded! Maximum <yellow>{max}</yellow> cables per network.</red>"
     invalid-network-formation: "{mss-prefix}<red>Cannot form network: Network configuration violates constraints!</red>"
     storage-disks-blocks: "{mss-prefix}<red>Storage disks cannot be placed as blocks!</red>"
-    mss-components-blocks: "{mss-prefix}<red>Mass Storage components cannot be placed as blocks!</red>"
-    no-use-permission: "{mss-prefix}<red>You don't have permission to place Mass Storage blocks.</red>"
+    mss-components-blocks: "{mss-prefix}<red>Modular Storage components cannot be placed as blocks!</red>"
+    no-use-permission: "{mss-prefix}<red>You don't have permission to place MSS blocks.</red>"
     no-block-modification-permission: "{mss-prefix}<red>You don't have permission to modify blocks in this network.</red>"
     exporter-cannot-attach: "{mss-prefix}<red>You cannot attach an exporter directly to the network!</red>"
     importer-cannot-attach: "{mss-prefix}<red>You cannot attach an importer directly to the network!</red>"
@@ -191,7 +191,7 @@ errors:
     recipe-ingredient: "{mss-prefix}<white> {key} = {material}</white>"
     recipe-custom-note: "{mss-prefix}<gray>Note: This recipe uses custom components and requires manual crafting validation.</gray>"
     recipe-not-found: "{mss-prefix}<red>Recipe '{recipe}' not found!</red>"
-    recipes-empty-line: ""
+    recipes-empty-line: "{mss-prefix}"
     recipes-help: "{mss-prefix}<yellow>Use '/mss recipe <name>' for detailed recipe information</yellow>"
     recipes-registered-count: "{mss-prefix}<white>Registered: {registered}/{total} ({enabled} enabled)</white>"
 
@@ -262,7 +262,7 @@ success:
     disabled: "{mss-prefix}{device} disabled"
   
   storage-server-info:
-    header: "{mss-prefix}<green><b>Mass Storage Network Info:"
+    header: "{mss-prefix}<green><b>Modular Storage Network Info:"
     network-id: "{mss-prefix}<white>Network ID: {network_id}</white>"
     network-id-none: "{mss-prefix}<gray>Network ID: Not Assigned</gray>"
     status-operational: "{mss-prefix}<green>Operational</green>"
@@ -298,7 +298,7 @@ gui:
     disabled: "{mss-prefix}<yellow>{device} disabled</yellow>"
     toggle-error: "{mss-prefix}<red>Error toggling {device}: {error}</red>"
 
-  # Storage Disk Lore
+  # Storage Disk Info (Lore)
   storage-disk:
     header: "<blue>Modular Storage System</blue>"
     capacity: "<gray>Capacity: {capacity} items per cell</gray>"
@@ -339,9 +339,9 @@ gui:
       to-quantity: "Click to sort by Quantity"
       mode-quantity: "<blue>Quantity</blue>"
       mode-alphabetical: "<blue>Alphabetical (A-Z)</blue>"
-      changed: "<yellow>Sorting changed to: {mode}</yellow>"
-      changed-to-quantity: "<yellow>Sorting changed to: Quantity</yellow>"
-      changed-to-alphabetical: "<yellow>Sorting changed to: Alphabetical (A-Z)</yellow>"
+      changed: "{mss-prefix}<yellow>Sorting changed to: {mode}</yellow>"
+      changed-to-quantity: "{mss-prefix}<yellow>Sorting changed to: Quantity</yellow>"
+      changed-to-alphabetical: "{mss-prefix}<yellow>Sorting changed to: Alphabetical (A-Z)</yellow>"
     pagination:
       previous: "Previous Page"
       next: "Next Page"
@@ -371,15 +371,14 @@ gui:
       quantity: "<yellow>Quantity: <white>{amount}"
 
     storage:
-      not-allowed: "{mss-prefix}This item cannot be stored in the network!"
-      not-allowed-red: "{mss-prefix}<red>This item cannot be stored in the network!</red>"
-      partial: "{mss-prefix}Stored {stored} items. {remaining} items couldn't be stored (network full?)"
-      partial-drag: "{mss-prefix}Partially stored items from drag operation"
-      full: "{mss-prefix}No space available in the network!"
-      error: "{mss-prefix}Error storing items: {error}"
+      not-allowed: "{mss-prefix}<red>This item cannot be stored in the network!</red>"
+      partial: "{mss-prefix}<yellow>Stored {stored} items. {remaining} items couldn't be stored (network full?)</yellow>"
+      partial-drag: "{mss-prefix}<yellow>Partially stored items from drag operation.</yellow>"
+      full: "{mss-prefix}<red>No space available in the network!</red>"
+      error: "{mss-prefix}<red>Encountered an error while trying to store items:</red> {error}"
     retrieval:
-      inventory-full: "{mss-prefix}Your inventory is full!"
-      limited-space: "{mss-prefix}Only retrieving {amount} items due to inventory space!"
+      inventory-full: "{mss-prefix}<red>Your inventory is full!</red>"
+      limited-space: "{mss-prefix}<red>Only retrieving {amount} items due to inventory space!</red>"
 
   # Drive Bay GUI  
   drive-bay:
@@ -391,7 +390,7 @@ gui:
       empty: "Empty Drive Slot"
       disk: "{tier} Storage Disk"
       usage: "Usage: {used}/{max} cells"
-      remove: "Click to remove disk"
+      remove: "Click to uninstall disk"
     disk:
       capacity: "Capacity: {capacity} items per cell"
       total-capacity: "Total Capacity: {total} items"
@@ -399,15 +398,15 @@ gui:
       crafter: "Crafted by: {crafter}"
       id: "ID: {id}"
     error:
-      only-disks: "Only storage disks can be placed in drive bays!"
-      no-slots: "No empty drive slots available!"
-      inventory-full: "Your inventory is full!"
-      database: "Failed to place disk - database error"
-      invalid-disk: "Invalid storage disk!"
+      only-disks: "{mss-prefix}<red>Only disks can be installed in drive bays.</red>"
+      no-slots: "{mss-prefix}<red>No empty disk slots available in this bay.</red>"
+      inventory-full: "{mss-prefix}<red>Your inventory is full.</red>"
+      database: "{mss-prefix}<red>Failed to install disk - plugin database error!</red>"
+      invalid-disk: "{mss-prefix}<red>Invalid disk! - plugin or database error!</red>"
 
   # Exporter GUI
   exporter:
-    title: "<green><b>Exporter"
+    title: "<green><b>Exporter</b></green>"
     status:
       enabled: "Status: Enabled"
       disabled: "Status: Disabled"
@@ -430,8 +429,8 @@ gui:
       clear-description: "Click to remove all filter items"
       clear-result: "Clears filters to export nothing"
       info: "Exporter Information"
-      no-filters: "No filters to clear"
-      cleared: "Cleared all filters"
+      no-filters: "{mss-prefix}<yellow>No filters to clear</yellow>"
+      cleared: "{mss-prefix}<yellow>Cleared all filters</yellow>"
     
     # Furnace-specific exporter
     furnace:
@@ -448,8 +447,8 @@ gui:
       ingredient-filter: "Ingredient Filter"
       ingredient-slot: "Ingredient Slot"
       ingredient-description: "Targets brewing stand ingredient slot"
-      ingredient-set: "Set ingredient filter to {item}"
-      ingredient-removed: "Removed ingredient filter"
+      ingredient-set: "{mss-prefix}Set ingredient filter to {item}"
+      ingredient-removed: "{mss-prefix}Removed ingredient filter"
       bottle-filter: "Bottle Filter ({slot})"
       bottle-left: "Bottle Slot (Left)"
       bottle-middle: "Bottle Slot (Middle)"
@@ -457,7 +456,7 @@ gui:
       bottle-description: "Targets brewing stand bottle slot"
       bottle-set: "Set bottle filter {slot} to {item}"
       bottle-removed: "Removed bottle filter {slot}"
-      filters-cleared: "Cleared all brewing stand filters"
+      filters-cleared: "{mss-prefix}Cleared all brewing stand filters"
       drag-instruction: "Drag items to purple (ingredient) or blue (bottle) slots!"
       info-fuel: "Yellow: Fuel toggle"
       info-ingredient: "Purple: Ingredient slot"
@@ -467,20 +466,20 @@ gui:
       furnace-fuel-description: "These items will go to the bottom slot of the furnace"
       input-instruction: "Drag items here to export to furnace input slot"
       input-description: "These items will go to the top slot of the furnace"
-      no-furnace: "No valid furnace connected"
+      no-furnace: "{mss-prefix}<red>No valid furnace connected.</red>"
       clear-both: "This will clear both fuel and material filters"
       fuel-count: "Fuel Filters: {count}/{max}"
       material-count: "Material Filters: {count}/{max}"
       red-slots: "Red slots: Items for furnace fuel slot"
       blue-slots: "Blue slots: Items for furnace input slot"
       shift-instruction: "Drag items to red (fuel) or blue (material) slots, or click an empty slot first!"
-      already-in-fuel: "This item is already in the fuel filter!"
-      already-in-material: "This item is already in the material filter!"
-      added-to-filter: "Added {item} to {type} filter"
+      already-in-fuel: "{mss-prefix}<red>This item is already in the fuel filter.</red>"
+      already-in-material: "{mss-prefix}<red>This item is already in the material filter.</red>"
+      added-to-filter: "{mss-prefix}<green>Added {item} to {type} filter</green>"
 
   # Importer GUI
   importer:
-    title: "<green><b>Importer"
+    title: "<green><b>Importer</b></green>"
     status:
       enabled: "Status: Enabled"
       disabled: "Status: Disabled"
@@ -498,19 +497,19 @@ gui:
       no-filter: "Leave empty to import everything"
       item-description: "Filter Item"
       remove-instruction: "Click to remove from filter"
-      full: "Filter is full! Remove items first."
-      already-exists: "This item is already in the filter!"
+      full: "{mss-prefix}<red>Filter is full! Remove items first.</red>"
+      already-exists: "{mss-prefix}<red>This item is already in the filter!</red>"
     controls:
       clear: "Clear All Filters" 
       clear-description: "Click to remove all filter items"
       clear-result: "Clears filters to import everything"
       info: "Importer Information"
       no-filters: "No filters to clear"
-      cleared-success: "Cleared all filters - will now import everything"
+      cleared-success: "{mss-prefix}<green>Cleared all filters - will now import everything.</green>"
     
     # Brewing Stand specific importer
     brewing:
-      title: "<green><b>Importer"
+      title: "<green><b>Importer</b></green>"
       slot-left: "Import Slot (Left)"
       slot-middle: "Import Slot (Middle)" 
       slot-right: "Import Slot (Right)"
@@ -522,13 +521,13 @@ gui:
       info-ignored: "Ingredient/fuel slots are ignored"
       drag-instruction-main: "Drag items to filter slots (blue for potions)!"
       filter-set: "Set import filter {slot} to {item}"
-      filter-removed: "Removed import filter {slot}"
-      filters-cleared: "Cleared all brewing stand filters"
+      filter-removed: "{mss-prefix}<green>Removed import filter {slot}</green>"
+      filters-cleared: "{mss-prefix}Cleared all brewing stand filters"
       filter-description: "Import Filter ({slot})"
 
   # Security Terminal GUI
   security-terminal:
-    title: "<green><b>Security Terminal"
+    title: "<green><b>Security Terminal</b></green>"
     navigation:
       previous-page: "Previous Page"
       next-page: "Next Page"
@@ -559,81 +558,73 @@ gui:
         right-click: "Right-click: Toggle Building"
         shift-click: "Shift-click: Remove Player"
     messages:
-      add-prompt: "<yellow>Type the name of the player you want to add:</yellow>"
-      access-granted: "<green>{status} GUI access (Terminal/Drive Bay/Server/Import/Export) for {player}</green>"
-      access-revoked: "<red>{status} GUI access (Terminal/Drive Bay/Server/Import/Export) for {player}</red>"
-      building-granted: "<green>{status} block modification access for {player}</green>"
-      building-revoked: "<red>{status} block modification access for {player}</red>"
-      player-removed: "<yellow>Removed {player} from trusted players</yellow>"
-      player-not-found: "<red>Player not found: {player}</red>"
-      player-already-trusted: "<yellow>{player} is already a trusted player</yellow>"
-      player-added: "<green>Added {player} as a trusted player</green>"
-      error-adding: "<red>Error adding player: {error}</red>"
+      add-prompt: "{mss-prefix}<yellow>Type the name of the player you want to add:</yellow>"
+      access-granted: "{mss-prefix}<green>{status} GUI access (Terminal/Drive Bay/Server/Import/Export) for {player}</green>"
+      access-revoked: "{mss-prefix}<red>{status} GUI access (Terminal/Drive Bay/Server/Import/Export) for {player}</red>"
+      building-granted: "{mss-prefix}<green>{status} block modification access for {player}</green>"
+      building-revoked: "{mss-prefix}<red>{status} block modification access for {player}</red>"
+      player-removed: "{mss-prefix}<yellow>Removed {player} from trusted players</yellow>"
+      player-not-found: "{mss-prefix}<red>Player not found: {player}</red>"
+      player-already-trusted: "{mss-prefix}<yellow>{player} is already a trusted player</yellow>"
+      player-added: "{mss-prefix}<green>Added {player} as a trusted player</green>"
+      error-adding: "{mss-prefix}<red>Error adding player: {error}</red>"
 
   # Crafting Messages
   crafting:
-    no-permission: "{mss-prefix}<red>You don't have permission to craft Mass Storage items.</red>"
+    no-permission: "{mss-prefix}<red>You don't have permission to craft MSS items.</red>"
     component-success: "{mss-prefix}<green>{component} crafted successfully!</green>"
     storage-disk-success: "{mss-prefix}<green>Storage Disk [{tier}] crafted successfully!</green>"
-    vanilla-recipe-blocked: "{mss-prefix}<red>Mass Storage components cannot be used in vanilla recipes!</red>"
+    vanilla-recipe-blocked: "{mss-prefix}<red>MSS components cannot be used in vanilla recipes!</red>"
     search-expired: "{mss-prefix}<red>Search input expired. Please try again.</red>"
     disk-registration-error: "{mss-prefix}<red>Error registering storage disk: {error}</red>"
 
 
   # Storage Operations
   storage:
-    disk-inserted: "<green>Storage disk inserted successfully!</green>"
-    disk-removed: "<green>Storage disk removed successfully!</green>"
-    disk-only: "<red>Only storage disks can be placed in drive bays!</red>"
+    disk-inserted: "{mss-prefix}<green>Storage disk installed successfully!</green>"
+    disk-removed: "{mss-prefix}<yellow>Storage disk uninstalled successfully!</yellow>"
+    disk-only: "{mss-prefix}<red>Only disks can be installed in drive bays!</red>"
 
   # Network Operations
   network:
-    exporter-cannot-attach: "<red>You cannot attach an exporter directly to the network!</red>"
-    importer-cannot-attach: "<red>You cannot attach an importer directly to the network!</red>"
-    exporter-placed-unconnected: "<yellow>Exporter placed! Connect it to a network to activate.</yellow>"
-    exporter-placed-connected: "<green>Exporter created successfully! Right-click to configure.</green>"
-    importer-placed-unconnected: "<yellow>Importer placed! Connect it to a network to activate.</yellow>"
-    importer-placed-connected: "<green>Importer created successfully! Right-click to configure.</green>"
-    connected-info: "<green>Connected to network with {drive_bays} drive bay(s) and {terminals} terminal(s).</green>"
-    size-limit-exceeded: "<red>Network size limit exceeded! Maximum {max} blocks per network.</red>"
-    drive-bay-restored: "<aqua>Drive bay contents have been restored!</aqua>"
-    check-terminals: "<yellow>Check your terminals to see restored items.</yellow>"
-    search-cancelled: "<yellow>Search cancelled.</yellow>"
-    input-cancelled: "<red>Player input cancelled.</red>"
-    connection-lost: "<red>Network connection lost - please check your storage system.</red>"
-    dissolved: "<red>Storage network dissolved - blocks have been disconnected.</red>"
-    no-longer-valid: "<red>Storage network is no longer valid.</red>"
-
-  # Piston Restrictions
-  piston:
-    cannot-move-blocks: "<red>Pistons cannot move Mass Storage blocks or cables!</red>"
-    cannot-push-into: "<red>Pistons cannot push blocks into Mass Storage blocks or cables!</red>"
-    cannot-push-adjacent: "<red>Pistons cannot push into Mass Storage blocks or cables!</red>"
-    cannot-pull-blocks: "<red>Pistons cannot pull Mass Storage blocks or cables!</red>"
-    cannot-pull-into: "<red>Pistons cannot pull blocks into Mass Storage blocks or cables!</red>"
+    exporter-cannot-attach: "{mss-prefix}<red>You cannot attach an exporter directly to the network!</red>"
+    importer-cannot-attach: "{mss-prefix}<red>You cannot attach an importer directly to the network!</red>"
+    exporter-placed-unconnected: "{mss-prefix}<yellow>Exporter placed! Connect it to a network to activate.</yellow>"
+    exporter-placed-connected: "{mss-prefix}<green>Exporter created successfully! Right-click to configure.</green>"
+    importer-placed-unconnected: "{mss-prefix}<yellow>Importer placed! Connect it to a network to activate.</yellow>"
+    importer-placed-connected: "{mss-prefix}<green>Importer created successfully! Right-click to configure.</green>"
+    connected-info: "{mss-prefix}<green>Connected to network with {drive_bays} drive bay(s) and {terminals} terminal(s).</green>"
+    size-limit-exceeded: "{mss-prefix}<red>Network size limit exceeded! Maximum {max} blocks per network.</red>"
+    drive-bay-restored: "{mss-prefix}<aqua>Drive bay contents have been restored!</aqua>"
+    check-terminals: "{mss-prefix}<yellow>Check your terminals to see restored items.</yellow>"
+    search-cancelled: "{mss-prefix}<yellow>Search cancelled.</yellow>"
+    input-cancelled: "{mss-prefix}<red>Player input cancelled.</red>"
+    connection-lost: "{mss-prefix}<red>Network connection lost - please check your storage system.</red>"
+    dissolved: "{mss-prefix}<red>Storage network dissolved - blocks have been disconnected.</red>"
+    no-longer-valid: "{mss-prefix}<red>Storage network is no longer valid.</red>"
 
 # Storage Server Information Display
 storage-server-info:
-  header: "<aqua>═══ Storage Server Information ═══</aqua>"
-  network-id: "<white>Network ID: {id}</white>"
-  network-id-none: "<gray>Network ID: Not Assigned</gray>"
-  status: "Status: {status}"
+  header: "{mss-prefix}<aqua>═══ Storage Server Information ═══</aqua>"
+  network-id: "{mss-prefix}<white>Network ID: {id}</white>"
+  network-id-none: "{mss-prefix}<gray>Network ID: Not Assigned</gray>"
+  status: "{mss-prefix}Status: {status}"
   status-online: "<green>Online</green>"
-  status-offline-detected: "<yellow>Offline</yellow>"
+  status-offline-detected: "<yellow>Standby</yellow>"
   status-offline: "<red>Offline</red>"
-  connected-components: "<yellow>Connected Components:</yellow>"
-  drive-bays-count: "<green>  Drive Bays: {count}</green>"
-  terminals-count: "<green>  Terminals: {count}</green>"
-  exporters-count: "<green>  Exporters: {count}</green>"
-  importers-count: "<green>  Importers: {count}</green>"
-  cables-count: "<yellow>  Cables: {count}</yellow>"
-  network-limits: "<yellow>Network Limits:</yellow>"
-  blocks-limit: "  Blocks: {current}/{max}"
-  cables-limit: "  Cables: {current}/{max}"
-  exporter-limit: "  Exporters: {current}/{max}"
-  importer-limit: "  Importers: {current}/{max}"
-  storage-capacity: "Storage: {used}/{total} cells ({percent}%)"
-  storage-no-disks: "<gray>Storage: No disks installed</gray>"
+  connected-components: "{mss-prefix}<yellow>Connected Components:</yellow>"
+  drive-bays-count: "{mss-prefix}<green>  Drive Bays: {count}</green>"
+  terminals-count: "{mss-prefix}<green>  Terminals: {count}</green>"
+  exporters-count: "{mss-prefix}<green>  Exporters: {count}</green>"
+  importers-count: "{mss-prefix}<green>  Importers: {count}</green>"
+  cables-count: "{mss-prefix}<yellow>  Cables: {count}</yellow>"
+  network-limits: "{mss-prefix}<yellow>Network Limits:</yellow>"
+  blocks-limit: "{mss-prefix}  Blocks: {current}/{max}"
+  cables-limit: "{mss-prefix}  Cables: {current}/{max}"
+  exporter-limit: "{mss-prefix}  Exporters: {current}/{max}"
+  importer-limit: "{mss-prefix}  Importers: {current}/{max}"
+  storage-capacity: "{mss-prefix}Storage: {used}/{total} cells ({percent}%)"
+  storage-no-disks: "{mss-prefix}<gray>Storage: No disks installed</gray>"
 
 # System Messages
 system:
@@ -815,4 +806,5 @@ console:
 
 # Dynamic status messages (used in various contexts)
 registered: "<green>Registered</green>"
+# Status message color & styling option.
 status: "<yellow>{status}</yellow>"

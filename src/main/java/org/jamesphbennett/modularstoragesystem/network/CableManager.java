@@ -175,7 +175,7 @@ public class CableManager {
      * Check if a location is marked as a custom cable in the database
      */
     private boolean isMarkedAsCustomCable(Location location) {
-        return isMarkedAsCustomBlock(location, "NETWORK_CABLE");
+        return isMarkedAsCustomBlock(location);
     }
 
     /**
@@ -297,7 +297,7 @@ public class CableManager {
     /**
      * Check if a location is marked as a custom block in the database
      */
-    private boolean isMarkedAsCustomBlock(Location location, String blockType) {
+    private boolean isMarkedAsCustomBlock(Location location) {
         try (Connection conn = plugin.getDatabaseManager().getConnection();
              PreparedStatement stmt = conn.prepareStatement(
                      "SELECT COUNT(*) FROM custom_block_markers WHERE world_name = ? AND x = ? AND y = ? AND z = ? AND block_type = ?")) {
@@ -306,7 +306,7 @@ public class CableManager {
             stmt.setInt(2, location.getBlockX());
             stmt.setInt(3, location.getBlockY());
             stmt.setInt(4, location.getBlockZ());
-            stmt.setString(5, blockType);
+            stmt.setString(5, "NETWORK_CABLE");
 
             try (ResultSet rs = stmt.executeQuery()) {
                 return rs.next() && rs.getInt(1) > 0;
@@ -321,23 +321,15 @@ public class CableManager {
      * Convert string block type to enum
      */
     private NetworkConnectivityManager.BlockType getBlockTypeEnum(String blockType) {
-        switch (blockType) {
-            case "STORAGE_SERVER":
-                return NetworkConnectivityManager.BlockType.STORAGE_SERVER;
-            case "DRIVE_BAY":
-                return NetworkConnectivityManager.BlockType.DRIVE_BAY;
-            case "MSS_TERMINAL":
-                return NetworkConnectivityManager.BlockType.MSS_TERMINAL;
-            case "SECURITY_TERMINAL":
-                return NetworkConnectivityManager.BlockType.SECURITY_TERMINAL;
-            case "NETWORK_CABLE":
-                return NetworkConnectivityManager.BlockType.NETWORK_CABLE;
-            case "EXPORTER":
-                return NetworkConnectivityManager.BlockType.EXPORTER;
-            case "IMPORTER":
-                return NetworkConnectivityManager.BlockType.IMPORTER;
-            default:
-                return NetworkConnectivityManager.BlockType.UNKNOWN;
-        }
+        return switch (blockType) {
+            case "STORAGE_SERVER" -> NetworkConnectivityManager.BlockType.STORAGE_SERVER;
+            case "DRIVE_BAY" -> NetworkConnectivityManager.BlockType.DRIVE_BAY;
+            case "MSS_TERMINAL" -> NetworkConnectivityManager.BlockType.MSS_TERMINAL;
+            case "SECURITY_TERMINAL" -> NetworkConnectivityManager.BlockType.SECURITY_TERMINAL;
+            case "NETWORK_CABLE" -> NetworkConnectivityManager.BlockType.NETWORK_CABLE;
+            case "EXPORTER" -> NetworkConnectivityManager.BlockType.EXPORTER;
+            case "IMPORTER" -> NetworkConnectivityManager.BlockType.IMPORTER;
+            default -> NetworkConnectivityManager.BlockType.UNKNOWN;
+        };
     }
 }

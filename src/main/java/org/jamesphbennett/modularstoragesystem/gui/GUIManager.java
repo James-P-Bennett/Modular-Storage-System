@@ -300,9 +300,9 @@ public class GUIManager {
         }
     }
 
-    public void openSecurityTerminalGUI(Player player, Location terminalLocation, String terminalId, String ownerUuid) {
+    public void openSecurityTerminalGUI(Player player, String terminalId, String ownerUuid) {
         try {
-            SecurityTerminalGUI gui = new SecurityTerminalGUI(plugin, terminalLocation, terminalId, ownerUuid, player);
+            SecurityTerminalGUI gui = new SecurityTerminalGUI(plugin, terminalId, ownerUuid, player);
             gui.open(player);
 
             playerCurrentGUI.put(player.getUniqueId(), "SECURITY_TERMINAL");
@@ -733,4 +733,5 @@ public class GUIManager {
         terminalSearchTerms.clear();
         terminalQuantitySort.clear();
     }
+
 }

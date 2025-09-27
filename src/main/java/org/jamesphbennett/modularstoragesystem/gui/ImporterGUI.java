@@ -1,8 +1,6 @@
 package org.jamesphbennett.modularstoragesystem.gui;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -10,7 +8,6 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Container;
 import org.bukkit.block.data.Directional;
-import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -33,15 +30,12 @@ public class ImporterGUI implements Listener {
     private final String importerId;
     private final String networkId;
     private final Inventory inventory;
-    private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     private final Map<Integer, ItemStack> slotToFilterItem = new HashMap<>();
     private final List<ItemStack> currentFilterItems = new ArrayList<>();
     
     // Brewing stand specific fields
     private boolean isBrewingStandTarget = false;
-    private boolean blazePowderEnabled = false;
-    private ItemStack ingredientFilter = null;
     private ItemStack[] bottleFilters = new ItemStack[3]; // For slots 0, 1, 2
 
     public ImporterGUI(ModularStorageSystem plugin, Location importerLocation, String importerId, String networkId) {
@@ -209,7 +203,7 @@ public class ImporterGUI implements Listener {
         infoLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.importer.filter.no-filter"));
         infoMeta.lore(infoLore);
         info.setItemMeta(infoMeta);
-        inventory.setItem(35, info);
+        inventory.setItem(33, info);
     }
 
     /**

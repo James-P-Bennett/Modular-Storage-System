@@ -3,6 +3,7 @@ package org.jamesphbennett.modularstoragesystem.managers;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
@@ -225,10 +226,10 @@ public class ItemManager {
      */
     private void applyPlayerSkinTexture(SkullMeta skullMeta) {
         // Create PlayerProfile for the specific player name
-        org.bukkit.profile.PlayerProfile profile = plugin.getServer().createPlayerProfile("BurningFurnace");
-        
+        var profile = Bukkit.createProfile("BurningFurnace");
+
         // Apply to skull meta - Bukkit will automatically fetch the skin texture
-        skullMeta.setOwnerProfile(profile);
+        skullMeta.setPlayerProfile(profile);
     }
 
     /**
@@ -237,10 +238,10 @@ public class ItemManager {
     private void applyImporterPlayerSkinTexture(SkullMeta skullMeta) {
         // Create PlayerProfile for the specific UUID
         UUID playerUUID = UUID.fromString("d25094d2-e148-4d63-9cac-d42af39bdff1");
-        org.bukkit.profile.PlayerProfile profile = plugin.getServer().createPlayerProfile(playerUUID, null);
-        
+        var profile = Bukkit.createProfile(playerUUID, null);
+
         // Apply to skull meta - Bukkit will automatically fetch the skin texture
-        skullMeta.setOwnerProfile(profile);
+        skullMeta.setPlayerProfile(profile);
     }
 
     /**
@@ -672,8 +673,8 @@ public class ItemManager {
                 }
 
                 // Custom model data
-                if (meta.hasCustomModelData()) {
-                    builder.append("|customModelData:").append(meta.getCustomModelData());
+                if (meta.hasItemModel()) {
+                    builder.append("|customModelData:").append(Objects.requireNonNull(meta.getItemModel()));
                 }
 
                 // Enchantments

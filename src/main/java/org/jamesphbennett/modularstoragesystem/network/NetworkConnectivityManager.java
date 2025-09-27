@@ -30,7 +30,7 @@ public class NetworkConnectivityManager {
     public NetworkConnectivity analyzeLocation(Location location) {
         Set<String> connectedNetworkIds = new HashSet<>();
         Map<BlockType, Set<Location>> connectedBlocks = new EnumMap<>(BlockType.class);
-        Set<Location> traversedCables = new HashSet<>();
+
         
         // Initialize block type sets
         for (BlockType type : BlockType.values()) {
@@ -80,8 +80,6 @@ public class NetworkConnectivityManager {
                         }
                     }
                 } else {
-                    // Handle cables
-                    traversedCables.add(current);
                     
                     // If cable has no network ID, continue traversing through it
                     if (networkId == null) {
@@ -100,7 +98,7 @@ public class NetworkConnectivityManager {
             }
         }
 
-        return new NetworkConnectivity(connectedNetworkIds, connectedBlocks, traversedCables);
+        return new NetworkConnectivity(connectedNetworkIds, connectedBlocks);
     }
 
     /**
@@ -117,14 +115,11 @@ public class NetworkConnectivityManager {
         }
 
         // Additional unique placement checks for special blocks
-        switch (blockType) {
-            case STORAGE_SERVER:
-                return checkStorageServerConflicts(connectivity);
-            case SECURITY_TERMINAL:
-                return checkSecurityTerminalConflicts(connectivity);
-            default:
-                return ConflictResult.noConflict();
-        }
+        return switch (blockType) {
+            case STORAGE_SERVER -> checkStorageServerConflicts(connectivity);
+            case SECURITY_TERMINAL -> checkSecurityTerminalConflicts(connectivity);
+            default -> ConflictResult.noConflict();
+        };
     }
 
     // Storage server placement conflicts
@@ -342,19 +337,12 @@ public class NetworkConnectivityManager {
      * All MSS blocks can extend networks - uniqueness is enforced through conflict checking
      */
     private boolean canExtendNetwork(BlockType blockType) {
-        switch (blockType) {
-            case MSS_TERMINAL:
-            case DRIVE_BAY:
-            case EXPORTER:
-            case IMPORTER:
-            case STORAGE_SERVER:
-            case SECURITY_TERMINAL:
-                return true; // All MSS blocks can extend networks
-            case NETWORK_CABLE:
-                return true; // Obviously cables extend networks
-            default:
-                return false;
-        }
+        return switch (blockType) {
+            case MSS_TERMINAL, DRIVE_BAY, EXPORTER, IMPORTER, STORAGE_SERVER, SECURITY_TERMINAL ->
+                    true; // All MSS blocks can extend networks
+            case NETWORK_CABLE -> true; // Obviously cables extend networks
+            default -> false;
+        };
     }
 
     // Enums and data classes
@@ -380,14 +368,11 @@ public class NetworkConnectivityManager {
     public static class NetworkConnectivity {
         private final Set<String> connectedNetworkIds;
         private final Map<BlockType, Set<Location>> connectedBlocks;
-        private final Set<Location> traversedCables;
 
         public NetworkConnectivity(Set<String> connectedNetworkIds, 
-                                 Map<BlockType, Set<Location>> connectedBlocks, 
-                                 Set<Location> traversedCables) {
+                                 Map<BlockType, Set<Location>> connectedBlocks) {
             this.connectedNetworkIds = connectedNetworkIds;
             this.connectedBlocks = connectedBlocks;
-            this.traversedCables = traversedCables;
         }
 
         public Set<String> getConnectedNetworkIds() {
@@ -398,13 +383,6 @@ public class NetworkConnectivityManager {
             return connectedBlocks.getOrDefault(type, Collections.emptySet());
         }
 
-        public Set<Location> getTraversedCables() {
-            return traversedCables;
-        }
-
-        public boolean hasConnectedBlocks(BlockType type) {
-            return !getConnectedBlocks(type).isEmpty();
-        }
     }
 
     public static class ConflictResult {

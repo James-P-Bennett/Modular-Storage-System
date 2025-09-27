@@ -1,10 +1,8 @@
 package org.jamesphbennett.modularstoragesystem.listeners;
 
-import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
-import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -39,10 +37,6 @@ public class PistonListener implements Listener {
             if (isCustomNetworkBlockOrCable(block)) {
                 // Found a custom MSS block or cable in the path - cancel the entire piston event
                 event.setCancelled(true);
-
-                // Notify nearby players
-                notifyNearbyPlayers(event.getBlock().getLocation(),
-                        plugin.getMessageManager().getMessageComponent(null, "gui.piston.cannot-move-blocks"));
                 return;
             }
         }
@@ -72,11 +66,6 @@ public class PistonListener implements Listener {
                 // A block would be pushed into a custom MSS block - cancel
                 event.setCancelled(true);
 
-
-                // Notify nearby players
-                notifyNearbyPlayers(event.getBlock().getLocation(),
-                        plugin.getMessageManager().getMessageComponent(null, "gui.piston.cannot-push-into"));
-                return;
             }
         }
 
@@ -91,17 +80,13 @@ public class PistonListener implements Listener {
 
             if (isCustomNetworkBlockOrCable(frontTarget.getBlock())) {
                 event.setCancelled(true);
-
-
-                // Notify nearby players
-                notifyNearbyPlayers(event.getBlock().getLocation(),
-                        plugin.getMessageManager().getMessageComponent(null, "gui.piston.cannot-push-adjacent"));
             }
         }
     }
 
     /**
      * Prevent pistons from retracting if they would pull any custom MSS blocks or cables
+     * This is highly unlikely to ever happen unless there's some kind of block desync but better safe than sorry.
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onPistonRetract(BlockPistonRetractEvent event) {
@@ -114,16 +99,11 @@ public class PistonListener implements Listener {
             if (isCustomNetworkBlockOrCable(block)) {
                 // Found a custom MSS block or cable in the path - cancel the entire piston event
                 event.setCancelled(true);
-
-
-                // Notify nearby players
-                notifyNearbyPlayers(event.getBlock().getLocation(),
-                        plugin.getMessageManager().getMessageComponent(null, "gui.piston.cannot-pull-blocks"));
                 return;
             }
         }
 
-        // For sticky pistons, also check if they would pull blocks into custom block spaces
+        // For sticky pistons, also check if they would pull blocks into custom block spaces.
         Block pistonBlock = event.getBlock();
 
         // Safe type checking to prevent ClassCastException
@@ -146,11 +126,6 @@ public class PistonListener implements Listener {
             if (isCustomNetworkBlockOrCable(targetLocation.getBlock())) {
                 // A block would be pulled into a custom MSS block - cancel
                 event.setCancelled(true);
-
-
-                // Notify nearby players
-                notifyNearbyPlayers(event.getBlock().getLocation(),
-                        plugin.getMessageManager().getMessageComponent(null, "gui.piston.cannot-pull-into"));
                 return;
             }
         }
@@ -216,18 +191,5 @@ public class PistonListener implements Listener {
             plugin.getLogger().warning("Error checking MSS block marker for piston event: " + e.getMessage());
             return false;
         }
-    }
-
-    /**
-     * Notify players within a reasonable range about the piston prevention
-     */
-    private void notifyNearbyPlayers(Location location, Component message) {
-        if (location.getWorld() == null) return;
-
-        // Notify players within 16 blocks
-        location.getWorld().getNearbyEntities(location, 16, 16, 16).stream()
-                .filter(entity -> entity instanceof Player)
-                .map(entity -> (Player) entity)
-                .forEach(player -> player.sendMessage(message));
     }
 }
