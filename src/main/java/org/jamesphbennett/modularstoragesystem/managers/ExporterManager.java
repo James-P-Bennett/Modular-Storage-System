@@ -1197,9 +1197,24 @@ public class ExporterManager {
     }
 
     /**
-     * ADDED: Update exporter network assignments when networks change
-     * This should be called after network detection/updates
+     * Create a new exporter at the specified location
      */
+    public String createExporter(Location location, String networkId) throws SQLException {
+        String exporterId = java.util.UUID.randomUUID().toString();
+        String finalNetworkId = (networkId != null) ? networkId : "UNCONNECTED";
+
+        plugin.getDatabaseManager().executeUpdate(
+                "INSERT INTO exporters (exporter_id, network_id, world_name, x, y, z, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                exporterId, finalNetworkId, location.getWorld().getName(), location.getBlockX(), location.getBlockY(), location.getBlockZ(), false);
+
+        // Add to memory
+        ExporterData exporterData = new ExporterData(exporterId, finalNetworkId, location, false);
+        activeExporters.put(exporterId, exporterData);
+        exporterCycleIndex.put(exporterId, 0); // Initialize cycle index
+
+        return exporterId;
+    }
+
     public void updateExporterNetworkAssignments() {
 
         for (ExporterData exporter : activeExporters.values()) {

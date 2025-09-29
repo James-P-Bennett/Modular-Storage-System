@@ -623,8 +623,24 @@ public class ImporterManager {
     }
 
     /**
-     * Update importer network assignments when networks change
+     * Create a new importer at the specified location
      */
+    public String createImporter(Location location, String networkId) throws SQLException {
+        String importerId = java.util.UUID.randomUUID().toString();
+        String finalNetworkId = (networkId != null) ? networkId : "UNCONNECTED";
+
+        plugin.getDatabaseManager().executeUpdate(
+                "INSERT INTO importers (importer_id, network_id, world_name, x, y, z, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                importerId, finalNetworkId, location.getWorld().getName(), location.getBlockX(), location.getBlockY(), location.getBlockZ(), false);
+
+        // Add to memory
+        ImporterData importerData = new ImporterData(importerId, finalNetworkId, location, false);
+        activeImporters.put(importerId, importerData);
+        importerCycleIndex.put(importerId, 0); // Initialize cycle index
+
+        return importerId;
+    }
+
     public void updateImporterNetworkAssignments() {
 
         for (ImporterData importer : activeImporters.values()) {
