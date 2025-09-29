@@ -462,8 +462,8 @@ public class ExporterManager {
                 targetSlot = 0; // Input slot (top) - default for material and generic
             }
 
-            // Try to add to the specific furnace slot
-            int leftoverAmount = addItemToSpecificSlot(furnaceInventory, retrievedItem, targetSlot);
+            // Try to add to the specific furnace slot with furnace-aware limits
+            int leftoverAmount = addItemToSpecificFurnaceSlot(furnaceInventory, retrievedItem, targetSlot);
 
             // Handle leftovers and logging
             handleExportCompletion(exporter, retrievedItem, leftoverAmount
@@ -672,6 +672,63 @@ public class ExporterManager {
     }
 
     /**
+     * Add item to a specific furnace slot with furnace-appropriate limits
+     */
+    private int addItemToSpecificFurnaceSlot(Inventory furnaceInventory, ItemStack itemToAdd, int targetSlot) {
+        if (targetSlot < 0 || targetSlot >= furnaceInventory.getSize()) {
+            return itemToAdd.getAmount(); // Invalid slot, return all as leftover
+        }
+
+        // Get the max amount this furnace slot can realistically hold
+        int maxSlotAmount = getFurnaceSlotMaxAmount(targetSlot, itemToAdd.getType());
+
+        ItemStack slotItem = furnaceInventory.getItem(targetSlot);
+
+        if (slotItem == null || slotItem.getType() == Material.AIR) {
+            // Slot is empty, place what we can
+            int amountToPlace = Math.min(itemToAdd.getAmount(), maxSlotAmount);
+            ItemStack toPlace = itemToAdd.clone();
+            toPlace.setAmount(amountToPlace);
+            furnaceInventory.setItem(targetSlot, toPlace);
+            return itemToAdd.getAmount() - amountToPlace;
+        } else if (slotItem.isSimilar(itemToAdd)) {
+            // Slot has similar item, try to stack
+            int currentAmount = slotItem.getAmount();
+            int spaceAvailable = Math.min(maxSlotAmount, slotItem.getMaxStackSize()) - currentAmount;
+
+            if (spaceAvailable > 0) {
+                int amountToAdd = Math.min(spaceAvailable, itemToAdd.getAmount());
+                slotItem.setAmount(currentAmount + amountToAdd);
+                furnaceInventory.setItem(targetSlot, slotItem);
+                return itemToAdd.getAmount() - amountToAdd;
+            }
+        }
+
+        // Slot is full or has different item
+        return itemToAdd.getAmount();
+    }
+
+    /**
+     * Get maximum stack size for a furnace slot
+     */
+    private int getFurnaceSlotMaxAmount(int slot, Material itemType) {
+        if (slot == 1) {
+            // Fuel slot - some fuel items have practical limits in furnaces
+            if (itemType == Material.LAVA_BUCKET) {
+                return 1; // Furnaces can only hold 1 lava bucket in fuel slot
+            } else if (itemType == Material.WATER_BUCKET || itemType == Material.BUCKET) {
+                return 1; // Buckets stack to 1
+            } else {
+                // Other fuels like coal, charcoal, wood, etc. use normal stack sizes
+                return itemType.getMaxStackSize();
+            }
+        } else {
+            // Input slot (0) and output slot (2) - use normal stack sizes
+            return itemType.getMaxStackSize();
+        }
+    }
+
+    /**
      * Add item to a specific brewing stand slot with slot-appropriate limits
      */
     private int addItemToSpecificBrewingSlot(Inventory brewingInventory, ItemStack itemToAdd, int targetSlot) {
@@ -793,38 +850,6 @@ public class ExporterManager {
         }
         
         return "generic"; // Default fallback
-    }
-
-    /**
-     * Add item to a specific inventory slot (for furnace slot targeting)
-     */
-    private int addItemToSpecificSlot(Inventory inventory, ItemStack itemToAdd, int targetSlot) {
-        if (targetSlot < 0 || targetSlot >= inventory.getSize()) {
-            return itemToAdd.getAmount(); // Invalid slot, return all as leftover
-        }
-
-        ItemStack slotItem = inventory.getItem(targetSlot);
-        
-        if (slotItem == null || slotItem.getType() == Material.AIR) {
-            // Slot is empty, place the entire stack
-            inventory.setItem(targetSlot, itemToAdd.clone());
-            return 0; // No leftovers
-        } else if (slotItem.isSimilar(itemToAdd)) {
-            // Slot has similar item, try to merge
-            int maxStackSize = slotItem.getMaxStackSize();
-            int currentAmount = slotItem.getAmount();
-            int spaceAvailable = maxStackSize - currentAmount;
-            
-            if (spaceAvailable > 0) {
-                int amountToAdd = Math.min(spaceAvailable, itemToAdd.getAmount());
-                slotItem.setAmount(currentAmount + amountToAdd);
-                inventory.setItem(targetSlot, slotItem);
-                return itemToAdd.getAmount() - amountToAdd;
-            }
-        }
-        
-        // Slot is full or has different item
-        return itemToAdd.getAmount();
     }
 
     /**
