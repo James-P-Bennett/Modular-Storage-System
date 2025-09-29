@@ -444,7 +444,7 @@ public class ExporterManager {
         try {
             // Get slot targeting information for this item
             String slotTarget = getSlotTargetForItem(exporter.exporterId, itemHash);
-            
+
             // Retrieve up to one stack from the network
             ItemStack retrievedItem = plugin.getStorageManager().retrieveItems(exporter.networkId, itemHash, 64);
             
@@ -602,12 +602,14 @@ public class ExporterManager {
             
             // Retrieve item from network first (similar to furnace approach)
             ItemStack retrievedItem = plugin.getStorageManager().retrieveItems(exporter.networkId, itemHash, 64);
-            
+
             if (retrievedItem == null || retrievedItem.getAmount() == 0) {
                 return; // Nothing retrieved
             }
 
             Material itemType = retrievedItem.getType();
+
+            // Determine target slot based on item type and filters
             int targetSlot = getTargetSlot(itemType, brewingFilters);
 
             if (targetSlot == -1) {
@@ -618,48 +620,11 @@ public class ExporterManager {
                 return;
             }
 
-            // Limit item amount to slot-appropriate stack size
-            int maxAmount = getBrewingStandSlotMaxAmount(targetSlot, itemType);
-            if (retrievedItem.getAmount() > maxAmount) {
-                // Split the stack - keep what we can use, return the rest
-                ItemStack excess = retrievedItem.clone();
-                excess.setAmount(retrievedItem.getAmount() - maxAmount);
-                retrievedItem.setAmount(maxAmount);
-                
-                List<ItemStack> toReturn = new ArrayList<>();
-                toReturn.add(excess);
-                plugin.getStorageManager().storeItems(exporter.networkId, toReturn);
-            }
-            
-            if (retrievedItem.getAmount() == 0) {
-                return; // No items available
-            }
-
-            // Try to place in the target slot
+            // Try to place in the target slot with proper leftover handling
             Inventory brewingInventory = brewingStandContainer.getInventory();
-            ItemStack existingItem = brewingInventory.getItem(targetSlot);
-            
-            int leftoverAmount = 0;
-            if (existingItem == null || existingItem.getType() == Material.AIR) {
-                // Slot is empty, place the item
-                brewingInventory.setItem(targetSlot, retrievedItem);
-            } else if (existingItem.isSimilar(retrievedItem)) {
-                // Slot has same item, try to stack
-                int spaceAvailable = existingItem.getMaxStackSize() - existingItem.getAmount();
-                int amountToAdd = Math.min(spaceAvailable, retrievedItem.getAmount());
-                
-                if (amountToAdd > 0) {
-                    existingItem.setAmount(existingItem.getAmount() + amountToAdd);
-                    leftoverAmount = retrievedItem.getAmount() - amountToAdd;
-                } else {
-                    leftoverAmount = retrievedItem.getAmount(); // No space
-                }
-            } else {
-                // Slot has different item, can't place
-                leftoverAmount = retrievedItem.getAmount();
-            }
+            int leftoverAmount = addItemToSpecificBrewingSlot(brewingInventory, retrievedItem, targetSlot);
 
-            // Handle completion and leftovers
+            // Handle completion and leftovers (single leftover handling)
             handleExportCompletion(exporter, retrievedItem, leftoverAmount
             );
 
@@ -695,7 +660,7 @@ public class ExporterManager {
      */
     private int getBrewingStandSlotMaxAmount(int slot, Material itemType) {
         if (slot == 4) {
-            // Fuel slot - blaze powder stacks to 64
+            // Fuel slot - blaze powder stacks to 64 in brewing stands
             return Math.min(64, itemType.getMaxStackSize());
         } else if (slot == 3) {
             // Ingredient slot - most ingredients stack to 64
@@ -704,6 +669,43 @@ public class ExporterManager {
             // Bottle slots (0, 1, 2) - bottles typically stack to 16, potions to 1
             return itemType.getMaxStackSize();
         }
+    }
+
+    /**
+     * Add item to a specific brewing stand slot with slot-appropriate limits
+     */
+    private int addItemToSpecificBrewingSlot(Inventory brewingInventory, ItemStack itemToAdd, int targetSlot) {
+        if (targetSlot < 0 || targetSlot >= brewingInventory.getSize()) {
+            return itemToAdd.getAmount(); // Invalid slot, return all as leftover
+        }
+
+        // Get the max amount this slot can hold for this item type
+        int maxSlotAmount = getBrewingStandSlotMaxAmount(targetSlot, itemToAdd.getType());
+
+        ItemStack slotItem = brewingInventory.getItem(targetSlot);
+
+        if (slotItem == null || slotItem.getType() == Material.AIR) {
+            // Slot is empty, place what we can
+            int amountToPlace = Math.min(itemToAdd.getAmount(), maxSlotAmount);
+            ItemStack toPlace = itemToAdd.clone();
+            toPlace.setAmount(amountToPlace);
+            brewingInventory.setItem(targetSlot, toPlace);
+            return itemToAdd.getAmount() - amountToPlace;
+        } else if (slotItem.isSimilar(itemToAdd)) {
+            // Slot has similar item, try to stack
+            int currentAmount = slotItem.getAmount();
+            int spaceAvailable = Math.min(maxSlotAmount, slotItem.getMaxStackSize()) - currentAmount;
+
+            if (spaceAvailable > 0) {
+                int amountToAdd = Math.min(spaceAvailable, itemToAdd.getAmount());
+                slotItem.setAmount(currentAmount + amountToAdd);
+                brewingInventory.setItem(targetSlot, slotItem);
+                return itemToAdd.getAmount() - amountToAdd;
+            }
+        }
+
+        // Slot is full or has different item
+        return itemToAdd.getAmount();
     }
 
     /**
