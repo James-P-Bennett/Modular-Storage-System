@@ -141,6 +141,8 @@ public class BlockListener implements Listener {
                 markLocationAsCustomBlock(location, "EXPORTER");
 
                 // Create the exporter in the manager
+                String exporterId = plugin.getExporterManager().createExporter(location, nearbyNetworkId);
+                plugin.getLogger().info("Created exporter " + exporterId + " at " + location + " with network " + (nearbyNetworkId != null ? nearbyNetworkId : "UNCONNECTED"));
 
             } catch (Exception e) {
                 Component message = plugin.getMessageManager().getMessageComponent(player, "errors.placement.block-error", "error", e.getMessage());
@@ -185,6 +187,8 @@ public class BlockListener implements Listener {
                 markLocationAsCustomBlock(location, "IMPORTER");
 
                 // Create the importer in the manager
+                String importerId = plugin.getImporterManager().createImporter(location, nearbyNetworkId);
+                plugin.getLogger().info("Created importer " + importerId + " at " + location + " with network " + (nearbyNetworkId != null ? nearbyNetworkId : "UNCONNECTED"));
 
             } catch (Exception e) {
                 Component message = plugin.getMessageManager().getMessageComponent(player, "errors.placement.block-error", "error", e.getMessage());
