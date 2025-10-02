@@ -24,6 +24,14 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.Base64;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import java.util.concurrent.CompletableFuture;
 
 public class SecurityTerminalGUI implements Listener {
 
@@ -36,6 +44,8 @@ public class SecurityTerminalGUI implements Listener {
     private final List<TrustedPlayer> trustedPlayers = new ArrayList<>();
     private int currentPage = 0;
     private final int playersPerPage = 36; // 4 rows of 9 slots
+    private static final HttpClient httpClient = HttpClient.newHttpClient();
+    private static final java.util.Map<String, String> textureCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     public SecurityTerminalGUI(ModularStorageSystem plugin, String terminalId, String ownerUuid, Player viewer) {
         this.plugin = plugin;
@@ -138,28 +148,44 @@ public class SecurityTerminalGUI implements Listener {
 
     private void loadTrustedPlayers() {
         trustedPlayers.clear();
-        
+
         try (Connection conn = plugin.getDatabaseManager().getConnection();
              PreparedStatement stmt = conn.prepareStatement(
-                     "SELECT player_uuid, player_name, drive_bay_access, block_modification_access " +
+                     "SELECT player_uuid, player_name, drive_bay_access, block_modification_access, skin_texture_url " +
                      "FROM security_terminal_players WHERE terminal_id = ? ORDER BY player_name")) {
-            
+
             stmt.setString(1, terminalId);
-            
+
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
                     String playerUuid = rs.getString("player_uuid");
                     String playerName = rs.getString("player_name");
                     boolean driveBayAccess = rs.getBoolean("drive_bay_access");
                     boolean blockModAccess = rs.getBoolean("block_modification_access");
-                    
+                    String cachedSkinUrl = rs.getString("skin_texture_url");
+
                     trustedPlayers.add(new TrustedPlayer(playerUuid, playerName, driveBayAccess, blockModAccess));
+
+                    // Load cached texture from database
+                    if (cachedSkinUrl != null && !cachedSkinUrl.isEmpty()) {
+                        textureCache.put(playerUuid, cachedSkinUrl);
+                    } else if (!textureCache.containsKey(playerUuid)) {
+                        // Fetch texture if not in database
+                        UUID uuid = UUID.fromString(playerUuid);
+                        fetchPlayerTexture(uuid).thenAccept(skinUrlString -> {
+                            if (skinUrlString != null) {
+                                textureCache.put(playerUuid, skinUrlString);
+                                // Save to database for future use
+                                saveTextureToDatabase(playerUuid, skinUrlString);
+                            }
+                        });
+                    }
                 }
             }
         } catch (SQLException e) {
             plugin.getLogger().severe("Error loading trusted players: " + e.getMessage());
         }
-        
+
         updateDisplayedPlayers();
     }
 
@@ -189,39 +215,55 @@ public class SecurityTerminalGUI implements Listener {
     private ItemStack createPlayerSkull(TrustedPlayer trustedPlayer) {
         ItemStack skull = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta meta = (SkullMeta) skull.getItemMeta();
-        
-        // Set player profile for skull texture
-        OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(UUID.fromString(trustedPlayer.uuid));
-        meta.setOwningPlayer(offlinePlayer);
-        
+
+        // Create player profile with null name to prevent Paper from auto-updating
+        UUID playerUUID = UUID.fromString(trustedPlayer.uuid);
+        var profile = Bukkit.createProfile(playerUUID, null);
+
+        // Only use cached texture - never fetch during GUI rendering
+        String cachedTexture = textureCache.get(trustedPlayer.uuid);
+
+        if (cachedTexture != null) {
+            try {
+                var textures = profile.getTextures();
+                textures.setSkin(URI.create(cachedTexture).toURL());
+                profile.setTextures(textures);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to apply cached texture for " + trustedPlayer.name + ": " + e.getMessage());
+            }
+        }
+
+        // Set profile
+        meta.setPlayerProfile(profile);
+
         meta.displayName(Component.text(trustedPlayer.name, NamedTextColor.GREEN));
-        
+
         List<Component> lore = new ArrayList<>();
         lore.add(Component.empty());
         lore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.player.permissions-header"));
-        
+
         // GUI Access (covers all GUI interactions)
         if (trustedPlayer.driveBayAccess) {
             lore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.player.access-granted"));
         } else {
             lore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.player.access-denied"));
         }
-        
+
         // Block Modification Access
         if (trustedPlayer.blockModAccess) {
             lore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.player.building-granted"));
         } else {
             lore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.player.building-denied"));
         }
-        
+
         lore.add(Component.empty());
         lore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.player.instructions.left-click"));
         lore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.player.instructions.right-click"));
         lore.add(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.player.instructions.shift-click"));
-        
+
         meta.lore(lore);
         skull.setItemMeta(meta);
-        
+
         return skull;
     }
 
@@ -235,6 +277,79 @@ public class SecurityTerminalGUI implements Listener {
     private String getOwnerName() {
         OfflinePlayer owner = Bukkit.getOfflinePlayer(UUID.fromString(ownerUuid));
         return owner.getName() != null ? owner.getName() : "Unknown";
+    }
+
+    /**
+     * Save texture URL to database for persistent caching
+     */
+    private void saveTextureToDatabase(String playerUuid, String textureUrl) {
+        try (Connection conn = plugin.getDatabaseManager().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(
+                     "UPDATE security_terminal_players SET skin_texture_url = ? WHERE player_uuid = ?")) {
+
+            stmt.setString(1, textureUrl);
+            stmt.setString(2, playerUuid);
+            stmt.executeUpdate();
+
+        } catch (SQLException e) {
+            plugin.getLogger().warning("Failed to save texture to database for UUID " + playerUuid + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Fetch player texture data from Mojang Session Server API
+     * Returns a CompletableFuture with the skin URL, or null if not found
+     */
+    private CompletableFuture<String> fetchPlayerTexture(UUID playerUUID) {
+        String uuidNoDashes = playerUUID.toString().replace("-", "");
+        String apiUrl = "https://sessionserver.mojang.com/session/minecraft/profile/" + uuidNoDashes;
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .GET()
+                .build();
+
+        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .thenApply(response -> {
+                    if (response.statusCode() != 200) {
+                        plugin.getLogger().warning("Failed to fetch texture for UUID " + playerUUID + ": HTTP " + response.statusCode());
+                        return null;
+                    }
+
+                    try {
+                        // Parse JSON response
+                        JsonObject json = JsonParser.parseString(response.body()).getAsJsonObject();
+
+                        if (!json.has("properties")) {
+                            return null;
+                        }
+
+                        // Get the textures property (base64 encoded)
+                        JsonObject textureProperty = json.getAsJsonArray("properties").get(0).getAsJsonObject();
+                        String base64Texture = textureProperty.get("value").getAsString();
+
+                        // Decode base64 to get the actual texture JSON
+                        String decodedJson = new String(Base64.getDecoder().decode(base64Texture));
+                        JsonObject textureData = JsonParser.parseString(decodedJson).getAsJsonObject();
+
+                        // Extract skin URL
+                        if (textureData.has("textures") && textureData.getAsJsonObject("textures").has("SKIN")) {
+                            return textureData.getAsJsonObject("textures")
+                                    .getAsJsonObject("SKIN")
+                                    .get("url")
+                                    .getAsString();
+                        }
+
+                        return null;
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Error parsing texture data for UUID " + playerUUID + ": " + e.getMessage());
+                        return null;
+                    }
+                })
+                .exceptionally(ex -> {
+                    plugin.getLogger().warning("Exception fetching texture for UUID " + playerUUID + ": " + ex.getMessage());
+                    return null;
+                });
     }
 
     public void open(Player player) {
@@ -367,7 +482,14 @@ public class SecurityTerminalGUI implements Listener {
         offlinePlayer.getUniqueId();
 
         String playerUuid = offlinePlayer.getUniqueId().toString();
-        
+        UUID uuid = offlinePlayer.getUniqueId();
+
+        // Check if player is the owner
+        if (playerUuid.equals(ownerUuid)) {
+            viewer.sendMessage(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.messages.cannot-add-owner"));
+            return;
+        }
+
         // Check if player is already trusted
         for (TrustedPlayer trusted : trustedPlayers) {
             if (trusted.uuid.equals(playerUuid)) {
@@ -375,24 +497,38 @@ public class SecurityTerminalGUI implements Listener {
                 return;
             }
         }
-        
+
         try (Connection conn = plugin.getDatabaseManager().getConnection();
              PreparedStatement stmt = conn.prepareStatement(
-                     "INSERT INTO security_terminal_players (terminal_id, player_uuid, player_name, drive_bay_access, block_modification_access) " +
-                     "VALUES (?, ?, ?, ?, ?)")) {
-            
+                     "INSERT INTO security_terminal_players (terminal_id, player_uuid, player_name, drive_bay_access, block_modification_access, skin_texture_url) " +
+                     "VALUES (?, ?, ?, ?, ?, ?)")) {
+
             stmt.setString(1, terminalId);
             stmt.setString(2, playerUuid);
             stmt.setString(3, offlinePlayer.getName() != null ? offlinePlayer.getName() : playerName);
             stmt.setBoolean(4, false); // Default to no access
             stmt.setBoolean(5, false);
-            
+            stmt.setString(6, null); // Will be populated when texture is fetched
+
             stmt.executeUpdate();
-            
-            loadTrustedPlayers(); // Reload to get the new player
-            
+
+            // Fetch and cache texture immediately when player is added
+            if (!textureCache.containsKey(playerUuid)) {
+                fetchPlayerTexture(uuid).thenAccept(skinUrlString -> {
+                    if (skinUrlString != null) {
+                        textureCache.put(playerUuid, skinUrlString);
+                        saveTextureToDatabase(playerUuid, skinUrlString);
+                    }
+                    // Reload GUI after texture is cached (or failed to fetch)
+                    plugin.getServer().getScheduler().runTask(plugin, this::loadTrustedPlayers);
+                });
+            } else {
+                // Texture already cached, reload immediately
+                loadTrustedPlayers();
+            }
+
             viewer.sendMessage(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.messages.player-added", "player", playerName));
-            
+
         } catch (SQLException e) {
             if (e.getMessage().contains("UNIQUE constraint failed")) {
                 viewer.sendMessage(plugin.getMessageManager().getMessageComponent(viewer, "gui.security-terminal.messages.player-already-trusted", "player", playerName));
