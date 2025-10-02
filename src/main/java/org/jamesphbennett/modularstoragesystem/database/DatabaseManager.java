@@ -432,6 +432,7 @@ public class DatabaseManager {
                     player_name TEXT NOT NULL,
                     drive_bay_access BOOLEAN NOT NULL DEFAULT false,
                     block_modification_access BOOLEAN NOT NULL DEFAULT false,
+                    skin_texture_url TEXT,
                     added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (terminal_id) REFERENCES security_terminals(terminal_id) ON DELETE CASCADE,
                     UNIQUE(terminal_id, player_uuid)

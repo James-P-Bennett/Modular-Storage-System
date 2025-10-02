@@ -568,6 +568,7 @@ gui:
       player-already-trusted: "{mss-prefix}<yellow>{player} is already a trusted player</yellow>"
       player-added: "{mss-prefix}<green>Added {player} as a trusted player</green>"
       error-adding: "{mss-prefix}<red>Error adding player: {error}</red>"
+      cannot-add-owner: "{mss-prefix}<yellow>You are already the owner - no need to add yourself!</yellow>"
 
   # Crafting Messages
   crafting:

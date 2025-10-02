@@ -222,27 +222,59 @@ public class ItemManager {
     }
 
     /**
-     * Apply player skin texture to skull meta by player name
+     * Apply player skin texture to skull meta for exporter (from config)
      */
     private void applyPlayerSkinTexture(SkullMeta skullMeta) {
-        // Create PlayerProfile for the specific player name
-        var profile = Bukkit.createProfile("BurningFurnace");
-
-        // Apply to skull meta - Bukkit will automatically fetch the skin texture
-        skullMeta.setPlayerProfile(profile);
+        String base64Texture = plugin.getConfig().getString("skull_textures.exporter");
+        if (base64Texture == null || base64Texture.isEmpty()) {
+            plugin.getLogger().warning("Exporter skull texture not found in config! Using default Steve head.");
+            return;
+        }
+        applyBase64Texture(skullMeta, "exporter", base64Texture);
     }
 
     /**
-     * Apply player skin texture to skull meta by UUID for importer
+     * Apply player skin texture to skull meta for importer (from config)
      */
     private void applyImporterPlayerSkinTexture(SkullMeta skullMeta) {
-        // Create PlayerProfile for the specific UUID
-        UUID playerUUID = UUID.fromString("d25094d2-e148-4d63-9cac-d42af39bdff1");
-        var profile = Bukkit.createProfile(playerUUID, null);
+        String base64Texture = plugin.getConfig().getString("skull_textures.importer");
+        if (base64Texture == null || base64Texture.isEmpty()) {
+            plugin.getLogger().warning("Importer skull texture not found in config! Using default Steve head.");
+            return;
+        }
+        applyBase64Texture(skullMeta, "importer", base64Texture);
+    }
 
-        // Apply to skull meta - Bukkit will automatically fetch the skin texture
+    /**
+     * Apply custom skull texture from base64 encoded texture value
+     */
+    private void applyBase64Texture(SkullMeta skullMeta, String profileName, String base64Texture) {
+        // Create PlayerProfile with custom texture using consistent UUID for stacking
+        var profile = Bukkit.createProfile(UUID.nameUUIDFromBytes(profileName.getBytes()));
+
+        try {
+            // Decode base64 to get the texture URL
+            String decodedJson = new String(java.util.Base64.getDecoder().decode(base64Texture));
+            com.google.gson.JsonObject textureData = com.google.gson.JsonParser.parseString(decodedJson).getAsJsonObject();
+
+            if (textureData.has("textures") && textureData.getAsJsonObject("textures").has("SKIN")) {
+                String skinUrl = textureData.getAsJsonObject("textures")
+                        .getAsJsonObject("SKIN")
+                        .get("url")
+                        .getAsString();
+
+                // Apply the texture URL to the profile
+                var textures = profile.getTextures();
+                textures.setSkin(new java.net.URI(skinUrl).toURL());
+                profile.setTextures(textures);
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to set " + profileName + " texture: " + e.getMessage());
+        }
+
         skullMeta.setPlayerProfile(profile);
     }
+
 
     /**
      * Create a Disk Platter for the specified tier

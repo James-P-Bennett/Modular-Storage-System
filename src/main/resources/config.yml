@@ -34,6 +34,12 @@ blacklisted_items:
 # - "ENDER_CHEST"
 # - "DIAMOND_SWORD"
 
+# Skull Textures - Custom player head textures for importers and exporters
+# These are base64-encoded texture values from https://minecraft-heads.com
+skull_textures:
+  exporter: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZDdlYjczN2U1YmU3MTIzYzUyOTNhOTI2MDVmOTIyZmZkMDExNzY5NmVjMjM4NWFkZTBmYWU3OTBkYTFkZTFkOSJ9fX0="
+  importer: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNGFmMjY0MDAxMDhiNmZmYTc0ZjhiN2I4YWFjZTY4ODRkZTVkOGJmMThjZDQ2MGJkZDc1Y2RjYTExNWNiMDY4YyJ9fX0="
+
 # Permission settings
 permissions:
   require_use_permission: false
