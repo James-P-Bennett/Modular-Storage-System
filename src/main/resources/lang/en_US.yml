@@ -558,7 +558,7 @@ gui:
         right-click: "Right-click: Toggle Building"
         shift-click: "Shift-click: Remove Player"
     messages:
-      add-prompt: "{mss-prefix}<yellow>Type the name of the player you want to add:</yellow>"
+      add-prompt: "{mss-prefix}<yellow>Type the name of the player you want to add (or 'cancel' to abort):</yellow>"
       access-granted: "{mss-prefix}<green>{status} GUI access (Terminal/Drive Bay/Server/Import/Export) for {player}</green>"
       access-revoked: "{mss-prefix}<red>{status} GUI access (Terminal/Drive Bay/Server/Import/Export) for {player}</red>"
       building-granted: "{mss-prefix}<green>{status} block modification access for {player}</green>"
@@ -569,6 +569,8 @@ gui:
       player-added: "{mss-prefix}<green>Added {player} as a trusted player</green>"
       error-adding: "{mss-prefix}<red>Error adding player: {error}</red>"
       cannot-add-owner: "{mss-prefix}<yellow>You are already the owner - no need to add yourself!</yellow>"
+      input-timeout: "{mss-prefix}<red>Player input timed out after 30 seconds. Please try again.</red>"
+      input-cancelled: "{mss-prefix}<yellow>Player input cancelled.</yellow>"
 
   # Crafting Messages
   crafting:

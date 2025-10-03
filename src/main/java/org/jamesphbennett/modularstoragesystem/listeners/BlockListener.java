@@ -19,6 +19,7 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.BlockRedstoneEvent;
 import org.bukkit.event.block.BlockPhysicsEvent;
+import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
@@ -1312,17 +1313,41 @@ public class BlockListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBlockPhysics(BlockPhysicsEvent event) {
         Block block = event.getBlock();
-        
+
         // Check if this is a security terminal observer block
         if (block.getType() == Material.OBSERVER && isCustomSecurityTerminal(block)) {
             // Cancel physics updates to prevent observer detection behavior
             event.setCancelled(true);
         }
-        
+
         // Check if this is an MSS terminal crafter block
         if (block.getType() == Material.CRAFTER && isCustomMSSTerminal(block)) {
             // Cancel physics updates to prevent crafter redstone behavior
             event.setCancelled(true);
+        }
+
+        // Check if this is an importer or exporter player head
+        if (block.getType() == Material.PLAYER_HEAD || block.getType() == Material.PLAYER_WALL_HEAD) {
+            if (isCustomImporter(block) || isCustomExporter(block)) {
+                // Cancel physics updates to prevent water/lava from breaking the heads
+                event.setCancelled(true);
+            }
+        }
+    }
+
+    /**
+     * Prevent water/lava from flowing into importers and exporters
+     */
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onBlockFromTo(BlockFromToEvent event) {
+        Block toBlock = event.getToBlock();
+
+        // Check if fluid is trying to flow into an importer or exporter
+        if (toBlock.getType() == Material.PLAYER_HEAD || toBlock.getType() == Material.PLAYER_WALL_HEAD) {
+            if (isCustomImporter(toBlock) || isCustomExporter(toBlock)) {
+                // Cancel fluid flow to protect importers/exporters
+                event.setCancelled(true);
+            }
         }
     }
 

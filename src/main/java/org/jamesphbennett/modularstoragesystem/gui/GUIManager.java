@@ -32,6 +32,10 @@ public class GUIManager {
     private final Map<String, String> terminalSearchTerms = new ConcurrentHashMap<>();
     private final Map<String, Boolean> terminalQuantitySort = new ConcurrentHashMap<>();
 
+    private final Map<UUID, SecurityTerminalGUI> playersAwaitingPlayerInput = new ConcurrentHashMap<>();
+    private final Map<UUID, BukkitRunnable> playerInputTimeoutTasks = new ConcurrentHashMap<>();
+    private static final int PLAYER_INPUT_TIMEOUT_SECONDS = 30;
+
     public GUIManager(ModularStorageSystem plugin) {
         this.plugin = plugin;
     }
@@ -272,6 +276,12 @@ public class GUIManager {
                 plugin.debugLog("Cancelled pending search input for player " + player.getName() + " when opening terminal");
             }
 
+            // Cancel any pending player input when opening a terminal
+            if (isAwaitingPlayerInput(player)) {
+                cancelPlayerInput(player);
+                plugin.debugLog("Cancelled pending player input for player " + player.getName() + " when opening terminal");
+            }
+
             // Validate network is still valid
             if (!isNetworkValid(networkId)) {
                 player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.network.invalid"));
@@ -316,29 +326,85 @@ public class GUIManager {
     }
 
     // Player input handling for security terminal
-    private final Map<UUID, SecurityTerminalGUI> playersAwaitingPlayerInput = new ConcurrentHashMap<>();
-
     public void registerPlayerInput(Player player, SecurityTerminalGUI securityGUI) {
-        playersAwaitingPlayerInput.put(player.getUniqueId(), securityGUI);
-        plugin.debugLog("Registered player " + player.getName() + " for player input");
+        UUID playerId = player.getUniqueId();
+
+        // Cancel any existing timeout task
+        BukkitRunnable existingTask = playerInputTimeoutTasks.remove(playerId);
+        if (existingTask != null) {
+            existingTask.cancel();
+        }
+
+        // Register for player input
+        playersAwaitingPlayerInput.put(playerId, securityGUI);
+
+        // Create timeout task
+        BukkitRunnable timeoutTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (playersAwaitingPlayerInput.remove(playerId) != null) {
+                    playerInputTimeoutTasks.remove(playerId);
+                    if (player.isOnline()) {
+                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.security-terminal.messages.input-timeout"));
+                    }
+                }
+            }
+        };
+
+        // Schedule timeout task (30 seconds)
+        timeoutTask.runTaskLater(plugin, PLAYER_INPUT_TIMEOUT_SECONDS * 20L);
+        playerInputTimeoutTasks.put(playerId, timeoutTask);
+
+        plugin.debugLog("Registered player " + player.getName() + " for player input with " + PLAYER_INPUT_TIMEOUT_SECONDS + "s timeout");
     }
 
     public boolean isAwaitingPlayerInput(Player player) {
         return playersAwaitingPlayerInput.containsKey(player.getUniqueId());
     }
 
-    public void handlePlayerInput(Player player, String input) {
-        SecurityTerminalGUI gui = playersAwaitingPlayerInput.remove(player.getUniqueId());
-        if (gui != null) {
-            gui.addTrustedPlayer(input);
-            // Reopen the GUI
-            gui.open(player);
+    public boolean handlePlayerInput(Player player, String input) {
+        UUID playerId = player.getUniqueId();
+        SecurityTerminalGUI gui = playersAwaitingPlayerInput.remove(playerId);
+
+        if (gui == null) {
+            return false; // Player is not awaiting player input
         }
+
+        // Cancel timeout task
+        BukkitRunnable timeoutTask = playerInputTimeoutTasks.remove(playerId);
+        if (timeoutTask != null) {
+            timeoutTask.cancel();
+        }
+
+        plugin.debugLog("Received player input from player " + player.getName() + ": '" + input + "'");
+
+        // Check if player wants to cancel
+        if (input.equalsIgnoreCase("cancel")) {
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.security-terminal.messages.input-cancelled"));
+            return true; // Chat message was handled and should be cancelled
+        }
+
+        // Process the player name input
+        gui.addTrustedPlayer(input);
+        // Reopen the GUI
+        gui.open(player);
+
+        return true; // Chat message was handled and should be cancelled
     }
 
     public void cancelPlayerInput(Player player) {
-        playersAwaitingPlayerInput.remove(player.getUniqueId());
-        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.network.input-cancelled"));
+        UUID playerId = player.getUniqueId();
+
+        // Remove from awaiting map
+        playersAwaitingPlayerInput.remove(playerId);
+
+        // Cancel and remove timeout task
+        BukkitRunnable timeoutTask = playerInputTimeoutTasks.remove(playerId);
+        if (timeoutTask != null) {
+            timeoutTask.cancel();
+        }
+
+        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.security-terminal.messages.input-cancelled"));
     }
 
     /**
@@ -447,8 +513,18 @@ public class GUIManager {
         String networkId = playerGUINetworkId.remove(player.getUniqueId());
         playerGUIInstance.remove(player.getUniqueId());
 
-        // Also cancel any pending search input
+        // Cancel any pending search input
         cancelSearchInput(player);
+
+        // Cancel any pending player input
+        UUID playerId = player.getUniqueId();
+        if (playersAwaitingPlayerInput.remove(playerId) != null) {
+            BukkitRunnable timeoutTask = playerInputTimeoutTasks.remove(playerId);
+            if (timeoutTask != null) {
+                timeoutTask.cancel();
+            }
+            plugin.debugLog("Cancelled player input for player " + player.getName());
+        }
 
         if (guiType != null) {
             plugin.debugLog("Closed " + guiType + " GUI for player " + player.getName() +
@@ -724,12 +800,19 @@ public class GUIManager {
             task.cancel();
         }
 
+        // Cancel all player input tasks
+        for (BukkitRunnable task : playerInputTimeoutTasks.values()) {
+            task.cancel();
+        }
+
         playerCurrentGUI.clear();
         playerGUINetworkId.clear();
         playerGUIInstance.clear();
         modifiedNetworks.clear();
         playersAwaitingSearchInput.clear();
         searchTimeoutTasks.clear();
+        playersAwaitingPlayerInput.clear();
+        playerInputTimeoutTasks.clear();
         terminalSearchTerms.clear();
         terminalQuantitySort.clear();
     }
