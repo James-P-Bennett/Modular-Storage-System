@@ -6,13 +6,6 @@ prefix: MSS
 authors: [ Hazmad ]
 description: More robust and advanced item management systems.
 
-commands:
-  mss:
-    description: Modular Storage System main command
-    usage: /<command> [args]
-    permission: modularstoragesystem.admin
-    aliases: [modulartorage]
-
 permissions:
   modularstoragesystem.admin:
     description: Admin permissions for Modular Storage System
