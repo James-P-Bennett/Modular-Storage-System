@@ -6,7 +6,7 @@
 
     <groupId>org.jamesphbennett</groupId>
     <artifactId>modularstoragesystem</artifactId>
-    <version>BETA-1.6.0</version>
+    <version>BETA-1.6.1</version>
     <packaging>jar</packaging>
 
     <name>Modular Storage System</name>
@@ -86,6 +86,14 @@
                                 <relocation>
                                     <pattern>com.zaxxer.hikari</pattern>
                                     <shadedPattern>org.jamesphbennett.modularstoragesystem.libs.hikari</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.slf4j</pattern>
+                                    <shadedPattern>org.jamesphbennett.modularstoragesystem.libs.slf4j</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.xerial</pattern>
+                                    <shadedPattern>org.jamesphbennett.modularstoragesystem.libs.xerial</shadedPattern>
                                 </relocation>
                             </relocations>
                             <filters>
