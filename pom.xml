@@ -6,11 +6,11 @@
 
     <groupId>org.jamesphbennett</groupId>
     <artifactId>modularstoragesystem</artifactId>
-    <version>BETA-1.6.1</version>
+    <version>BETA-1.6.2</version>
     <packaging>jar</packaging>
 
     <name>Modular Storage System</name>
-    <description>A deep storage system for Minecraft servers</description>
+    <description>Advanced storage, sorting and logistics systems for items.</description>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
@@ -26,6 +26,10 @@
         <repository>
             <id>sonatype</id>
             <url>https://oss.sonatype.org/content/groups/public/</url>
+        </repository>
+        <repository>
+            <id>aikar</id>
+            <url>https://repo.aikar.co/content/groups/aikar/</url>
         </repository>
     </repositories>
 
@@ -51,11 +55,18 @@
             <version>5.1.0</version>
         </dependency>
 
-        <!-- SLF4J for logging -->
+        <!-- SLF4J JDK14 bridge for proper Paper integration -->
         <dependency>
             <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-simple</artifactId>
+            <artifactId>slf4j-jdk14</artifactId>
             <version>2.0.13</version>
+        </dependency>
+
+        <!-- ACF (Annotation Command Framework) -->
+        <dependency>
+            <groupId>co.aikar</groupId>
+            <artifactId>acf-paper</artifactId>
+            <version>0.5.1-SNAPSHOT</version>
         </dependency>
     </dependencies>
 
@@ -94,6 +105,10 @@
                                 <relocation>
                                     <pattern>org.xerial</pattern>
                                     <shadedPattern>org.jamesphbennett.modularstoragesystem.libs.xerial</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>co.aikar.commands</pattern>
+                                    <shadedPattern>org.jamesphbennett.modularstoragesystem.libs.acf</shadedPattern>
                                 </relocation>
                             </relocations>
                             <filters>

@@ -1,23 +1,21 @@
 package org.jamesphbennett.modularstoragesystem.commands;
 
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
+import co.aikar.commands.BaseCommand;
+import co.aikar.commands.annotation.*;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
-import org.jetbrains.annotations.NotNull;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Set;
 
-public class MSSCommand implements CommandExecutor, TabCompleter {
+@CommandAlias("mss")
+@Description("Modular Storage System commands")
+@SuppressWarnings("unused")
+public class MSSCommand extends BaseCommand {
 
     private final ModularStorageSystem plugin;
 
@@ -25,71 +23,12 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
         this.plugin = plugin;
     }
 
-    @Override
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String[] args) {
-        if (args.length == 0) {
-            sendHelpMessage(sender);
-            return true;
-        }
-
-        switch (args[0].toLowerCase()) {
-            case "help":
-                sendHelpMessage(sender);
-                break;
-
-            case "recovery":
-                if (args.length < 2) {
-                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.usage.recovery"));
-                    return true;
-                }
-                boolean forceConfirm = args.length >= 3 && "confirm".equalsIgnoreCase(args[2]);
-                handleRecovery(sender, args[1], forceConfirm);
-                break;
-
-            case "give":
-                if (args.length < 2) {
-                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.usage.give"));
-                    return true;
-                }
-                handleGive(sender, args);
-                break;
-
-            case "info":
-                handleInfo(sender);
-                break;
-
-            case "cleanup":
-                handleCleanup(sender);
-                break;
-
-            case "recipes":
-                handleRecipes(sender);
-                break;
-
-            case "recipe":
-                if (args.length < 2) {
-                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.usage.recipe"));
-                    return true;
-                }
-                handleRecipeInfo(sender, args[1]);
-                break;
-
-            case "reload":
-                handleReload(sender, args);
-                break;
-
-
-            default:
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.unknown-command"));
-                break;
-        }
-
-        return true;
-    }
-
-    private void sendHelpMessage(CommandSender sender) {
+    @Default
+    @Subcommand("help")
+    @Description("Display help information")
+    public void onHelp(CommandSender sender) {
         Player player = sender instanceof Player ? (Player) sender : null;
-        
+
         sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.help.header"));
         sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.help.main-help"));
 
@@ -104,127 +43,23 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
         }
     }
 
-    private void handleRecovery(CommandSender sender, String diskId, boolean forceConfirm) {
-        if (!sender.hasPermission("modularstoragesystem.recovery")) {
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.no-permission-recovery"));
-            return;
-        }
 
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(null, "commands.players-only"));
-            return;
-        }
-
-        try {
-            // First check if disk is currently active in a drive bay
-            if (!forceConfirm) {
-                try (Connection conn = plugin.getDatabaseManager().getConnection();
-                     PreparedStatement stmt = conn.prepareStatement(
-                             "SELECT dbs.network_id, dbs.world_name, dbs.x, dbs.y, dbs.z, dbs.slot_number " +
-                             "FROM drive_bay_slots dbs WHERE dbs.disk_id = ?")) {
-                    
-                    stmt.setString(1, diskId.toUpperCase());
-                    
-                    try (ResultSet rs = stmt.executeQuery()) {
-                        if (rs.next()) {
-                            // Disk is active - show warning and require confirmation
-                            String networkId = rs.getString("network_id");
-                            String world = rs.getString("world_name");
-                            int x = rs.getInt("x");
-                            int y = rs.getInt("y");
-                            int z = rs.getInt("z");
-                            int slot = rs.getInt("slot_number");
-                            
-                            sender.sendMessage(plugin.getMessageManager().getMessageComponent((Player) sender, "commands.recovery.active-disk-warning"));
-                            sender.sendMessage(plugin.getMessageManager().getMessageComponent((Player) sender, "commands.recovery.active-disk-network", "network_id", networkId));
-                            sender.sendMessage(plugin.getMessageManager().getMessageComponent((Player) sender, "commands.recovery.active-disk-location", "world", world, "x", x, "y", y, "z", z, "slot", slot));
-                            sender.sendMessage(plugin.getMessageManager().getMessageComponent((Player) sender, "commands.recovery.active-disk-confirm"));
-                            sender.sendMessage(plugin.getMessageManager().getMessageComponent((Player) sender, "commands.recovery.active-disk-usage", "disk_id", diskId));
-                            return;
-                        }
-                    }
-                }
-            }
-            
-            // Look up disk in database
-            try (Connection conn = plugin.getDatabaseManager().getConnection();
-                 PreparedStatement stmt = conn.prepareStatement(
-                         "SELECT crafter_uuid, crafter_name, used_cells, max_cells, tier FROM storage_disks WHERE disk_id = ?")) {
-
-                stmt.setString(1, diskId.toUpperCase());
-
-                try (ResultSet rs = stmt.executeQuery()) {
-                    if (!rs.next()) {
-                        sender.sendMessage(plugin.getMessageManager().getMessageComponent((Player) sender, "commands.recovery.not-found", "disk_id", diskId));
-                        return;
-                    }
-
-                    String crafterUUID = rs.getString("crafter_uuid");
-                    String crafterName = rs.getString("crafter_name");
-                    int usedCells = rs.getInt("used_cells");
-                    int maxCells = rs.getInt("max_cells");
-                    rs.getString("tier");
-
-                    // Default to 1k if tier is null
-
-                    // Create the storage disk with the original ID - this preserves the existing disk ID
-                    ItemStack recoveredDisk = plugin.getItemManager().createStorageDiskWithId(diskId.toUpperCase(), crafterUUID, crafterName);
-                    recoveredDisk = plugin.getItemManager().updateStorageDiskLore(recoveredDisk, usedCells, maxCells);
-
-                    // Give to player
-                    if (player.getInventory().firstEmpty() == -1) {
-                        player.getWorld().dropItemNaturally(player.getLocation(), recoveredDisk);
-                        sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.success-dropped"));
-                    } else {
-                        player.getInventory().addItem(recoveredDisk);
-                        sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.success-inventory"));
-                    }
-
-                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.disk-info", "disk_id", diskId));
-                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.crafter-info", "crafter", crafterName));
-                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.cells-info", "used", usedCells, "max", maxCells));
-                    
-                    // If this was a forced recovery, remove the disk from drive bay slots
-                    if (forceConfirm) {
-                        try (PreparedStatement removeStmt = conn.prepareStatement(
-                                "DELETE FROM drive_bay_slots WHERE disk_id = ?")) {
-                            removeStmt.setString(1, diskId.toUpperCase());
-                            int removed = removeStmt.executeUpdate();
-                            if (removed > 0) {
-                                sender.sendMessage(plugin.getMessageManager().getMessageComponent((Player) sender, "errors.recovery.disk-removed-from-bay"));
-                            }
-                        }
-                    }
-                }
-            }
-
-        } catch (Exception e) {
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent((Player) sender, "commands.recovery.error", "error", e.getMessage()));
-            plugin.getLogger().severe("Error during disk recovery: " + e.getMessage());
-        }
-    }
-
-    private void handleGive(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("modularstoragesystem.admin")) {
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.give.no-permission"));
-            return;
-        }
-
-        Player target;
-        if (args.length >= 3) {
-            target = plugin.getServer().getPlayer(args[2]);
-            if (target == null) {
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.give.player-not-found", "player", args[2]));
+    @Subcommand("give")
+    @Description("Give MSS items to a player")
+    @CommandPermission("modularstoragesystem.admin")
+    @CommandCompletion("@items @players")
+    @Syntax("<item> [player]")
+    public void onGive(CommandSender sender, String itemName, @Optional @Flags("other") Player target) {
+        if (target == null) {
+            if (sender instanceof Player) {
+                target = (Player) sender;
+            } else {
+                sender.sendMessage(plugin.getMessageManager().getMessageComponent(null, "commands.give.console-needs-player"));
                 return;
             }
-        } else if (sender instanceof Player) {
-            target = (Player) sender;
-        } else {
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(null, "commands.give.console-needs-player"));
-            return;
         }
 
-        ItemStack item = switch (args[1].toLowerCase()) {
+        ItemStack item = switch (itemName.toLowerCase()) {
             // Network blocks
             case "server", "storage_server" -> plugin.getItemManager().createStorageServer();
             case "bay", "drive_bay" -> plugin.getItemManager().createDriveBay();
@@ -254,43 +89,45 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
             default -> null;
         };
 
+        Player senderPlayer = sender instanceof Player ? (Player) sender : null;
+
         if (item == null) {
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.give.invalid-item"));
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.give.available-blocks"));
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.give.available-disks"));
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.give.available-components"));
+            sender.sendMessage(plugin.getMessageManager().getMessageComponent(senderPlayer, "commands.give.invalid-item"));
+            sender.sendMessage(plugin.getMessageManager().getMessageComponent(senderPlayer, "commands.give.available-blocks"));
+            sender.sendMessage(plugin.getMessageManager().getMessageComponent(senderPlayer, "commands.give.available-disks"));
+            sender.sendMessage(plugin.getMessageManager().getMessageComponent(senderPlayer, "commands.give.available-components"));
             return;
         }
 
         if (target.getInventory().firstEmpty() == -1) {
             target.getWorld().dropItemNaturally(target.getLocation(), item);
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.give.success-dropped", "player", target.getName()));
+            sender.sendMessage(plugin.getMessageManager().getMessageComponent(senderPlayer, "commands.give.success-dropped", "player", target.getName()));
         } else {
             target.getInventory().addItem(item);
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.give.success-inventory", "player", target.getName()));
+            sender.sendMessage(plugin.getMessageManager().getMessageComponent(senderPlayer, "commands.give.success-inventory", "player", target.getName()));
         }
 
         if (!sender.equals(target)) {
-            target.sendMessage(plugin.getMessageManager().getMessageComponent(target, "commands.give.received", "item", args[1], "sender", sender.getName()));
+            target.sendMessage(plugin.getMessageManager().getMessageComponent(target, "commands.give.received", "item", itemName, "sender", sender.getName()));
         }
     }
 
-    private void handleInfo(CommandSender sender) {
-        if (!sender.hasPermission("modularstoragesystem.admin")) {
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.info.no-permission"));
-            return;
-        }
+    @Subcommand("info")
+    @Description("Display system information")
+    @CommandPermission("modularstoragesystem.admin")
+    public void onInfo(CommandSender sender) {
+        Player player = sender instanceof Player ? (Player) sender : null;
 
         // Display banner and version header
-        sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.help.header"));
-        
+        sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.help.header"));
+
         try (Connection conn = plugin.getDatabaseManager().getConnection()) {
             // Count networks
             try (PreparedStatement stmt = conn.prepareStatement("SELECT COUNT(*) FROM networks");
                  ResultSet rs = stmt.executeQuery()) {
                 rs.next();
                 int networkCount = rs.getInt(1);
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.info.networks", "count", networkCount));
+                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.networks", "count", networkCount));
             }
 
             // Count storage disks
@@ -298,7 +135,7 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
                  ResultSet rs = stmt.executeQuery()) {
                 rs.next();
                 int diskCount = rs.getInt(1);
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.info.disks", "count", diskCount));
+                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.disks", "count", diskCount));
             }
 
             // Count stored items
@@ -307,8 +144,8 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
                 rs.next();
                 int itemTypes = rs.getInt(1);
                 long totalItems = rs.getLong(2);
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.info.item-types", "types", itemTypes));
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.info.total-items", "total", totalItems));
+                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.item-types", "types", itemTypes));
+                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.total-items", "total", totalItems));
             }
 
             // Count network cables
@@ -316,7 +153,7 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
                  ResultSet rs = stmt.executeQuery()) {
                 rs.next();
                 int cableCount = rs.getInt(1);
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.info.cables", "count", cableCount));
+                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.cables", "count", cableCount));
             }
 
             // Count exporters
@@ -324,7 +161,7 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
                  ResultSet rs = stmt.executeQuery()) {
                 rs.next();
                 int exporterCount = rs.getInt(1);
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.info.exporters", "count", exporterCount));
+                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.exporters", "count", exporterCount));
             }
 
             // Count importers
@@ -332,7 +169,7 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
                  ResultSet rs = stmt.executeQuery()) {
                 rs.next();
                 int importerCount = rs.getInt(1);
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.info.importers", "count", importerCount));
+                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.importers", "count", importerCount));
             }
 
             // Recipe information
@@ -341,27 +178,26 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
             boolean recipesEnabled = plugin.getConfigManager().areRecipesEnabled();
 
             String recipeKey = recipesEnabled ? "commands.info.recipes-enabled" : "commands.info.recipes-disabled";
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, recipeKey, "registered", recipeCount, "total", totalRecipes.size()));
+            sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, recipeKey, "registered", recipeCount, "total", totalRecipes.size()));
 
         } catch (Exception e) {
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.info.error", "error", e.getMessage()));
+            sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.error", "error", e.getMessage()));
         }
     }
 
-    private void handleCleanup(CommandSender sender) {
-        if (!sender.hasPermission("modularstoragesystem.admin")) {
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.cleanup.no-permission"));
-            return;
-        }
+    @Subcommand("cleanup")
+    @Description("Clean up orphaned data")
+    @CommandPermission("modularstoragesystem.admin")
+    public void onCleanup(CommandSender sender) {
+        Player player = sender instanceof Player ? (Player) sender : null;
 
         try {
-
             // Clean up orphaned storage items (items without valid disks)
             try (Connection conn = plugin.getDatabaseManager().getConnection();
                  PreparedStatement stmt = conn.prepareStatement(
                          "DELETE FROM storage_items WHERE disk_id NOT IN (SELECT disk_id FROM storage_disks)")) {
                 int deletedItems = stmt.executeUpdate();
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.cleanup.orphaned-items", "count", deletedItems));
+                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.cleanup.orphaned-items", "count", deletedItems));
             }
 
             // Clean up empty storage disks with no items
@@ -369,69 +205,57 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
                  PreparedStatement stmt = conn.prepareStatement(
                          "UPDATE storage_disks SET used_cells = 0 WHERE disk_id NOT IN (SELECT DISTINCT disk_id FROM storage_items)")) {
                 int updatedDisks = stmt.executeUpdate();
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.cleanup.reset-disks", "count", updatedDisks));
+                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.cleanup.reset-disks", "count", updatedDisks));
             }
 
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.cleanup.success"));
+            sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.cleanup.success"));
 
         } catch (Exception e) {
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.cleanup.error", "error", e.getMessage()));
+            sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.cleanup.error", "error", e.getMessage()));
         }
     }
 
-    private void handleRecipes(CommandSender sender) {
-        if (!sender.hasPermission("modularstoragesystem.admin")) {
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.recipes.no-permission"));
-            return;
-        }
-
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(null, "commands.recipes.players-only"));
-            return;
-        }
-
+    @Subcommand("recipes")
+    @Description("List all available recipes")
+    @CommandPermission("modularstoragesystem.admin")
+    public void onRecipes(Player player) {
         plugin.getRecipeManager().listRecipes(player);
     }
 
-    private void handleRecipeInfo(CommandSender sender, String recipeName) {
-        if (!sender.hasPermission("modularstoragesystem.admin")) {
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.recipes.no-permission"));
-            return;
-        }
-
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(null, "commands.recipes.players-only"));
-            return;
-        }
-
+    @Subcommand("recipe")
+    @Description("View details of a specific recipe")
+    @CommandPermission("modularstoragesystem.admin")
+    @CommandCompletion("@recipes")
+    @Syntax("<recipe_name>")
+    public void onRecipe(Player player, String recipeName) {
         plugin.getRecipeManager().sendRecipeInfo(player, recipeName);
     }
 
-    private void handleReload(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("modularstoragesystem.admin")) {
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.reload.no-permission"));
-            return;
-        }
+    @Subcommand("reload")
+    @Description("Reload plugin configuration")
+    @CommandPermission("modularstoragesystem.admin")
+    @CommandCompletion("config|recipes|lang|all")
+    @Syntax("[config|recipes|lang|all]")
+    public void onReload(CommandSender sender, @Default("all") String what) {
+        Player player = sender instanceof Player ? (Player) sender : null;
 
-        String what = args.length > 1 ? args[1].toLowerCase() : "all";
-
-        switch (what) {
+        switch (what.toLowerCase()) {
             case "config":
                 try {
                     plugin.getConfigManager().loadConfig();
-                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.reload.config-success"));
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.reload.config-success"));
                 } catch (Exception e) {
-                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.reload.config-error", "error", e.getMessage()));
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.reload.config-error", "error", e.getMessage()));
                 }
                 break;
 
             case "recipes":
                 try {
                     plugin.getRecipeManager().reloadRecipes();
-                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.reload.recipes-success"));
-                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.reload.recipes-note"));
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.reload.recipes-success"));
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.reload.recipes-note"));
                 } catch (Exception e) {
-                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.reload.recipes-error", "error", e.getMessage()));
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.reload.recipes-error", "error", e.getMessage()));
                 }
                 break;
 
@@ -439,9 +263,9 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
             case "language":
                 try {
                     plugin.getMessageManager().reloadLanguages();
-                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.reload.lang-success"));
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.reload.lang-success"));
                 } catch (Exception e) {
-                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.reload.lang-error", "error", e.getMessage()));
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.reload.lang-error", "error", e.getMessage()));
                 }
                 break;
 
@@ -450,83 +274,111 @@ public class MSSCommand implements CommandExecutor, TabCompleter {
                     plugin.getConfigManager().reloadConfig();
                     plugin.getRecipeManager().reloadRecipes();
                     plugin.getMessageManager().reloadLanguages();
-                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.reload.all-success"));
-                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.reload.recipes-note"));
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.reload.all-success"));
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.reload.recipes-note"));
                 } catch (Exception e) {
-                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.reload.all-error", "error", e.getMessage()));
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.reload.all-error", "error", e.getMessage()));
                 }
                 break;
 
             default:
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(sender instanceof Player ? (Player) sender : null, "commands.reload.usage"));
+                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.reload.usage"));
                 break;
         }
     }
 
-    @Override
-    public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, String[] args) {
-        List<String> completions = new ArrayList<>();
+    @Subcommand("recovery")
+    @Description("Recover a lost storage disk")
+    @CommandPermission("modularstoragesystem.recovery")
+    @CommandCompletion("@nothing")
+    @Syntax("<disk_id> [confirm]")
+    public void onRecovery(Player player, String diskId, @Optional String confirmation) {
+        boolean forceConfirm = "confirm".equalsIgnoreCase(confirmation);
 
-        if (args.length == 1) {
-            List<String> commands = List.of("help");
-            if (sender.hasPermission("modularstoragesystem.admin")) {
-                commands = Arrays.asList("help", "recovery", "give", "info", "cleanup", "recipes", "recipe", "reload");
-            }
+        try {
+            // First check if disk is currently active in a drive bay
+            if (!forceConfirm) {
+                try (Connection conn = plugin.getDatabaseManager().getConnection();
+                     PreparedStatement stmt = conn.prepareStatement(
+                             "SELECT dbs.network_id, dbs.world_name, dbs.x, dbs.y, dbs.z, dbs.slot_number " +
+                             "FROM drive_bay_slots dbs WHERE dbs.disk_id = ?")) {
 
-            for (String cmd : commands) {
-                if (cmd.toLowerCase().startsWith(args[0].toLowerCase())) {
-                    completions.add(cmd);
-                }
-            }
-        } else if (args.length == 2) {
-            switch (args[0].toLowerCase()) {
-                case "give":
-                    List<String> items = Arrays.asList(
-                            // Network blocks
-                            "server", "bay", "terminal", "cable", "exporter", "importer", "security",
-                            // Storage disks
-                            "disk1k", "disk4k", "disk16k", "disk64k",
-                            // Components
-                            "housing", "platter1k", "platter4k", "platter16k", "platter64k"
-                    );
-                    for (String item : items) {
-                        if (item.toLowerCase().startsWith(args[1].toLowerCase())) {
-                            completions.add(item);
+                    stmt.setString(1, diskId.toUpperCase());
+
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        if (rs.next()) {
+                            // Disk is active - show warning and require confirmation
+                            String networkId = rs.getString("network_id");
+                            String world = rs.getString("world_name");
+                            int x = rs.getInt("x");
+                            int y = rs.getInt("y");
+                            int z = rs.getInt("z");
+                            int slot = rs.getInt("slot_number");
+
+                            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.active-disk-warning"));
+                            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.active-disk-network", "network_id", networkId));
+                            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.active-disk-location", "world", world, "x", x, "y", y, "z", z, "slot", slot));
+                            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.active-disk-confirm"));
+                            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.active-disk-usage", "disk_id", diskId));
+                            return;
                         }
                     }
-                    break;
+                }
+            }
 
-                case "recipe":
-                    if (sender.hasPermission("modularstoragesystem.admin")) {
-                        Set<String> recipeNames = plugin.getConfigManager().getRecipeNames();
-                        for (String recipeName : recipeNames) {
-                            if (recipeName.toLowerCase().startsWith(args[1].toLowerCase())) {
-                                completions.add(recipeName);
+            // Look up disk in database
+            try (Connection conn = plugin.getDatabaseManager().getConnection();
+                 PreparedStatement stmt = conn.prepareStatement(
+                         "SELECT crafter_uuid, crafter_name, used_cells, max_cells, tier FROM storage_disks WHERE disk_id = ?")) {
+
+                stmt.setString(1, diskId.toUpperCase());
+
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (!rs.next()) {
+                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.not-found", "disk_id", diskId));
+                        return;
+                    }
+
+                    String crafterUUID = rs.getString("crafter_uuid");
+                    String crafterName = rs.getString("crafter_name");
+                    int usedCells = rs.getInt("used_cells");
+                    int maxCells = rs.getInt("max_cells");
+                    rs.getString("tier");
+
+                    // Create the storage disk with the original ID
+                    ItemStack recoveredDisk = plugin.getItemManager().createStorageDiskWithId(diskId.toUpperCase(), crafterUUID, crafterName);
+                    recoveredDisk = plugin.getItemManager().updateStorageDiskLore(recoveredDisk, usedCells, maxCells);
+
+                    // Give to player
+                    if (player.getInventory().firstEmpty() == -1) {
+                        player.getWorld().dropItemNaturally(player.getLocation(), recoveredDisk);
+                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.success-dropped"));
+                    } else {
+                        player.getInventory().addItem(recoveredDisk);
+                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.success-inventory"));
+                    }
+
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.disk-info", "disk_id", diskId));
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.crafter-info", "crafter", crafterName));
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.cells-info", "used", usedCells, "max", maxCells));
+
+                    // If this was a forced recovery, remove the disk from drive bay slots
+                    if (forceConfirm) {
+                        try (PreparedStatement removeStmt = conn.prepareStatement(
+                                "DELETE FROM drive_bay_slots WHERE disk_id = ?")) {
+                            removeStmt.setString(1, diskId.toUpperCase());
+                            int removed = removeStmt.executeUpdate();
+                            if (removed > 0) {
+                                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recovery.disk-removed-from-bay"));
                             }
                         }
                     }
-                    break;
-
-                case "reload":
-                    List<String> reloadOptions = Arrays.asList("config", "recipes", "lang", "all");
-                    for (String option : reloadOptions) {
-                        if (option.toLowerCase().startsWith(args[1].toLowerCase())) {
-                            completions.add(option);
-                        }
-                    }
-                    break;
-            }
-        } else if (args.length == 3 && args[0].equalsIgnoreCase("give")) {
-            // Player name completion
-            plugin.getServer().getOnlinePlayers().forEach(player -> {
-                if (player.getName().toLowerCase().startsWith(args[2].toLowerCase())) {
-                    completions.add(player.getName());
                 }
-            });
+            }
+
+        } catch (Exception e) {
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.error", "error", e.getMessage()));
+            plugin.getLogger().severe("Error during disk recovery: " + e.getMessage());
         }
-
-        return completions;
     }
-    
-
 }

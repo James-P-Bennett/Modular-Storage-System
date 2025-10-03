@@ -1,5 +1,6 @@
 package org.jamesphbennett.modularstoragesystem;
 
+import co.aikar.commands.PaperCommandManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jamesphbennett.modularstoragesystem.commands.MSSCommand;
 import org.jamesphbennett.modularstoragesystem.database.DatabaseManager;
@@ -14,7 +15,7 @@ import org.jamesphbennett.modularstoragesystem.network.DisksManager;
 import org.jamesphbennett.modularstoragesystem.network.CableManager;
 import org.jamesphbennett.modularstoragesystem.gui.GUIManager;
 
-import java.util.Objects;
+import java.util.Arrays;
 import java.util.logging.Level;
 
 public final class ModularStorageSystem extends JavaPlugin {
@@ -75,7 +76,21 @@ public final class ModularStorageSystem extends JavaPlugin {
             getServer().getPluginManager().registerEvents(new PistonListener(this), this);
             getServer().getPluginManager().registerEvents(new AnvilListener(this), this);
 
-            Objects.requireNonNull(getCommand("mss")).setExecutor(new MSSCommand(this));
+            // Initialize ACF command manager
+            PaperCommandManager commandManager = new PaperCommandManager(this);
+
+            // Register custom command completions
+            commandManager.getCommandCompletions().registerStaticCompletion("items", Arrays.asList(
+                    "server", "bay", "terminal", "cable", "exporter", "importer", "security",
+                    "disk1k", "disk4k", "disk16k", "disk64k",
+                    "housing", "platter1k", "platter4k", "platter16k", "platter64k"
+            ));
+            commandManager.getCommandCompletions().registerAsyncCompletion("recipes", c ->
+                    configManager.getRecipeNames()
+            );
+
+            // Register commands
+            commandManager.registerCommand(new MSSCommand(this));
 
             // Register recipes AFTER everything else is initialized
             recipeManager.registerRecipes();
