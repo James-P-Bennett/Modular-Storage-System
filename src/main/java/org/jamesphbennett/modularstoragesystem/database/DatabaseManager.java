@@ -385,8 +385,8 @@ public class DatabaseManager {
         String longTextType = "TEXT"; // TEXT works in both
         String intType = isMySQL ? "INT" : "INTEGER";
         String autoIncrement = isMySQL ? "AUTO_INCREMENT" : "AUTOINCREMENT";
-        String booleanType = isMySQL ? "BOOLEAN" : "BOOLEAN"; // Both support BOOLEAN
-        String timestampDefault = isMySQL ? "TIMESTAMP DEFAULT CURRENT_TIMESTAMP" : "TIMESTAMP DEFAULT CURRENT_TIMESTAMP";
+        String booleanType = "BOOLEAN"; // Both databases support BOOLEAN
+        String timestampDefault = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"; // Same for both
         String timestampUpdate = isMySQL ? "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP" : "TIMESTAMP DEFAULT CURRENT_TIMESTAMP";
 
         return new String[] {

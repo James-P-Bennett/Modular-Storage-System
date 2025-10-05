@@ -107,16 +107,32 @@ public class ExporterManager {
     }
 
     /**
-     * Start the periodic export task
+     * Start the periodic export task with rate limiting
      */
     private void startExportTask() {
         int tickInterval = plugin.getConfigManager().getExportTickInterval();
 
         plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
+            // Get max exporters to process per tick from config
+            int maxExportersPerTick = plugin.getConfigManager().getMaxExportersPerTick();
+            int processedCount = 0;
+
+            // Process exporters with rate limiting
             for (ExporterData exporter : activeExporters.values()) {
                 if (exporter.enabled) {
+                    // Check if we've hit the rate limit
+                    if (processedCount >= maxExportersPerTick) {
+                        break; // Stop processing this tick, resume next tick
+                    }
+
                     processExport(exporter);
+                    processedCount++;
                 }
+            }
+
+            // Debug log if we hit the rate limit
+            if (processedCount >= maxExportersPerTick && activeExporters.size() > processedCount) {
+                plugin.debugLog("Exporter rate limit reached: processed " + processedCount + " of " + activeExporters.size() + " active exporters");
             }
         }, tickInterval, tickInterval);
 

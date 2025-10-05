@@ -339,11 +339,13 @@ public class ConfigManager {
         return maxExportersPerTick;
     }
 
+    @SuppressWarnings("unused")
     public boolean shouldBatchImporterExporterOps() {
         return batchImporterExporterOps;
     }
 
     // Database getters
+    @SuppressWarnings("unused")
     public String getDatabaseType() {
         return databaseType;
     }
