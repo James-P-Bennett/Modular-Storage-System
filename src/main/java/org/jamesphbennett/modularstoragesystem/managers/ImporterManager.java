@@ -106,16 +106,32 @@ public class ImporterManager {
     }
 
     /**
-     * Start the periodic import task
+     * Start the periodic import task with rate limiting
      */
     private void startImportTask() {
         int tickInterval = plugin.getConfigManager().getExportTickInterval(); // Use same interval as exporters
 
         plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
+            // Get max importers to process per tick from config
+            int maxImportersPerTick = plugin.getConfigManager().getMaxImportersPerTick();
+            int processedCount = 0;
+
+            // Process importers with rate limiting
             for (ImporterData importer : activeImporters.values()) {
                 if (importer.enabled) {
+                    // Check if we've hit the rate limit
+                    if (processedCount >= maxImportersPerTick) {
+                        break; // Stop processing this tick, resume next tick
+                    }
+
                     processImport(importer);
+                    processedCount++;
                 }
+            }
+
+            // Debug log if we hit the rate limit
+            if (processedCount >= maxImportersPerTick && activeImporters.size() > processedCount) {
+                plugin.debugLog("Importer rate limit reached: processed " + processedCount + " of " + activeImporters.size() + " active importers");
             }
         }, tickInterval, tickInterval);
 

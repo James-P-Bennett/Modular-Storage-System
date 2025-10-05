@@ -36,8 +36,121 @@ public class GUIManager {
     private final Map<UUID, BukkitRunnable> playerInputTimeoutTasks = new ConcurrentHashMap<>();
     private static final int PLAYER_INPUT_TIMEOUT_SECONDS = 30;
 
+    // GUI open cooldown tracking: <PlayerUUID, ExpirationTime>
+    private final Map<UUID, Long> guiOpenCooldowns = new ConcurrentHashMap<>();
+
+    // Terminal cache: <PlayerUUID_NetworkID, <CachedData, ExpirationTime>>
+    private final Map<String, TerminalCache> terminalCaches = new ConcurrentHashMap<>();
+
+    /**
+     * Cache entry for terminal item data
+     */
+    private static class TerminalCache {
+        final List<Object> cachedItems; // Actual cached data from loadItems()
+        final long expirationTime;
+
+        TerminalCache(List<Object> items, long expirationTime) {
+            this.cachedItems = items;
+            this.expirationTime = expirationTime;
+        }
+
+        boolean isExpired() {
+            return System.currentTimeMillis() >= expirationTime;
+        }
+    }
+
     public GUIManager(ModularStorageSystem plugin) {
         this.plugin = plugin;
+    }
+
+    /**
+     * Check if a player is on GUI open cooldown
+     * @return true if on cooldown, false if ready
+     */
+    private boolean isOnGuiCooldown(Player player) {
+        if (player.hasPermission("modularstoragesystem.bypass_cooldown")) {
+            return false;
+        }
+
+        UUID playerId = player.getUniqueId();
+        Long expirationTime = guiOpenCooldowns.get(playerId);
+
+        if (expirationTime == null) {
+            return false;
+        }
+
+        long currentTime = System.currentTimeMillis();
+        if (currentTime >= expirationTime) {
+            // Cooldown expired, clean up
+            guiOpenCooldowns.remove(playerId);
+            return false;
+        }
+
+        // Still on cooldown
+        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.gui-cooldown"));
+        return true;
+    }
+
+    /**
+     * Set GUI open cooldown for a player
+     */
+    private void setGuiCooldown(Player player) {
+        if (player.hasPermission("modularstoragesystem.bypass_cooldown")) {
+            return;
+        }
+
+        UUID playerId = player.getUniqueId();
+        int cooldownMs = plugin.getConfigManager().getGuiOpenCooldown();
+        long expirationTime = System.currentTimeMillis() + cooldownMs;
+
+        guiOpenCooldowns.put(playerId, expirationTime);
+    }
+
+    /**
+     * Get terminal cache key
+     */
+    private String getTerminalCacheKey(UUID playerId, String networkId) {
+        return playerId.toString() + "_" + networkId;
+    }
+
+    /**
+     * Get cached terminal data if available and not expired
+     * @return cached items or null if cache miss/expired
+     */
+    public List<Object> getTerminalCache(UUID playerId, String networkId) {
+        String cacheKey = getTerminalCacheKey(playerId, networkId);
+        TerminalCache cache = terminalCaches.get(cacheKey);
+
+        if (cache == null || cache.isExpired()) {
+            // Clean up expired cache
+            if (cache != null) {
+                terminalCaches.remove(cacheKey);
+            }
+            return null;
+        }
+
+        plugin.debugLog("Terminal cache HIT for player " + playerId + " in network " + networkId);
+        return cache.cachedItems;
+    }
+
+    /**
+     * Store terminal data in cache
+     */
+    public void setTerminalCache(UUID playerId, String networkId, List<Object> items) {
+        String cacheKey = getTerminalCacheKey(playerId, networkId);
+        int cacheDurationMs = plugin.getConfigManager().getTerminalCacheDuration();
+        long expirationTime = System.currentTimeMillis() + cacheDurationMs;
+
+        terminalCaches.put(cacheKey, new TerminalCache(new ArrayList<>(items), expirationTime));
+        plugin.debugLog("Terminal cache SET for player " + playerId + " in network " + networkId + " (expires in " + cacheDurationMs + "ms)");
+    }
+
+    /**
+     * Invalidate terminal cache for a specific network (when network is modified)
+     */
+    public void invalidateTerminalCache(String networkId) {
+        terminalCaches.entrySet().removeIf(entry -> entry.getKey().endsWith("_" + networkId));
+        plugin.debugLog("Invalidated terminal cache for network " + networkId);
     }
 
     /**
@@ -45,7 +158,8 @@ public class GUIManager {
      */
     public void markNetworkModified(String networkId) {
         modifiedNetworks.add(networkId);
-        plugin.debugLog("Marked network " + networkId + " as modified");
+        invalidateTerminalCache(networkId);
+        plugin.debugLog("Marked network " + networkId + " as modified and invalidated cache");
     }
 
     /**
@@ -270,6 +384,12 @@ public class GUIManager {
 
     public void openTerminalGUI(Player player, Location terminalLocation, String networkId) {
         try {
+            // Check GUI open cooldown
+            if (isOnGuiCooldown(player)) {
+                return;
+            }
+            setGuiCooldown(player);
+
             // Cancel any pending search input when opening a terminal
             if (isAwaitingSearchInput(player)) {
                 cancelSearchInput(player);
