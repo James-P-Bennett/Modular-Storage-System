@@ -10,7 +10,10 @@ import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @CommandAlias("mss")
 @Description("Modular Storage System commands")
@@ -19,8 +22,63 @@ public class MSSCommand extends BaseCommand {
 
     private final ModularStorageSystem plugin;
 
+    // Cooldown tracking: <PlayerUUID, <CommandName, ExpirationTime>>
+    private final Map<UUID, Map<String, Long>> cooldowns = new ConcurrentHashMap<>();
+
     public MSSCommand(ModularStorageSystem plugin) {
         this.plugin = plugin;
+    }
+
+    /**
+     * Check if a player is on cooldown for a command
+     * @return true if on cooldown, false if ready
+     */
+    private boolean isOnCooldown(Player player, String commandName, int cooldownSeconds) {
+        if (player.hasPermission("modularstoragesystem.bypass_cooldown")) {
+            return false;
+        }
+
+        UUID playerId = player.getUniqueId();
+        Map<String, Long> playerCooldowns = cooldowns.get(playerId);
+
+        if (playerCooldowns == null) {
+            return false;
+        }
+
+        Long expirationTime = playerCooldowns.get(commandName);
+        if (expirationTime == null) {
+            return false;
+        }
+
+        long currentTime = System.currentTimeMillis();
+        if (currentTime >= expirationTime) {
+            // Cooldown expired, clean up
+            playerCooldowns.remove(commandName);
+            if (playerCooldowns.isEmpty()) {
+                cooldowns.remove(playerId);
+            }
+            return false;
+        }
+
+        // Still on cooldown
+        long remainingSeconds = (expirationTime - currentTime) / 1000;
+        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.cooldown", "seconds", remainingSeconds));
+        return true;
+    }
+
+    /**
+     * Set a cooldown for a player
+     */
+    private void setCooldown(Player player, String commandName, int cooldownSeconds) {
+        if (player.hasPermission("modularstoragesystem.bypass_cooldown")) {
+            return;
+        }
+
+        UUID playerId = player.getUniqueId();
+        long expirationTime = System.currentTimeMillis() + (cooldownSeconds * 1000L);
+
+        cooldowns.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>())
+                 .put(commandName, expirationTime);
     }
 
     @Default
@@ -118,71 +176,95 @@ public class MSSCommand extends BaseCommand {
     public void onInfo(CommandSender sender) {
         Player player = sender instanceof Player ? (Player) sender : null;
 
-        // Display banner and version header
+        // Check cooldown (only for players)
+        if (player != null) {
+            int cooldownSeconds = plugin.getConfigManager().getInfoCooldown();
+            if (isOnCooldown(player, "info", cooldownSeconds)) {
+                return;
+            }
+            setCooldown(player, "info", cooldownSeconds);
+        }
+
+        // Display banner immediately
         sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.help.header"));
 
-        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
-            // Count networks
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT COUNT(*) FROM networks");
-                 ResultSet rs = stmt.executeQuery()) {
-                rs.next();
-                int networkCount = rs.getInt(1);
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.networks", "count", networkCount));
+        // Run database queries async
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            try (Connection conn = plugin.getDatabaseManager().getConnection()) {
+                // Count networks
+                int networkCount;
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT COUNT(*) FROM networks");
+                     ResultSet rs = stmt.executeQuery()) {
+                    rs.next();
+                    networkCount = rs.getInt(1);
+                }
+
+                // Count storage disks
+                int diskCount;
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT COUNT(*) FROM storage_disks");
+                     ResultSet rs = stmt.executeQuery()) {
+                    rs.next();
+                    diskCount = rs.getInt(1);
+                }
+
+                // Count stored items
+                int itemTypes;
+                long totalItems;
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT COUNT(*), SUM(quantity) FROM storage_items");
+                     ResultSet rs = stmt.executeQuery()) {
+                    rs.next();
+                    itemTypes = rs.getInt(1);
+                    totalItems = rs.getLong(2);
+                }
+
+                // Count network cables
+                int cableCount;
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT COUNT(*) FROM network_blocks WHERE block_type = 'NETWORK_CABLE'");
+                     ResultSet rs = stmt.executeQuery()) {
+                    rs.next();
+                    cableCount = rs.getInt(1);
+                }
+
+                // Count exporters
+                int exporterCount;
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT COUNT(*) FROM exporters");
+                     ResultSet rs = stmt.executeQuery()) {
+                    rs.next();
+                    exporterCount = rs.getInt(1);
+                }
+
+                // Count importers
+                int importerCount;
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT COUNT(*) FROM importers");
+                     ResultSet rs = stmt.executeQuery()) {
+                    rs.next();
+                    importerCount = rs.getInt(1);
+                }
+
+                // Recipe information (not DB-dependent, safe to run here)
+                int recipeCount = plugin.getRecipeManager().getRegisteredRecipeCount();
+                Set<String> totalRecipes = plugin.getConfigManager().getRecipeNames();
+                boolean recipesEnabled = plugin.getConfigManager().areRecipesEnabled();
+
+                // Return to main thread to send messages
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.networks", "count", networkCount));
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.disks", "count", diskCount));
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.item-types", "types", itemTypes));
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.total-items", "total", totalItems));
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.cables", "count", cableCount));
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.exporters", "count", exporterCount));
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.importers", "count", importerCount));
+
+                    String recipeKey = recipesEnabled ? "commands.info.recipes-enabled" : "commands.info.recipes-disabled";
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, recipeKey, "registered", recipeCount, "total", totalRecipes.size()));
+                });
+
+            } catch (Exception e) {
+                // Return to main thread to send error message
+                plugin.getServer().getScheduler().runTask(plugin, () -> sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.error", "error", e.getMessage())));
             }
-
-            // Count storage disks
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT COUNT(*) FROM storage_disks");
-                 ResultSet rs = stmt.executeQuery()) {
-                rs.next();
-                int diskCount = rs.getInt(1);
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.disks", "count", diskCount));
-            }
-
-            // Count stored items
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT COUNT(*), SUM(quantity) FROM storage_items");
-                 ResultSet rs = stmt.executeQuery()) {
-                rs.next();
-                int itemTypes = rs.getInt(1);
-                long totalItems = rs.getLong(2);
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.item-types", "types", itemTypes));
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.total-items", "total", totalItems));
-            }
-
-            // Count network cables
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT COUNT(*) FROM network_blocks WHERE block_type = 'NETWORK_CABLE'");
-                 ResultSet rs = stmt.executeQuery()) {
-                rs.next();
-                int cableCount = rs.getInt(1);
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.cables", "count", cableCount));
-            }
-
-            // Count exporters
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT COUNT(*) FROM exporters");
-                 ResultSet rs = stmt.executeQuery()) {
-                rs.next();
-                int exporterCount = rs.getInt(1);
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.exporters", "count", exporterCount));
-            }
-
-            // Count importers
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT COUNT(*) FROM importers");
-                 ResultSet rs = stmt.executeQuery()) {
-                rs.next();
-                int importerCount = rs.getInt(1);
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.importers", "count", importerCount));
-            }
-
-            // Recipe information
-            int recipeCount = plugin.getRecipeManager().getRegisteredRecipeCount();
-            Set<String> totalRecipes = plugin.getConfigManager().getRecipeNames();
-            boolean recipesEnabled = plugin.getConfigManager().areRecipesEnabled();
-
-            String recipeKey = recipesEnabled ? "commands.info.recipes-enabled" : "commands.info.recipes-disabled";
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, recipeKey, "registered", recipeCount, "total", totalRecipes.size()));
-
-        } catch (Exception e) {
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.info.error", "error", e.getMessage()));
-        }
+        });
     }
 
     @Subcommand("cleanup")
@@ -191,28 +273,46 @@ public class MSSCommand extends BaseCommand {
     public void onCleanup(CommandSender sender) {
         Player player = sender instanceof Player ? (Player) sender : null;
 
-        try {
-            // Clean up orphaned storage items (items without valid disks)
-            try (Connection conn = plugin.getDatabaseManager().getConnection();
-                 PreparedStatement stmt = conn.prepareStatement(
-                         "DELETE FROM storage_items WHERE disk_id NOT IN (SELECT disk_id FROM storage_disks)")) {
-                int deletedItems = stmt.executeUpdate();
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.cleanup.orphaned-items", "count", deletedItems));
+        // Check cooldown (only for players)
+        if (player != null) {
+            int cooldownSeconds = plugin.getConfigManager().getCleanupCooldown();
+            if (isOnCooldown(player, "cleanup", cooldownSeconds)) {
+                return;
             }
-
-            // Clean up empty storage disks with no items
-            try (Connection conn = plugin.getDatabaseManager().getConnection();
-                 PreparedStatement stmt = conn.prepareStatement(
-                         "UPDATE storage_disks SET used_cells = 0 WHERE disk_id NOT IN (SELECT DISTINCT disk_id FROM storage_items)")) {
-                int updatedDisks = stmt.executeUpdate();
-                sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.cleanup.reset-disks", "count", updatedDisks));
-            }
-
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.cleanup.success"));
-
-        } catch (Exception e) {
-            sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.cleanup.error", "error", e.getMessage()));
+            setCooldown(player, "cleanup", cooldownSeconds);
         }
+
+        // Run cleanup operations async
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                // Clean up orphaned storage items (items without valid disks)
+                int deletedItems;
+                try (Connection conn = plugin.getDatabaseManager().getConnection();
+                     PreparedStatement stmt = conn.prepareStatement(
+                             "DELETE FROM storage_items WHERE disk_id NOT IN (SELECT disk_id FROM storage_disks)")) {
+                    deletedItems = stmt.executeUpdate();
+                }
+
+                // Clean up empty storage disks with no items
+                int updatedDisks;
+                try (Connection conn = plugin.getDatabaseManager().getConnection();
+                     PreparedStatement stmt = conn.prepareStatement(
+                             "UPDATE storage_disks SET used_cells = 0 WHERE disk_id NOT IN (SELECT DISTINCT disk_id FROM storage_items)")) {
+                    updatedDisks = stmt.executeUpdate();
+                }
+
+                // Return to main thread to send messages
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.cleanup.orphaned-items", "count", deletedItems));
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.cleanup.reset-disks", "count", updatedDisks));
+                    sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.cleanup.success"));
+                });
+
+            } catch (Exception e) {
+                // Return to main thread to send error message
+                plugin.getServer().getScheduler().runTask(plugin, () -> sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.cleanup.error", "error", e.getMessage())));
+            }
+        });
     }
 
     @Subcommand("recipes")
@@ -293,92 +393,133 @@ public class MSSCommand extends BaseCommand {
     @CommandCompletion("@nothing")
     @Syntax("<disk_id> [confirm]")
     public void onRecovery(Player player, String diskId, @Optional String confirmation) {
+        // Check cooldown
+        int cooldownSeconds = plugin.getConfigManager().getRecoveryCooldown();
+        if (isOnCooldown(player, "recovery", cooldownSeconds)) {
+            return;
+        }
+        setCooldown(player, "recovery", cooldownSeconds);
+
         boolean forceConfirm = "confirm".equalsIgnoreCase(confirmation);
 
-        try {
-            // First check if disk is currently active in a drive bay
-            if (!forceConfirm) {
-                try (Connection conn = plugin.getDatabaseManager().getConnection();
-                     PreparedStatement stmt = conn.prepareStatement(
-                             "SELECT dbs.network_id, dbs.world_name, dbs.x, dbs.y, dbs.z, dbs.slot_number " +
-                             "FROM drive_bay_slots dbs WHERE dbs.disk_id = ?")) {
+        // Run database queries async
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                // First check if disk is currently active in a drive bay
+                if (!forceConfirm) {
+                    try (Connection conn = plugin.getDatabaseManager().getConnection();
+                         PreparedStatement stmt = conn.prepareStatement(
+                                 "SELECT dbs.network_id, dbs.world_name, dbs.x, dbs.y, dbs.z, dbs.slot_number " +
+                                 "FROM drive_bay_slots dbs WHERE dbs.disk_id = ?")) {
 
-                    stmt.setString(1, diskId.toUpperCase());
+                        stmt.setString(1, diskId.toUpperCase());
 
-                    try (ResultSet rs = stmt.executeQuery()) {
-                        if (rs.next()) {
-                            // Disk is active - show warning and require confirmation
-                            String networkId = rs.getString("network_id");
-                            String world = rs.getString("world_name");
-                            int x = rs.getInt("x");
-                            int y = rs.getInt("y");
-                            int z = rs.getInt("z");
-                            int slot = rs.getInt("slot_number");
+                        try (ResultSet rs = stmt.executeQuery()) {
+                            if (rs.next()) {
+                                // Disk is active - show warning and require confirmation
+                                String networkId = rs.getString("network_id");
+                                String world = rs.getString("world_name");
+                                int x = rs.getInt("x");
+                                int y = rs.getInt("y");
+                                int z = rs.getInt("z");
+                                int slot = rs.getInt("slot_number");
 
-                            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.active-disk-warning"));
-                            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.active-disk-network", "network_id", networkId));
-                            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.active-disk-location", "world", world, "x", x, "y", y, "z", z, "slot", slot));
-                            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.active-disk-confirm"));
-                            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.active-disk-usage", "disk_id", diskId));
-                            return;
-                        }
-                    }
-                }
-            }
-
-            // Look up disk in database
-            try (Connection conn = plugin.getDatabaseManager().getConnection();
-                 PreparedStatement stmt = conn.prepareStatement(
-                         "SELECT crafter_uuid, crafter_name, used_cells, max_cells, tier FROM storage_disks WHERE disk_id = ?")) {
-
-                stmt.setString(1, diskId.toUpperCase());
-
-                try (ResultSet rs = stmt.executeQuery()) {
-                    if (!rs.next()) {
-                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.not-found", "disk_id", diskId));
-                        return;
-                    }
-
-                    String crafterUUID = rs.getString("crafter_uuid");
-                    String crafterName = rs.getString("crafter_name");
-                    int usedCells = rs.getInt("used_cells");
-                    int maxCells = rs.getInt("max_cells");
-                    rs.getString("tier");
-
-                    // Create the storage disk with the original ID
-                    ItemStack recoveredDisk = plugin.getItemManager().createStorageDiskWithId(diskId.toUpperCase(), crafterUUID, crafterName);
-                    recoveredDisk = plugin.getItemManager().updateStorageDiskLore(recoveredDisk, usedCells, maxCells);
-
-                    // Give to player
-                    if (player.getInventory().firstEmpty() == -1) {
-                        player.getWorld().dropItemNaturally(player.getLocation(), recoveredDisk);
-                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.success-dropped"));
-                    } else {
-                        player.getInventory().addItem(recoveredDisk);
-                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.success-inventory"));
-                    }
-
-                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.disk-info", "disk_id", diskId));
-                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.crafter-info", "crafter", crafterName));
-                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.cells-info", "used", usedCells, "max", maxCells));
-
-                    // If this was a forced recovery, remove the disk from drive bay slots
-                    if (forceConfirm) {
-                        try (PreparedStatement removeStmt = conn.prepareStatement(
-                                "DELETE FROM drive_bay_slots WHERE disk_id = ?")) {
-                            removeStmt.setString(1, diskId.toUpperCase());
-                            int removed = removeStmt.executeUpdate();
-                            if (removed > 0) {
-                                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recovery.disk-removed-from-bay"));
+                                // Return to main thread to send messages
+                                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.active-disk-warning"));
+                                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.active-disk-network", "network_id", networkId));
+                                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.active-disk-location", "world", world, "x", x, "y", y, "z", z, "slot", slot));
+                                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.active-disk-confirm"));
+                                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.active-disk-usage", "disk_id", diskId));
+                                });
+                                return;
                             }
                         }
                     }
                 }
-            }
 
-        } catch (Exception e) {
-            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.error", "error", e.getMessage()));
-            plugin.getLogger().severe("Error during disk recovery: " + e.getMessage());
-        }
+                // Look up disk in database
+                try (Connection conn = plugin.getDatabaseManager().getConnection();
+                     PreparedStatement stmt = conn.prepareStatement(
+                             "SELECT crafter_uuid, crafter_name, used_cells, max_cells, tier FROM storage_disks WHERE disk_id = ?")) {
+
+                    stmt.setString(1, diskId.toUpperCase());
+
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        if (!rs.next()) {
+                            // Return to main thread to send error
+                            plugin.getServer().getScheduler().runTask(plugin, () -> player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.not-found", "disk_id", diskId)));
+                            return;
+                        }
+
+                        String crafterUUID = rs.getString("crafter_uuid");
+                        String crafterName = rs.getString("crafter_name");
+                        int usedCells = rs.getInt("used_cells");
+                        int maxCells = rs.getInt("max_cells");
+                        rs.getString("tier");
+
+                        // If this was a forced recovery, remove the disk from drive bay slots
+                        if (forceConfirm) {
+                            try (PreparedStatement removeStmt = conn.prepareStatement(
+                                    "DELETE FROM drive_bay_slots WHERE disk_id = ?")) {
+                                removeStmt.setString(1, diskId.toUpperCase());
+
+                                // Store removal count for later message
+                                final int removedCount = removeStmt.executeUpdate();
+
+                                // Return to main thread for inventory operations
+                                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                                    // Create the storage disk with the original ID
+                                    ItemStack recoveredDisk = plugin.getItemManager().createStorageDiskWithId(diskId.toUpperCase(), crafterUUID, crafterName);
+                                    recoveredDisk = plugin.getItemManager().updateStorageDiskLore(recoveredDisk, usedCells, maxCells);
+
+                                    // Give to player (MUST be on main thread)
+                                    if (player.getInventory().firstEmpty() == -1) {
+                                        player.getWorld().dropItemNaturally(player.getLocation(), recoveredDisk);
+                                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.success-dropped"));
+                                    } else {
+                                        player.getInventory().addItem(recoveredDisk);
+                                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.success-inventory"));
+                                    }
+
+                                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.disk-info", "disk_id", diskId));
+                                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.crafter-info", "crafter", crafterName));
+                                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.cells-info", "used", usedCells, "max", maxCells));
+
+                                    if (removedCount > 0) {
+                                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.recovery.disk-removed-from-bay"));
+                                    }
+                                });
+                            }
+                        } else {
+                            // Return to main thread for inventory operations
+                            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                                // Create the storage disk with the original ID
+                                ItemStack recoveredDisk = plugin.getItemManager().createStorageDiskWithId(diskId.toUpperCase(), crafterUUID, crafterName);
+                                recoveredDisk = plugin.getItemManager().updateStorageDiskLore(recoveredDisk, usedCells, maxCells);
+
+                                // Give to player (MUST be on main thread)
+                                if (player.getInventory().firstEmpty() == -1) {
+                                    player.getWorld().dropItemNaturally(player.getLocation(), recoveredDisk);
+                                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.success-dropped"));
+                                } else {
+                                    player.getInventory().addItem(recoveredDisk);
+                                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.success-inventory"));
+                                }
+
+                                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.disk-info", "disk_id", diskId));
+                                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.crafter-info", "crafter", crafterName));
+                                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.cells-info", "used", usedCells, "max", maxCells));
+                            });
+                        }
+                    }
+                }
+
+            } catch (Exception e) {
+                // Return to main thread to send error message
+                plugin.getServer().getScheduler().runTask(plugin, () -> player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.recovery.error", "error", e.getMessage())));
+                plugin.getLogger().severe("Error during disk recovery: " + e.getMessage());
+            }
+        });
     }
 }
