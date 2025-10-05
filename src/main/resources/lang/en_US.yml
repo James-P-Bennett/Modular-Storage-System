@@ -39,6 +39,8 @@ commands:
   reload-success: "{mss-prefix}<green>Plugin configuration reloaded successfully!</green>"
   debug-enabled: "{mss-prefix}<green>Debug mode enabled</green>"
   debug-disabled: "{mss-prefix}<yellow>Debug mode disabled</yellow>"
+  cooldown: "{mss-prefix}<red>Please wait {seconds} seconds before using this command again.</red>"
+  gui-cooldown: "{mss-prefix}<red>Please wait before opening this GUI again.</red>"
   
   recovery:
     not-found: "{mss-prefix}<red>Storage disk with ID '{disk_id}' not found.</red>"
@@ -811,3 +813,13 @@ console:
 registered: "<green>Registered</green>"
 # Status message color & styling option.
 status: "<yellow>{status}</yellow>"
+
+# Database Messages
+database:
+  connecting: "Connecting to {type} database..."
+  connected: "Successfully connected to {type} database"
+  connection-failed: "<red>Failed to connect to {type} database: {error}</red>"
+  mysql-disabled: "MySQL database type selected but connection failed. Falling back to SQLite."
+  migration-started: "Migrating data from SQLite to MySQL..."
+  migration-complete: "Database migration completed successfully"
+  migration-failed: "<red>Database migration failed: {error}</red>"

@@ -50,17 +50,72 @@ permissions:
 debug:
   enabled: false
 
-# Advanced Database settings
-# It's recommended you don't change these settings unless you know what you're doing.
+# Command cooldowns (in seconds) - Set to 0 to disable
+# Prevents players from spamming commands and causing server lag
+cooldowns:
+  commands:
+    info: 5        # /mss info - Display system statistics
+    cleanup: 30    # /mss cleanup - Clean up orphaned data (admin only)
+    recovery: 10   # /mss recovery - Recover lost storage disk
+  gui:
+    # Cache duration for terminal GUI item lists (in milliseconds)
+    # Reduces database load when multiple players access the same terminal
+    terminal_cache: 500
+
+    # Cooldown before a player can re-open any GUI (in milliseconds)
+    # Only applies if player closes and reopens rapidly (spam protection)
+    open_cooldown: 1000
+
+# Performance settings
+performance:
+  # Importer/Exporter processing limits
+  # Adjust these if you have many importers/exporters and experience lag
+  importer_exporter:
+    # Maximum number of importers to process per tick cycle
+    # Lower = less lag, but slower processing with many importers
+    max_importers_per_tick: 1000
+
+    # Maximum number of exporters to process per tick cycle
+    # Lower = less lag, but slower processing with many exporters
+    max_exporters_per_tick: 1000
+
+    # Batch database operations for importers/exporters (recommended: true)
+    # Groups multiple database writes together for better performance
+    batch_operations: true
+
+# Database settings
 database:
+  # Database type: "sqlite" or "mysql"
+  type: "sqlite"
+
+  # SQLite settings (used when type is "sqlite")
+  sqlite:
+    # File path for SQLite database (relative to plugin folder)
+    file: "storage.db"
+    journal_mode: "WAL"
+    synchronous: "NORMAL"
+    busy_timeout: 30000
+    cache_size: 10000
+
+  # MySQL/MariaDB settings (used when type is "mysql")
+  # Allows external database connections for better performance/scaling
+  mysql:
+    host: "localhost"
+    port: 3306
+    database: "modular_storage"
+    username: "minecraft"
+    password: "changeme"
+    # Use SSL for connection (recommended for remote databases)
+    use_ssl: false
+    # Additional connection properties (advanced)
+    properties:
+      useUnicode: "true"
+      characterEncoding: "utf8"
+
+  # Connection pool settings (applies to both SQLite and MySQL)
   connection_pool:
     maximum_pool_size: 10
     minimum_idle: 2
     connection_timeout: 30000
     idle_timeout: 600000
     max_lifetime: 1800000
-  sqlite:
-    journal_mode: "WAL"
-    synchronous: "NORMAL"
-    busy_timeout: 30000
-    cache_size: 10000

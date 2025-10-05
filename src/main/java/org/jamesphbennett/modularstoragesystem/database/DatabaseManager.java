@@ -27,46 +27,117 @@ public class DatabaseManager {
 
     private void initializeDatabase() throws SQLException {
         try {
-            // Create plugin data folder if it doesn't exist
-            if (!plugin.getDataFolder().exists()) {
-                if (!plugin.getDataFolder().mkdirs()) {
-                    throw new RuntimeException("Failed to create plugin data directory: " + plugin.getDataFolder().getAbsolutePath());
+            boolean useMysql = plugin.getConfigManager().isMySql();
+            String databaseType = useMysql ? "MySQL" : "SQLite";
+
+            plugin.getLogger().info("Connecting to " + databaseType + " database...");
+
+            HikariConfig config;
+
+            if (useMysql) {
+                config = getMySQLHikariConfig();
+            } else {
+                // Create plugin data folder if it doesn't exist (SQLite only)
+                if (!plugin.getDataFolder().exists()) {
+                    if (!plugin.getDataFolder().mkdirs()) {
+                        throw new RuntimeException("Failed to create plugin data directory: " + plugin.getDataFolder().getAbsolutePath());
+                    }
                 }
+
+                String databasePath = plugin.getDataFolder().getAbsolutePath() + "/storage.db";
+                config = getSQLiteHikariConfig(databasePath);
             }
-
-            String databasePath = plugin.getDataFolder().getAbsolutePath() + "/storage.db";
-
-            HikariConfig config = getHikariConfig(databasePath);
 
             dataSource = new HikariDataSource(config);
 
-            plugin.getLogger().info("Database initialized successfully at: " + databasePath);
+            plugin.getLogger().info("Successfully connected to " + databaseType + " database");
 
         } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Failed to initialize database!", e);
-            throw new SQLException("Database initialization failed", e);
+            plugin.getLogger().log(Level.SEVERE, "Failed to connect to database!", e);
+
+            // If MySQL failed, optionally fall back to SQLite
+            if (plugin.getConfigManager().isMySql()) {
+                plugin.getLogger().warning("MySQL connection failed. Falling back to SQLite...");
+                try {
+                    if (!plugin.getDataFolder().exists()) {
+                        if (!plugin.getDataFolder().mkdirs()) {
+                            throw new RuntimeException("Failed to create plugin data directory");
+                        }
+                    }
+                    String databasePath = plugin.getDataFolder().getAbsolutePath() + "/storage.db";
+                    HikariConfig config = getSQLiteHikariConfig(databasePath);
+                    dataSource = new HikariDataSource(config);
+                    plugin.getLogger().info("Successfully fell back to SQLite database");
+                } catch (Exception fallbackException) {
+                    plugin.getLogger().log(Level.SEVERE, "Failed to fall back to SQLite!", fallbackException);
+                    throw new SQLException("Database initialization failed completely", fallbackException);
+                }
+            } else {
+                throw new SQLException("Database initialization failed", e);
+            }
         }
     }
 
-    private static @NotNull HikariConfig getHikariConfig(String databasePath) {
+    private @NotNull HikariConfig getSQLiteHikariConfig(String databasePath) {
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl("jdbc:sqlite:" + databasePath);
         config.setDriverClassName("org.sqlite.JDBC");
 
-        // Connection pool settings (use config values once ConfigManager is available)
-        config.setMaximumPoolSize(10);
-        config.setMinimumIdle(2);
-        config.setConnectionTimeout(30000);
-        config.setIdleTimeout(600000);
-        config.setMaxLifetime(1800000);
+        // Connection pool settings from config
+        config.setMaximumPoolSize(plugin.getConfig().getInt("database.connection_pool.maximum_pool_size", 10));
+        config.setMinimumIdle(plugin.getConfig().getInt("database.connection_pool.minimum_idle", 2));
+        config.setConnectionTimeout(plugin.getConfig().getLong("database.connection_pool.connection_timeout", 30000));
+        config.setIdleTimeout(plugin.getConfig().getLong("database.connection_pool.idle_timeout", 600000));
+        config.setMaxLifetime(plugin.getConfig().getLong("database.connection_pool.max_lifetime", 1800000));
 
-        // SQLite specific settings
+        // SQLite specific settings from config
         config.addDataSourceProperty("cachePrepStmts", "true");
         config.addDataSourceProperty("prepStmtCacheSize", "250");
         config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
-        config.addDataSourceProperty("journal_mode", "WAL");
-        config.addDataSourceProperty("synchronous", "NORMAL");
-        config.addDataSourceProperty("busy_timeout", "30000");
+        config.addDataSourceProperty("journal_mode", plugin.getConfig().getString("database.sqlite.journal_mode", "WAL"));
+        config.addDataSourceProperty("synchronous", plugin.getConfig().getString("database.sqlite.synchronous", "NORMAL"));
+        config.addDataSourceProperty("busy_timeout", plugin.getConfig().getString("database.sqlite.busy_timeout", "30000"));
+
+        return config;
+    }
+
+    private @NotNull HikariConfig getMySQLHikariConfig() {
+        HikariConfig config = new HikariConfig();
+
+        // Build JDBC URL
+        String host = plugin.getConfigManager().getMysqlHost();
+        int port = plugin.getConfigManager().getMysqlPort();
+        String database = plugin.getConfigManager().getMysqlDatabase();
+        boolean useSsl = plugin.getConfigManager().isMysqlUseSsl();
+
+        String jdbcUrl = String.format("jdbc:mysql://%s:%d/%s?useSSL=%s", host, port, database, useSsl);
+        config.setJdbcUrl(jdbcUrl);
+
+        // MySQL credentials
+        config.setUsername(plugin.getConfigManager().getMysqlUsername());
+        config.setPassword(plugin.getConfigManager().getMysqlPassword());
+
+        // Driver class
+        config.setDriverClassName("com.mysql.cj.jdbc.Driver");
+
+        // Connection pool settings from config
+        config.setMaximumPoolSize(plugin.getConfig().getInt("database.connection_pool.maximum_pool_size", 10));
+        config.setMinimumIdle(plugin.getConfig().getInt("database.connection_pool.minimum_idle", 2));
+        config.setConnectionTimeout(plugin.getConfig().getLong("database.connection_pool.connection_timeout", 30000));
+        config.setIdleTimeout(plugin.getConfig().getLong("database.connection_pool.idle_timeout", 600000));
+        config.setMaxLifetime(plugin.getConfig().getLong("database.connection_pool.max_lifetime", 1800000));
+
+        // MySQL specific settings from config
+        String useUnicode = plugin.getConfig().getString("database.mysql.properties.useUnicode", "true");
+        String characterEncoding = plugin.getConfig().getString("database.mysql.properties.characterEncoding", "utf8");
+
+        config.addDataSourceProperty("useUnicode", useUnicode);
+        config.addDataSourceProperty("characterEncoding", characterEncoding);
+        config.addDataSourceProperty("cachePrepStmts", "true");
+        config.addDataSourceProperty("prepStmtCacheSize", "250");
+        config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+        config.addDataSourceProperty("useServerPrepStmts", "true");
+
         return config;
     }
 
@@ -78,20 +149,38 @@ public class DatabaseManager {
             // Check if tier column exists
             boolean needsTierMigration = false;
 
-            try (var stmt = conn.createStatement();
-                 var rs = stmt.executeQuery("PRAGMA table_info(storage_disks)")) {
-                boolean hasTierColumn = false;
-                while (rs.next()) {
-                    String columnName = rs.getString("name");
-                    if ("tier".equals(columnName)) {
-                        hasTierColumn = true;
-                        break;
+            if (plugin.getConfigManager().isMySql()) {
+                // MySQL: Use INFORMATION_SCHEMA
+                String checkQuery = """
+                    SELECT COUNT(*) as count FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'storage_disks' AND COLUMN_NAME = 'tier'
+                    """;
+                try (var stmt = conn.prepareStatement(checkQuery)) {
+                    stmt.setString(1, plugin.getConfigManager().getMysqlDatabase());
+                    try (var rs = stmt.executeQuery()) {
+                        if (rs.next() && rs.getInt("count") == 0) {
+                            needsTierMigration = true;
+                            plugin.getLogger().info("Database migration needed - adding tier support to storage_disks");
+                        }
                     }
                 }
+            } else {
+                // SQLite: Use PRAGMA
+                try (var stmt = conn.createStatement();
+                     var rs = stmt.executeQuery("PRAGMA table_info(storage_disks)")) {
+                    boolean hasTierColumn = false;
+                    while (rs.next()) {
+                        String columnName = rs.getString("name");
+                        if ("tier".equals(columnName)) {
+                            hasTierColumn = true;
+                            break;
+                        }
+                    }
 
-                if (!hasTierColumn) {
-                    needsTierMigration = true;
-                    plugin.getLogger().info("Database migration needed - adding tier support to storage_disks");
+                    if (!hasTierColumn) {
+                        needsTierMigration = true;
+                        plugin.getLogger().info("Database migration needed - adding tier support to storage_disks");
+                    }
                 }
             }
 
@@ -158,20 +247,38 @@ public class DatabaseManager {
             // Check if slot_target column exists in exporter_filters
             boolean needsMigration = false;
 
-            try (var stmt = conn.createStatement();
-                 var rs = stmt.executeQuery("PRAGMA table_info(exporter_filters)")) {
-                boolean hasSlotTargetColumn = false;
-                while (rs.next()) {
-                    String columnName = rs.getString("name");
-                    if ("slot_target".equals(columnName)) {
-                        hasSlotTargetColumn = true;
-                        break;
+            if (plugin.getConfigManager().isMySql()) {
+                // MySQL: Use INFORMATION_SCHEMA
+                String checkQuery = """
+                    SELECT COUNT(*) as count FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'exporter_filters' AND COLUMN_NAME = 'slot_target'
+                    """;
+                try (var stmt = conn.prepareStatement(checkQuery)) {
+                    stmt.setString(1, plugin.getConfigManager().getMysqlDatabase());
+                    try (var rs = stmt.executeQuery()) {
+                        if (rs.next() && rs.getInt("count") == 0) {
+                            needsMigration = true;
+                            plugin.getLogger().info("Database migration needed - adding slot_target column to exporter_filters");
+                        }
                     }
                 }
+            } else {
+                // SQLite: Use PRAGMA
+                try (var stmt = conn.createStatement();
+                     var rs = stmt.executeQuery("PRAGMA table_info(exporter_filters)")) {
+                    boolean hasSlotTargetColumn = false;
+                    while (rs.next()) {
+                        String columnName = rs.getString("name");
+                        if ("slot_target".equals(columnName)) {
+                            hasSlotTargetColumn = true;
+                            break;
+                        }
+                    }
 
-                if (!hasSlotTargetColumn) {
-                    needsMigration = true;
-                    plugin.getLogger().info("Database migration needed - adding slot_target column to exporter_filters");
+                    if (!hasSlotTargetColumn) {
+                        needsMigration = true;
+                        plugin.getLogger().info("Database migration needed - adding slot_target column to exporter_filters");
+                    }
                 }
             }
 
@@ -210,20 +317,38 @@ public class DatabaseManager {
             // Check if item_data column exists in exporter_filters
             boolean needsMigration = false;
 
-            try (var stmt = conn.createStatement();
-                 var rs = stmt.executeQuery("PRAGMA table_info(exporter_filters)")) {
-                boolean hasItemDataColumn = false;
-                while (rs.next()) {
-                    String columnName = rs.getString("name");
-                    if ("item_data".equals(columnName)) {
-                        hasItemDataColumn = true;
-                        break;
+            if (plugin.getConfigManager().isMySql()) {
+                // MySQL: Use INFORMATION_SCHEMA
+                String checkQuery = """
+                    SELECT COUNT(*) as count FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'exporter_filters' AND COLUMN_NAME = 'item_data'
+                    """;
+                try (var stmt = conn.prepareStatement(checkQuery)) {
+                    stmt.setString(1, plugin.getConfigManager().getMysqlDatabase());
+                    try (var rs = stmt.executeQuery()) {
+                        if (rs.next() && rs.getInt("count") == 0) {
+                            needsMigration = true;
+                            plugin.getLogger().info("Database migration needed - adding item_data column to exporter_filters");
+                        }
                     }
                 }
+            } else {
+                // SQLite: Use PRAGMA
+                try (var stmt = conn.createStatement();
+                     var rs = stmt.executeQuery("PRAGMA table_info(exporter_filters)")) {
+                    boolean hasItemDataColumn = false;
+                    while (rs.next()) {
+                        String columnName = rs.getString("name");
+                        if ("item_data".equals(columnName)) {
+                            hasItemDataColumn = true;
+                            break;
+                        }
+                    }
 
-                if (!hasItemDataColumn) {
-                    needsMigration = true;
-                    plugin.getLogger().info("Database migration needed - adding item_data column to exporter_filters");
+                    if (!hasItemDataColumn) {
+                        needsMigration = true;
+                        plugin.getLogger().info("Database migration needed - adding item_data column to exporter_filters");
+                    }
                 }
             }
 
@@ -249,198 +374,247 @@ public class DatabaseManager {
         }
     }
 
-    private void createTables() throws SQLException {
-        String[] tableCreationQueries = {
+    /**
+     * Get table creation queries based on database type
+     */
+    private String[] getTableCreationQueries() {
+        boolean isMySQL = plugin.getConfigManager().isMySql();
+
+        // Data type mappings
+        String textType = isMySQL ? "VARCHAR(255)" : "TEXT";
+        String longTextType = "TEXT"; // TEXT works in both
+        String intType = isMySQL ? "INT" : "INTEGER";
+        String autoIncrement = isMySQL ? "AUTO_INCREMENT" : "AUTOINCREMENT";
+        String booleanType = isMySQL ? "BOOLEAN" : "BOOLEAN"; // Both support BOOLEAN
+        String timestampDefault = isMySQL ? "TIMESTAMP DEFAULT CURRENT_TIMESTAMP" : "TIMESTAMP DEFAULT CURRENT_TIMESTAMP";
+        String timestampUpdate = isMySQL ? "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP" : "TIMESTAMP DEFAULT CURRENT_TIMESTAMP";
+
+        return new String[] {
                 // Networks table
-                """
+                String.format("""
             CREATE TABLE IF NOT EXISTS networks (
-                network_id TEXT PRIMARY KEY,
-                owner_uuid TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_accessed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                network_id %s PRIMARY KEY,
+                owner_uuid %s NOT NULL,
+                created_at %s,
+                last_accessed %s
             )
-            """,
+            """, textType, textType, timestampDefault, timestampUpdate),
 
                 // Network blocks table
-                """
+                String.format("""
             CREATE TABLE IF NOT EXISTS network_blocks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                network_id TEXT NOT NULL,
-                world_name TEXT NOT NULL,
-                x INTEGER NOT NULL,
-                y INTEGER NOT NULL,
-                z INTEGER NOT NULL,
-                block_type TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                id %s PRIMARY KEY %s,
+                network_id %s NOT NULL,
+                world_name %s NOT NULL,
+                x %s NOT NULL,
+                y %s NOT NULL,
+                z %s NOT NULL,
+                block_type %s NOT NULL,
+                created_at %s,
                 FOREIGN KEY (network_id) REFERENCES networks(network_id) ON DELETE CASCADE,
                 UNIQUE(world_name, x, y, z)
             )
-            """,
+            """, intType, autoIncrement, textType, textType, intType, intType, intType, textType, timestampDefault),
 
                 // Custom block markers table - tracks which blocks are our custom items
-                """
+                String.format("""
             CREATE TABLE IF NOT EXISTS custom_block_markers (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                world_name TEXT NOT NULL,
-                x INTEGER NOT NULL,
-                y INTEGER NOT NULL,
-                z INTEGER NOT NULL,
-                block_type TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                id %s PRIMARY KEY %s,
+                world_name %s NOT NULL,
+                x %s NOT NULL,
+                y %s NOT NULL,
+                z %s NOT NULL,
+                block_type %s NOT NULL,
+                created_at %s,
                 UNIQUE(world_name, x, y, z)
             )
-            """,
+            """, intType, autoIncrement, textType, intType, intType, intType, textType, timestampDefault),
 
                 // Storage disks table
-                """
+                String.format("""
             CREATE TABLE IF NOT EXISTS storage_disks (
-                disk_id TEXT PRIMARY KEY,
-                crafter_uuid TEXT NOT NULL,
-                crafter_name TEXT NOT NULL,
-                network_id TEXT,
-                tier TEXT DEFAULT '1k',
-                max_cells INTEGER NOT NULL DEFAULT 64,
-                used_cells INTEGER NOT NULL DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                disk_id %s PRIMARY KEY,
+                crafter_uuid %s NOT NULL,
+                crafter_name %s NOT NULL,
+                network_id %s,
+                tier %s DEFAULT '1k',
+                max_cells %s NOT NULL DEFAULT 64,
+                used_cells %s NOT NULL DEFAULT 0,
+                created_at %s,
+                updated_at %s,
                 FOREIGN KEY (network_id) REFERENCES networks(network_id) ON DELETE SET NULL
             )
-            """,
+            """, textType, textType, textType, textType, textType, intType, intType, timestampDefault, timestampUpdate),
 
                 // Drive bay slots table
-                """    
+                String.format("""
             CREATE TABLE IF NOT EXISTS drive_bay_slots (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                network_id TEXT NOT NULL,
-                world_name TEXT NOT NULL,
-                x INTEGER NOT NULL,
-                y INTEGER NOT NULL,
-                z INTEGER NOT NULL,
-                slot_number INTEGER NOT NULL,
-                disk_id TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                id %s PRIMARY KEY %s,
+                network_id %s NOT NULL,
+                world_name %s NOT NULL,
+                x %s NOT NULL,
+                y %s NOT NULL,
+                z %s NOT NULL,
+                slot_number %s NOT NULL,
+                disk_id %s,
+                created_at %s,
                 FOREIGN KEY (network_id) REFERENCES networks(network_id) ON DELETE CASCADE,
                 FOREIGN KEY (disk_id) REFERENCES storage_disks(disk_id) ON DELETE SET NULL,
                 UNIQUE(world_name, x, y, z, slot_number),
                 CHECK (slot_number >= 0 AND slot_number < 7)
             )
-            """,
+            """, intType, autoIncrement, textType, textType, intType, intType, intType, intType, textType, timestampDefault),
 
                 // Storage items table
-                """
+                String.format("""
                 CREATE TABLE IF NOT EXISTS storage_items (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    disk_id TEXT NOT NULL,
-                    item_hash TEXT NOT NULL,
-                    item_data TEXT NOT NULL,
-                    quantity INTEGER NOT NULL DEFAULT 0,
-                    max_stack_size INTEGER NOT NULL DEFAULT 64,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    id %s PRIMARY KEY %s,
+                    disk_id %s NOT NULL,
+                    item_hash %s NOT NULL,
+                    item_data %s NOT NULL,
+                    quantity %s NOT NULL DEFAULT 0,
+                    max_stack_size %s NOT NULL DEFAULT 64,
+                    created_at %s,
+                    updated_at %s,
                     FOREIGN KEY (disk_id) REFERENCES storage_disks(disk_id) ON DELETE CASCADE,
                     CHECK (quantity >= 0 AND quantity <= 8128)
                 )
-                """,
+                """, intType, autoIncrement, textType, textType, longTextType, intType, intType, timestampDefault, timestampUpdate),
 
                 // Exporters table
-                """
+                String.format("""
                 CREATE TABLE IF NOT EXISTS exporters (
-                    exporter_id TEXT PRIMARY KEY,
-                    network_id TEXT NOT NULL,
-                    world_name TEXT NOT NULL,
-                    x INTEGER NOT NULL,
-                    y INTEGER NOT NULL,
-                    z INTEGER NOT NULL,
-                    enabled BOOLEAN NOT NULL DEFAULT true,
+                    exporter_id %s PRIMARY KEY,
+                    network_id %s NOT NULL,
+                    world_name %s NOT NULL,
+                    x %s NOT NULL,
+                    y %s NOT NULL,
+                    z %s NOT NULL,
+                    enabled %s NOT NULL DEFAULT true,
                     last_export TIMESTAMP,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    created_at %s,
+                    updated_at %s,
                     FOREIGN KEY (network_id) REFERENCES networks(network_id) ON DELETE CASCADE,
                     UNIQUE(world_name, x, y, z)
                 )
-                """,
+                """, textType, textType, textType, intType, intType, intType, booleanType, timestampDefault, timestampUpdate),
 
                 // Exporter filters table
-                """
+                String.format("""
                 CREATE TABLE IF NOT EXISTS exporter_filters (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    exporter_id TEXT NOT NULL,
-                    item_hash TEXT NOT NULL,
-                    item_data TEXT,
-                    filter_type TEXT NOT NULL DEFAULT 'whitelist',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    id %s PRIMARY KEY %s,
+                    exporter_id %s NOT NULL,
+                    item_hash %s NOT NULL,
+                    item_data %s,
+                    filter_type %s NOT NULL DEFAULT 'whitelist',
+                    created_at %s,
                     FOREIGN KEY (exporter_id) REFERENCES exporters(exporter_id) ON DELETE CASCADE,
                     UNIQUE(exporter_id, item_hash, filter_type)
                 )
-                """,
+                """, intType, autoIncrement, textType, textType, longTextType, textType, timestampDefault),
 
                 // Importers table
-                """
+                String.format("""
                 CREATE TABLE IF NOT EXISTS importers (
-                    importer_id TEXT PRIMARY KEY,
-                    network_id TEXT NOT NULL,
-                    world_name TEXT NOT NULL,
-                    x INTEGER NOT NULL,
-                    y INTEGER NOT NULL,
-                    z INTEGER NOT NULL,
-                    enabled BOOLEAN NOT NULL DEFAULT true,
+                    importer_id %s PRIMARY KEY,
+                    network_id %s NOT NULL,
+                    world_name %s NOT NULL,
+                    x %s NOT NULL,
+                    y %s NOT NULL,
+                    z %s NOT NULL,
+                    enabled %s NOT NULL DEFAULT true,
                     last_import TIMESTAMP,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    created_at %s,
+                    updated_at %s,
                     FOREIGN KEY (network_id) REFERENCES networks(network_id) ON DELETE CASCADE,
                     UNIQUE(world_name, x, y, z)
                 )
-                """,
+                """, textType, textType, textType, intType, intType, intType, booleanType, timestampDefault, timestampUpdate),
 
                 // Importer filters table
-                """
+                String.format("""
                 CREATE TABLE IF NOT EXISTS importer_filters (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    importer_id TEXT NOT NULL,
-                    item_hash TEXT NOT NULL,
-                    item_data TEXT,
-                    filter_type TEXT NOT NULL DEFAULT 'whitelist',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    id %s PRIMARY KEY %s,
+                    importer_id %s NOT NULL,
+                    item_hash %s NOT NULL,
+                    item_data %s,
+                    filter_type %s NOT NULL DEFAULT 'whitelist',
+                    created_at %s,
                     FOREIGN KEY (importer_id) REFERENCES importers(importer_id) ON DELETE CASCADE,
                     UNIQUE(importer_id, item_hash, filter_type)
                 )
-                """,
+                """, intType, autoIncrement, textType, textType, longTextType, textType, timestampDefault),
 
                 // Security terminals table
-                """
+                String.format("""
                 CREATE TABLE IF NOT EXISTS security_terminals (
-                    terminal_id TEXT PRIMARY KEY,
-                    world_name TEXT NOT NULL,
-                    x INTEGER NOT NULL,
-                    y INTEGER NOT NULL,
-                    z INTEGER NOT NULL,
-                    owner_uuid TEXT NOT NULL,
-                    owner_name TEXT NOT NULL,
-                    network_id TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    terminal_id %s PRIMARY KEY,
+                    world_name %s NOT NULL,
+                    x %s NOT NULL,
+                    y %s NOT NULL,
+                    z %s NOT NULL,
+                    owner_uuid %s NOT NULL,
+                    owner_name %s NOT NULL,
+                    network_id %s,
+                    created_at %s,
                     FOREIGN KEY (network_id) REFERENCES networks(network_id) ON DELETE SET NULL,
                     UNIQUE(world_name, x, y, z)
                 )
-                """,
+                """, textType, textType, intType, intType, intType, textType, textType, textType, timestampDefault),
 
                 // Security terminal trusted players table
-                """
+                String.format("""
                 CREATE TABLE IF NOT EXISTS security_terminal_players (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    terminal_id TEXT NOT NULL,
-                    player_uuid TEXT NOT NULL,
-                    player_name TEXT NOT NULL,
-                    drive_bay_access BOOLEAN NOT NULL DEFAULT false,
-                    block_modification_access BOOLEAN NOT NULL DEFAULT false,
-                    skin_texture_url TEXT,
-                    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    id %s PRIMARY KEY %s,
+                    terminal_id %s NOT NULL,
+                    player_uuid %s NOT NULL,
+                    player_name %s NOT NULL,
+                    drive_bay_access %s NOT NULL DEFAULT false,
+                    block_modification_access %s NOT NULL DEFAULT false,
+                    skin_texture_url %s,
+                    added_at %s,
                     FOREIGN KEY (terminal_id) REFERENCES security_terminals(terminal_id) ON DELETE CASCADE,
                     UNIQUE(terminal_id, player_uuid)
                 )
-                """
+                """, intType, autoIncrement, textType, textType, textType, booleanType, booleanType, textType, timestampDefault)
         };
+    }
 
-        String[] indexCreationQueries = {
+    private void createTables() throws SQLException {
+        String[] tableCreationQueries = getTableCreationQueries();
+        String[] indexCreationQueries = getIndexCreationQueries();
+
+        try (Connection conn = getConnection()) {
+            conn.setAutoCommit(false);
+
+            try (Statement stmt = conn.createStatement()) {
+                // Create tables
+                for (String query : tableCreationQueries) {
+                    stmt.execute(query);
+                }
+
+                // Create indexes
+                for (String query : indexCreationQueries) {
+                    stmt.execute(query);
+                }
+
+                conn.commit();
+                plugin.getLogger().info("Database tables and indexes created successfully!");
+
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        }
+    }
+
+    /**
+     * Get index creation queries
+     */
+    private String[] getIndexCreationQueries() {
+        return new String[] {
                 "CREATE INDEX IF NOT EXISTS idx_network_blocks_location ON network_blocks(world_name, x, y, z)",
                 "CREATE INDEX IF NOT EXISTS idx_network_blocks_network ON network_blocks(network_id)",
                 "CREATE INDEX IF NOT EXISTS idx_custom_block_markers_location ON custom_block_markers(world_name, x, y, z)",
@@ -469,31 +643,6 @@ public class DatabaseManager {
                 "CREATE INDEX IF NOT EXISTS idx_security_terminal_players_terminal ON security_terminal_players(terminal_id)",
                 "CREATE INDEX IF NOT EXISTS idx_security_terminal_players_uuid ON security_terminal_players(player_uuid)"
         };
-
-        try (Connection conn = getConnection()) {
-            conn.setAutoCommit(false);
-
-            try (Statement stmt = conn.createStatement()) {
-                // Create tables
-                for (String query : tableCreationQueries) {
-                    stmt.execute(query);
-                }
-
-                // Create indexes
-                for (String query : indexCreationQueries) {
-                    stmt.execute(query);
-                }
-
-                conn.commit();
-                plugin.getLogger().info("Database tables and indexes created successfully!");
-
-            } catch (SQLException e) {
-                conn.rollback();
-                throw e;
-            } finally {
-                conn.setAutoCommit(true);
-            }
-        }
     }
 
     /**
@@ -527,13 +676,32 @@ public class DatabaseManager {
             // Check if we need to migrate storage_items table constraint
             boolean needsMigration = false;
 
-            try (var stmt = conn.createStatement();
-                 var rs = stmt.executeQuery("SELECT sql FROM sqlite_master WHERE type='table' AND name='storage_items'")) {
-                if (rs.next()) {
-                    String tableSql = rs.getString("sql");
-                    if (tableSql.contains("UNIQUE(disk_id, item_hash)")) {
-                        needsMigration = true;
-                        plugin.getLogger().info("Database migration needed - removing unique constraint on storage_items");
+            if (plugin.getConfigManager().isMySql()) {
+                // MySQL: Check for unique constraint via INFORMATION_SCHEMA
+                String checkQuery = """
+                    SELECT COUNT(*) as count FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'storage_items'
+                    AND CONSTRAINT_TYPE = 'UNIQUE' AND CONSTRAINT_NAME LIKE '%disk_id%item_hash%'
+                    """;
+                try (var stmt = conn.prepareStatement(checkQuery)) {
+                    stmt.setString(1, plugin.getConfigManager().getMysqlDatabase());
+                    try (var rs = stmt.executeQuery()) {
+                        if (rs.next() && rs.getInt("count") > 0) {
+                            needsMigration = true;
+                            plugin.getLogger().info("Database migration needed - removing unique constraint on storage_items");
+                        }
+                    }
+                }
+            } else {
+                // SQLite: Check table definition
+                try (var stmt = conn.createStatement();
+                     var rs = stmt.executeQuery("SELECT sql FROM sqlite_master WHERE type='table' AND name='storage_items'")) {
+                    if (rs.next()) {
+                        String tableSql = rs.getString("sql");
+                        if (tableSql.contains("UNIQUE(disk_id, item_hash)")) {
+                            needsMigration = true;
+                            plugin.getLogger().info("Database migration needed - removing unique constraint on storage_items");
+                        }
                     }
                 }
             }
@@ -542,48 +710,96 @@ public class DatabaseManager {
                 conn.setAutoCommit(false);
 
                 try {
-                    // Step 1: Create new table without the unique constraint and with higher quantity limit
-                    try (var stmt = conn.createStatement()) {
-                        stmt.execute("""
-                        CREATE TABLE storage_items_new (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            disk_id TEXT NOT NULL,
-                            item_hash TEXT NOT NULL,
-                            item_data TEXT NOT NULL,
-                            quantity INTEGER NOT NULL DEFAULT 0,
-                            max_stack_size INTEGER NOT NULL DEFAULT 64,
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            FOREIGN KEY (disk_id) REFERENCES storage_disks(disk_id) ON DELETE CASCADE,
-                            CHECK (quantity >= 0 AND quantity <= 8128)
-                        )
-                        """);
-                    }
+                    if (plugin.getConfigManager().isMySql()) {
+                        // MySQL: Drop constraint and recreate table
+                        // Step 1: Create new table
+                        try (var stmt = conn.createStatement()) {
+                            stmt.execute("""
+                            CREATE TABLE storage_items_new (
+                                id INT PRIMARY KEY AUTO_INCREMENT,
+                                disk_id VARCHAR(255) NOT NULL,
+                                item_hash VARCHAR(255) NOT NULL,
+                                item_data TEXT NOT NULL,
+                                quantity INT NOT NULL DEFAULT 0,
+                                max_stack_size INT NOT NULL DEFAULT 64,
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                FOREIGN KEY (disk_id) REFERENCES storage_disks(disk_id) ON DELETE CASCADE,
+                                CHECK (quantity >= 0 AND quantity <= 8128)
+                            )
+                            """);
+                        }
 
-                    // Step 2: Copy data from old table to new table
-                    try (var stmt = conn.createStatement()) {
-                        stmt.execute("""
-                        INSERT INTO storage_items_new
-                        (id, disk_id, item_hash, item_data, quantity, max_stack_size, created_at, updated_at)
-                        SELECT id, disk_id, item_hash, item_data, quantity, max_stack_size, created_at, updated_at
-                        FROM storage_items
-                        """);
-                    }
+                        // Step 2: Copy data
+                        try (var stmt = conn.createStatement()) {
+                            stmt.execute("""
+                            INSERT INTO storage_items_new
+                            (id, disk_id, item_hash, item_data, quantity, max_stack_size, created_at, updated_at)
+                            SELECT id, disk_id, item_hash, item_data, quantity, max_stack_size, created_at, updated_at
+                            FROM storage_items
+                            """);
+                        }
 
-                    // Step 3: Drop old table
-                    try (var stmt = conn.createStatement()) {
-                        stmt.execute("DROP TABLE storage_items");
-                    }
+                        // Step 3: Drop old table
+                        try (var stmt = conn.createStatement()) {
+                            stmt.execute("DROP TABLE storage_items");
+                        }
 
-                    // Step 4: Rename new table
-                    try (var stmt = conn.createStatement()) {
-                        stmt.execute("ALTER TABLE storage_items_new RENAME TO storage_items");
-                    }
+                        // Step 4: Rename new table
+                        try (var stmt = conn.createStatement()) {
+                            stmt.execute("RENAME TABLE storage_items_new TO storage_items");
+                        }
 
-                    // Step 5: Recreate indexes
-                    try (var stmt = conn.createStatement()) {
-                        stmt.execute("CREATE INDEX IF NOT EXISTS idx_storage_items_disk ON storage_items(disk_id)");
-                        stmt.execute("CREATE INDEX IF NOT EXISTS idx_storage_items_hash ON storage_items(item_hash)");
+                        // Step 5: Recreate indexes
+                        try (var stmt = conn.createStatement()) {
+                            stmt.execute("CREATE INDEX idx_storage_items_disk ON storage_items(disk_id)");
+                            stmt.execute("CREATE INDEX idx_storage_items_hash ON storage_items(item_hash)");
+                        }
+                    } else {
+                        // SQLite: Use existing migration logic
+                        // Step 1: Create new table without the unique constraint and with higher quantity limit
+                        try (var stmt = conn.createStatement()) {
+                            stmt.execute("""
+                            CREATE TABLE storage_items_new (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                disk_id TEXT NOT NULL,
+                                item_hash TEXT NOT NULL,
+                                item_data TEXT NOT NULL,
+                                quantity INTEGER NOT NULL DEFAULT 0,
+                                max_stack_size INTEGER NOT NULL DEFAULT 64,
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                FOREIGN KEY (disk_id) REFERENCES storage_disks(disk_id) ON DELETE CASCADE,
+                                CHECK (quantity >= 0 AND quantity <= 8128)
+                            )
+                            """);
+                        }
+
+                        // Step 2: Copy data from old table to new table
+                        try (var stmt = conn.createStatement()) {
+                            stmt.execute("""
+                            INSERT INTO storage_items_new
+                            (id, disk_id, item_hash, item_data, quantity, max_stack_size, created_at, updated_at)
+                            SELECT id, disk_id, item_hash, item_data, quantity, max_stack_size, created_at, updated_at
+                            FROM storage_items
+                            """);
+                        }
+
+                        // Step 3: Drop old table
+                        try (var stmt = conn.createStatement()) {
+                            stmt.execute("DROP TABLE storage_items");
+                        }
+
+                        // Step 4: Rename new table
+                        try (var stmt = conn.createStatement()) {
+                            stmt.execute("ALTER TABLE storage_items_new RENAME TO storage_items");
+                        }
+
+                        // Step 5: Recreate indexes
+                        try (var stmt = conn.createStatement()) {
+                            stmt.execute("CREATE INDEX IF NOT EXISTS idx_storage_items_disk ON storage_items(disk_id)");
+                            stmt.execute("CREATE INDEX IF NOT EXISTS idx_storage_items_hash ON storage_items(item_hash)");
+                        }
                     }
 
                     conn.commit();

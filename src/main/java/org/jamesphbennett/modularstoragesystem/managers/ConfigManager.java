@@ -36,6 +36,27 @@ public class ConfigManager {
     private boolean recipesEnabled;
     private boolean showUnlockMessages;
 
+    // Cooldown settings (in seconds for commands, milliseconds for GUI)
+    private int infoCooldown;
+    private int cleanupCooldown;
+    private int recoveryCooldown;
+    private int terminalCacheDuration;
+    private int guiOpenCooldown;
+
+    // Performance settings
+    private int maxImportersPerTick;
+    private int maxExportersPerTick;
+    private boolean batchImporterExporterOps;
+
+    // Database settings
+    private String databaseType;
+    private String mysqlHost;
+    private int mysqlPort;
+    private String mysqlDatabase;
+    private String mysqlUsername;
+    private String mysqlPassword;
+    private boolean mysqlUseSsl;
+
     // HARDCODED: All disks have 64 cells - no longer configurable
     private static final int HARDCODED_CELLS_PER_DISK = 64;
 
@@ -63,6 +84,9 @@ public class ConfigManager {
         loadPermissionSettings();
         loadLoggingSettings();
         loadDebugSettings();
+        loadCooldownSettings();
+        loadPerformanceSettings();
+        loadDatabaseSettings();
 
         plugin.getLogger().info("Configuration loaded successfully!");
         // Removed redundant configuration details - available in debug mode
@@ -160,6 +184,35 @@ public class ConfigManager {
         debugMode = config.getBoolean("debug.enabled", false);
     }
 
+    private void loadCooldownSettings() {
+        // Command cooldowns (in seconds)
+        infoCooldown = config.getInt("cooldowns.commands.info", 5);
+        cleanupCooldown = config.getInt("cooldowns.commands.cleanup", 30);
+        recoveryCooldown = config.getInt("cooldowns.commands.recovery", 10);
+
+        // GUI cooldowns (in milliseconds)
+        terminalCacheDuration = config.getInt("cooldowns.gui.terminal_cache", 500);
+        guiOpenCooldown = config.getInt("cooldowns.gui.open_cooldown", 1000);
+    }
+
+    private void loadPerformanceSettings() {
+        maxImportersPerTick = config.getInt("performance.importer_exporter.max_importers_per_tick", 1000);
+        maxExportersPerTick = config.getInt("performance.importer_exporter.max_exporters_per_tick", 1000);
+        batchImporterExporterOps = config.getBoolean("performance.importer_exporter.batch_operations", true);
+    }
+
+    private void loadDatabaseSettings() {
+        databaseType = config.getString("database.type", "sqlite").toLowerCase();
+
+        // MySQL settings
+        mysqlHost = config.getString("database.mysql.host", "localhost");
+        mysqlPort = config.getInt("database.mysql.port", 3306);
+        mysqlDatabase = config.getString("database.mysql.database", "modular_storage");
+        mysqlUsername = config.getString("database.mysql.username", "minecraft");
+        mysqlPassword = config.getString("database.mysql.password", "changeme");
+        mysqlUseSsl = config.getBoolean("database.mysql.use_ssl", false);
+    }
+
     // Getter methods for configuration values
     public int getMaxNetworkBlocks() {
         return maxNetworkBlocks;
@@ -254,6 +307,73 @@ public class ConfigManager {
     public void reloadConfig() {
         loadConfig();
         loadRecipesConfig();
+    }
+
+    // Cooldown getters
+    public int getInfoCooldown() {
+        return infoCooldown;
+    }
+
+    public int getCleanupCooldown() {
+        return cleanupCooldown;
+    }
+
+    public int getRecoveryCooldown() {
+        return recoveryCooldown;
+    }
+
+    public int getTerminalCacheDuration() {
+        return terminalCacheDuration;
+    }
+
+    public int getGuiOpenCooldown() {
+        return guiOpenCooldown;
+    }
+
+    // Performance getters
+    public int getMaxImportersPerTick() {
+        return maxImportersPerTick;
+    }
+
+    public int getMaxExportersPerTick() {
+        return maxExportersPerTick;
+    }
+
+    public boolean shouldBatchImporterExporterOps() {
+        return batchImporterExporterOps;
+    }
+
+    // Database getters
+    public String getDatabaseType() {
+        return databaseType;
+    }
+
+    public boolean isMySql() {
+        return "mysql".equalsIgnoreCase(databaseType);
+    }
+
+    public String getMysqlHost() {
+        return mysqlHost;
+    }
+
+    public int getMysqlPort() {
+        return mysqlPort;
+    }
+
+    public String getMysqlDatabase() {
+        return mysqlDatabase;
+    }
+
+    public String getMysqlUsername() {
+        return mysqlUsername;
+    }
+
+    public String getMysqlPassword() {
+        return mysqlPassword;
+    }
+
+    public boolean isMysqlUseSsl() {
+        return mysqlUseSsl;
     }
 
 }
