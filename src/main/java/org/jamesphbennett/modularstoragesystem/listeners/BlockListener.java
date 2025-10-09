@@ -41,7 +41,9 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class BlockListener implements Listener {
 
@@ -49,6 +51,27 @@ public class BlockListener implements Listener {
     private final ItemManager itemManager;
     private final NetworkManager networkManager;
     private final CableManager cableManager;
+
+    // Storage server info cache to prevent DB spam - 2 second TTL
+    private final Map<String, StorageInfoCache> storageInfoCache = new ConcurrentHashMap<>();
+    private static final long STORAGE_INFO_CACHE_DURATION_MS = 2000; // 2 seconds
+
+    // Inner class to hold cached storage info
+    private static class StorageInfoCache {
+        final int totalCapacity;
+        final int usedCapacity;
+        final long expiry;
+
+        StorageInfoCache(int totalCapacity, int usedCapacity) {
+            this.totalCapacity = totalCapacity;
+            this.usedCapacity = usedCapacity;
+            this.expiry = System.currentTimeMillis() + STORAGE_INFO_CACHE_DURATION_MS;
+        }
+
+        boolean isExpired() {
+            return System.currentTimeMillis() > expiry;
+        }
+    }
 
     public BlockListener(ModularStorageSystem plugin) {
         this.plugin = plugin;
@@ -967,24 +990,12 @@ public class BlockListener implements Listener {
         return false;
     }
 
+    /**
+     * Check if a block is marked as a custom MSS block in the database
+     * Uses shared cache to prevent DB spam from player clicks
+     */
     private boolean isMarkedAsCustomBlock(Location location, String blockType) {
-        try (Connection conn = plugin.getDatabaseManager().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(
-                     "SELECT COUNT(*) FROM custom_block_markers WHERE world_name = ? AND x = ? AND y = ? AND z = ? AND block_type = ?")) {
-
-            stmt.setString(1, location.getWorld().getName());
-            stmt.setInt(2, location.getBlockX());
-            stmt.setInt(3, location.getBlockY());
-            stmt.setInt(4, location.getBlockZ());
-            stmt.setString(5, blockType);
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                return rs.next() && rs.getInt(1) > 0;
-            }
-        } catch (Exception e) {
-            plugin.getLogger().warning("Error checking custom block marker: " + e.getMessage());
-            return false;
-        }
+        return plugin.getBlockMarkerCache().isMarkedAsCustomBlock(location, blockType);
     }
 
     private void markLocationAsCustomBlock(Location location, String blockType) throws SQLException {
@@ -999,6 +1010,9 @@ public class BlockListener implements Listener {
                 stmt.executeUpdate();
             }
         });
+
+        // Invalidate cache after marking block
+        plugin.getBlockMarkerCache().invalidateBlockMarkerCache(location, blockType);
     }
 
     private void removeCustomBlockMarker(Location location) {
@@ -1013,6 +1027,9 @@ public class BlockListener implements Listener {
                     stmt.executeUpdate();
                 }
             });
+
+            // Invalidate cache for all block types at this location
+            plugin.getBlockMarkerCache().invalidateAllBlockTypesAtLocation(location);
         } catch (Exception e) {
             plugin.getLogger().severe("Error removing custom block marker: " + e.getMessage());
         }
@@ -1097,125 +1114,162 @@ public class BlockListener implements Listener {
     /**
      * Display storage server information to the player
      * Enhanced to detect connected blocks even for invalid networks
+     * Runs async with caching to prevent DB spam
      */
     private void displayStorageServerInfo(Player player, Location serverLocation) {
-        try {
-            // Get network ID if it exists
-            String networkId = networkManager.getNetworkId(serverLocation);
-            boolean isValidNetwork = networkId != null && networkManager.isNetworkValid(networkId);
-            
-            // Detect connected blocks manually (including invalid networks)
-            NetworkInfo detectedNetwork = networkManager.detectNetwork(serverLocation);
-            
-            int driveBayCount = 0;
-            int terminalCount = 0;
-            int cableCount = 0;
-            int exporterCount = 0;
-            int importerCount = 0;
-            int totalStorageCapacity = 0;
-            int usedStorageCapacity = 0;
-            
-            if (detectedNetwork != null) {
-                driveBayCount = detectedNetwork.getDriveBays().size();
-                terminalCount = detectedNetwork.getTerminals().size();
-                cableCount = detectedNetwork.getNetworkCables().size();
-                
-                // Count exporters and importers in the detected network
-                exporterCount = getExporterCountInArea(detectedNetwork.getAllBlocks());
-                importerCount = countNetworkImporters(new ArrayList<>(detectedNetwork.getAllBlocks()));
-                
-                // Get storage capacity from valid network only
-                if (isValidNetwork) {
-                    totalStorageCapacity = getTotalNetworkStorageCapacity(networkId);
-                    usedStorageCapacity = getUsedNetworkStorageCapacity(networkId);
-                }
-            }
-            
-            // Get configuration limits
-            int maxBlocks = plugin.getConfigManager().getMaxNetworkBlocks();
-            int maxCables = plugin.getConfigManager().getMaxNetworkCables();
-            int maxExporters = plugin.getConfigManager().getMaxExporters();
-            int maxImporters = plugin.getConfigManager().getMaxImporters();
-            
-            // Calculate total connected blocks (excluding cables)
-            int totalBlocks = driveBayCount + terminalCount + exporterCount + importerCount + 1; // +1 for the server itself
-            
-            // Display comprehensive information
-            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.header"));
-            
-            if (networkId != null) {
-                Component message = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.network-id", "id", networkId.substring(0, Math.min(16, networkId.length())));
-                player.sendMessage(message);
-            } else {
-                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.network-id-none"));
-            }
-            
-            // Network Status
-            Component statusMessage;
-            if (isValidNetwork) {
-                statusMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.status", "status", plugin.getMessageManager().getMessage(player, "storage-server-info.status-online"));
-            } else if (detectedNetwork != null && detectedNetwork.isValid()) {
-                statusMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.status", "status", plugin.getMessageManager().getMessage(player, "storage-server-info.status-offline-detected"));
-            } else {
-                statusMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.status", "status", plugin.getMessageManager().getMessage(player, "storage-server-info.status-offline"));
-            }
-            player.sendMessage(statusMessage);
-            
-            player.sendMessage(Component.text("", NamedTextColor.WHITE)); // Empty line
-            
-            // Connected Components
-            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.connected-components"));
-            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.drive-bays-count", "count", String.valueOf(driveBayCount)));
-            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.terminals-count", "count", String.valueOf(terminalCount)));
-            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.exporters-count", "count", String.valueOf(exporterCount)));
-            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.importers-count", "count", String.valueOf(importerCount)));
-            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.cables-count", "count", String.valueOf(cableCount)));
-            
-            player.sendMessage(Component.text("", NamedTextColor.WHITE)); // Empty line
-            
-            // Network Limits
-            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.network-limits"));
-            
-            Component blocksMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.blocks-limit", "current", String.valueOf(totalBlocks), "max", String.valueOf(maxBlocks));
-            Component cablesMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.cables-limit", "current", String.valueOf(cableCount), "max", String.valueOf(maxCables));
-            Component exporterMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.exporter-limit", "current", String.valueOf(exporterCount), "max", String.valueOf(maxExporters));
-            Component importerMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.importer-limit", "current", String.valueOf(importerCount), "max", String.valueOf(maxImporters));
-            
-            // Apply color coding based on limits
-            if (totalBlocks > maxBlocks) blocksMessage = blocksMessage.color(NamedTextColor.RED);
-            else blocksMessage = blocksMessage.color(NamedTextColor.GREEN);
-            
-            if (cableCount > maxCables) cablesMessage = cablesMessage.color(NamedTextColor.RED);
-            else cablesMessage = cablesMessage.color(NamedTextColor.GREEN);
-            
-            if (exporterCount > maxExporters) exporterMessage = exporterMessage.color(NamedTextColor.RED);
-            else exporterMessage = exporterMessage.color(NamedTextColor.GREEN);
-            
-            if (importerCount > maxImporters) importerMessage = importerMessage.color(NamedTextColor.RED);
-            else importerMessage = importerMessage.color(NamedTextColor.GREEN);
-            
-            player.sendMessage(blocksMessage);
-            player.sendMessage(cablesMessage);
-            player.sendMessage(exporterMessage);
-            player.sendMessage(importerMessage);
-            
-            // Storage Information (only for valid networks)
-            if (isValidNetwork) {
-                player.sendMessage(Component.text("", NamedTextColor.WHITE)); // Empty line
-                if (totalStorageCapacity > 0) {
-                    int usagePercent = (int) ((double) usedStorageCapacity / totalStorageCapacity * 100);
-                    Component storageMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.storage-capacity", "used", String.valueOf(usedStorageCapacity), "total", String.valueOf(totalStorageCapacity), "percent", String.valueOf(usagePercent));
-                    player.sendMessage(storageMessage);
-                } else {
-                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.storage-no-disks"));
-                }
-            }
+        // Run async to avoid blocking main thread with DB queries
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                // Get network ID if it exists
+                String networkId = networkManager.getNetworkId(serverLocation);
+                boolean isValidNetwork = networkId != null && networkManager.isNetworkValid(networkId);
 
-        } catch (Exception e) {
-            Component message = plugin.getMessageManager().getMessageComponent(player, "errors.access.error-storage-server-info", "error", e.getMessage());
-            player.sendMessage(message);
-            plugin.getLogger().severe("Error displaying storage server info: " + e.getMessage());
-        }
+                // Detect connected blocks manually (including invalid networks)
+                NetworkInfo detectedNetwork = networkManager.detectNetwork(serverLocation);
+
+                int driveBayCount = 0;
+                int terminalCount = 0;
+                int cableCount = 0;
+                int exporterCount = 0;
+                int importerCount = 0;
+                int totalStorageCapacity = 0;
+                int usedStorageCapacity = 0;
+
+                if (detectedNetwork != null) {
+                    driveBayCount = detectedNetwork.getDriveBays().size();
+                    terminalCount = detectedNetwork.getTerminals().size();
+                    cableCount = detectedNetwork.getNetworkCables().size();
+
+                    // Count exporters and importers in the detected network
+                    exporterCount = getExporterCountInArea(detectedNetwork.getAllBlocks());
+                    importerCount = countNetworkImporters(new ArrayList<>(detectedNetwork.getAllBlocks()));
+
+                    // Get storage capacity from valid network only (with caching)
+                    if (isValidNetwork) {
+                        StorageInfoCache cache = storageInfoCache.get(networkId);
+                        if (cache != null && !cache.isExpired()) {
+                            // Use cached values
+                            totalStorageCapacity = cache.totalCapacity;
+                            usedStorageCapacity = cache.usedCapacity;
+                        } else {
+                            // Query database and cache result
+                            totalStorageCapacity = getTotalNetworkStorageCapacity(networkId);
+                            usedStorageCapacity = getUsedNetworkStorageCapacity(networkId);
+                            storageInfoCache.put(networkId, new StorageInfoCache(totalStorageCapacity, usedStorageCapacity));
+                        }
+                    }
+                }
+
+                // Get configuration limits
+                int maxBlocks = plugin.getConfigManager().getMaxNetworkBlocks();
+                int maxCables = plugin.getConfigManager().getMaxNetworkCables();
+                int maxExporters = plugin.getConfigManager().getMaxExporters();
+                int maxImporters = plugin.getConfigManager().getMaxImporters();
+
+                // Calculate total connected blocks (excluding cables)
+                int totalBlocks = driveBayCount + terminalCount + exporterCount + importerCount + 1; // +1 for the server itself
+
+                // Capture final variables for use in sync task
+                final int finalDriveBayCount = driveBayCount;
+                final int finalTerminalCount = terminalCount;
+                final int finalCableCount = cableCount;
+                final int finalExporterCount = exporterCount;
+                final int finalImporterCount = importerCount;
+                final int finalTotalStorageCapacity = totalStorageCapacity;
+                final int finalUsedStorageCapacity = usedStorageCapacity;
+                final boolean finalIsValidNetwork = isValidNetwork;
+                final String finalNetworkId = networkId;
+                final NetworkInfo finalDetectedNetwork = detectedNetwork;
+
+                // Send messages on main thread
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    try {
+                        // Display comprehensive information
+                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.header"));
+
+                        if (finalNetworkId != null) {
+                            Component message = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.network-id", "id", finalNetworkId.substring(0, Math.min(16, finalNetworkId.length())));
+                            player.sendMessage(message);
+                        } else {
+                            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.network-id-none"));
+                        }
+
+                        // Network Status
+                        Component statusMessage;
+                        if (finalIsValidNetwork) {
+                            statusMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.status", "status", plugin.getMessageManager().getMessage(player, "storage-server-info.status-online"));
+                        } else if (finalDetectedNetwork != null && finalDetectedNetwork.isValid()) {
+                            statusMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.status", "status", plugin.getMessageManager().getMessage(player, "storage-server-info.status-offline-detected"));
+                        } else {
+                            statusMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.status", "status", plugin.getMessageManager().getMessage(player, "storage-server-info.status-offline"));
+                        }
+                        player.sendMessage(statusMessage);
+
+                        player.sendMessage(Component.text("", NamedTextColor.WHITE)); // Empty line
+
+                        // Connected Components
+                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.connected-components"));
+                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.drive-bays-count", "count", String.valueOf(finalDriveBayCount)));
+                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.terminals-count", "count", String.valueOf(finalTerminalCount)));
+                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.exporters-count", "count", String.valueOf(finalExporterCount)));
+                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.importers-count", "count", String.valueOf(finalImporterCount)));
+                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.cables-count", "count", String.valueOf(finalCableCount)));
+
+                        player.sendMessage(Component.text("", NamedTextColor.WHITE)); // Empty line
+
+                        // Network Limits
+                        player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.network-limits"));
+
+                        Component blocksMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.blocks-limit", "current", String.valueOf(totalBlocks), "max", String.valueOf(maxBlocks));
+                        Component cablesMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.cables-limit", "current", String.valueOf(finalCableCount), "max", String.valueOf(maxCables));
+                        Component exporterMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.exporter-limit", "current", String.valueOf(finalExporterCount), "max", String.valueOf(maxExporters));
+                        Component importerMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.importer-limit", "current", String.valueOf(finalImporterCount), "max", String.valueOf(maxImporters));
+
+                        // Apply color coding based on limits
+                        if (totalBlocks > maxBlocks) blocksMessage = blocksMessage.color(NamedTextColor.RED);
+                        else blocksMessage = blocksMessage.color(NamedTextColor.GREEN);
+
+                        if (finalCableCount > maxCables) cablesMessage = cablesMessage.color(NamedTextColor.RED);
+                        else cablesMessage = cablesMessage.color(NamedTextColor.GREEN);
+
+                        if (finalExporterCount > maxExporters) exporterMessage = exporterMessage.color(NamedTextColor.RED);
+                        else exporterMessage = exporterMessage.color(NamedTextColor.GREEN);
+
+                        if (finalImporterCount > maxImporters) importerMessage = importerMessage.color(NamedTextColor.RED);
+                        else importerMessage = importerMessage.color(NamedTextColor.GREEN);
+
+                        player.sendMessage(blocksMessage);
+                        player.sendMessage(cablesMessage);
+                        player.sendMessage(exporterMessage);
+                        player.sendMessage(importerMessage);
+
+                        // Storage Information (only for valid networks)
+                        if (finalIsValidNetwork) {
+                            player.sendMessage(Component.text("", NamedTextColor.WHITE)); // Empty line
+                            if (finalTotalStorageCapacity > 0) {
+                                int usagePercent = (int) ((double) finalUsedStorageCapacity / finalTotalStorageCapacity * 100);
+                                Component storageMessage = plugin.getMessageManager().getMessageComponent(player, "storage-server-info.storage-capacity", "used", String.valueOf(finalUsedStorageCapacity), "total", String.valueOf(finalTotalStorageCapacity), "percent", String.valueOf(usagePercent));
+                                player.sendMessage(storageMessage);
+                            } else {
+                                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "storage-server-info.storage-no-disks"));
+                            }
+                        }
+                    } catch (Exception e) {
+                        Component message = plugin.getMessageManager().getMessageComponent(player, "errors.access.error-storage-server-info", "error", e.getMessage());
+                        player.sendMessage(message);
+                        plugin.getLogger().severe("Error displaying storage server info (sync): " + e.getMessage());
+                    }
+                });
+
+            } catch (Exception e) {
+                // Send error message on main thread
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    Component message = plugin.getMessageManager().getMessageComponent(player, "errors.access.error-storage-server-info", "error", e.getMessage());
+                    player.sendMessage(message);
+                });
+                plugin.getLogger().severe("Error displaying storage server info (async): " + e.getMessage());
+            }
+        });
     }
 
     /**

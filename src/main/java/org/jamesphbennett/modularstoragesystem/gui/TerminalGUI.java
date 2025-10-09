@@ -21,6 +21,7 @@ import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
 import org.jamesphbennett.modularstoragesystem.storage.StoredItem;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class TerminalGUI implements Listener {
 
@@ -41,6 +42,10 @@ public class TerminalGUI implements Listener {
 
     // Sorting functionality
     private boolean isQuantitySortActive; // false = alphabetical, true = quantity
+
+    // Click rate limiting to prevent DB spam - 200ms cooldown
+    private final Map<UUID, Long> clickCooldowns = new ConcurrentHashMap<>();
+    private static final long CLICK_COOLDOWN_MS = 200; // 200ms between clicks
 
     public TerminalGUI(ModularStorageSystem plugin, Location terminalLocation, String networkId) {
         this.plugin = plugin;
@@ -562,7 +567,20 @@ public class TerminalGUI implements Listener {
         if (!event.getInventory().equals(inventory)) return;
         if (!(event.getWhoClicked() instanceof Player player)) return;
 
+        // Click rate limiting to prevent DB spam (for item operations only)
+        UUID playerId = player.getUniqueId();
+        long now = System.currentTimeMillis();
+        Long lastClick = clickCooldowns.get(playerId);
+
+        // Only apply cooldown to item slots (0-35), not navigation/search buttons
         int slot = event.getRawSlot();
+        if (slot >= 0 && slot < 36) {
+            if (lastClick != null && (now - lastClick) < CLICK_COOLDOWN_MS) {
+                event.setCancelled(true);
+                return;
+            }
+            clickCooldowns.put(playerId, now);
+        }
 
         // Handle search button click (slot 48)
         if (slot == 48) {

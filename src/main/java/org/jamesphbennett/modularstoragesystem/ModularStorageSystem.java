@@ -14,6 +14,7 @@ import org.jamesphbennett.modularstoragesystem.network.NetworkManager;
 import org.jamesphbennett.modularstoragesystem.network.DisksManager;
 import org.jamesphbennett.modularstoragesystem.network.CableManager;
 import org.jamesphbennett.modularstoragesystem.gui.GUIManager;
+import org.jamesphbennett.modularstoragesystem.utils.BlockMarkerCache;
 
 import java.util.Arrays;
 import java.util.logging.Level;
@@ -34,6 +35,7 @@ public final class ModularStorageSystem extends JavaPlugin {
     private ImporterManager importerManager;
     private NetworkSecurityManager securityManager;
     private MessageManager messageManager;
+    private BlockMarkerCache blockMarkerCache;
 
     public ModularStorageSystem() {
     }
@@ -49,6 +51,7 @@ public final class ModularStorageSystem extends JavaPlugin {
             configManager = new ConfigManager(this);
             messageManager = new MessageManager(this);
             databaseManager = new DatabaseManager(this);
+            blockMarkerCache = new BlockMarkerCache(this);
             networkManager = new NetworkManager(this);
             disksManager = new DisksManager(this);
             cableManager = new CableManager(this);
@@ -174,6 +177,10 @@ public final class ModularStorageSystem extends JavaPlugin {
 
     public MessageManager getMessageManager() {
         return messageManager;
+    }
+
+    public BlockMarkerCache getBlockMarkerCache() {
+        return blockMarkerCache;
     }
 
     /**

@@ -22,6 +22,7 @@ import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
 import org.jamesphbennett.modularstoragesystem.managers.ImporterManager;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ImporterGUI implements Listener {
 
@@ -33,10 +34,14 @@ public class ImporterGUI implements Listener {
 
     private final Map<Integer, ItemStack> slotToFilterItem = new HashMap<>();
     private final List<ItemStack> currentFilterItems = new ArrayList<>();
-    
+
     // Brewing stand specific fields
     private boolean isBrewingStandTarget = false;
     private ItemStack[] bottleFilters = new ItemStack[3]; // For slots 0, 1, 2
+
+    // Click rate limiting to prevent DB spam - 250ms cooldown
+    private final Map<UUID, Long> clickCooldowns = new ConcurrentHashMap<>();
+    private static final long CLICK_COOLDOWN_MS = 250; // 250ms between clicks
 
     public ImporterGUI(ModularStorageSystem plugin, Location importerLocation, String importerId, String networkId) {
         this.plugin = plugin;
@@ -349,6 +354,18 @@ public class ImporterGUI implements Listener {
     public void onInventoryClick(InventoryClickEvent event) {
         if (!event.getInventory().equals(inventory)) return;
         if (!(event.getWhoClicked() instanceof Player player)) return;
+
+        // Click rate limiting to prevent DB spam
+        UUID playerId = player.getUniqueId();
+        long now = System.currentTimeMillis();
+        Long lastClick = clickCooldowns.get(playerId);
+
+        if (lastClick != null && (now - lastClick) < CLICK_COOLDOWN_MS) {
+            event.setCancelled(true);
+            return;
+        }
+
+        clickCooldowns.put(playerId, now);
 
         int slot = event.getRawSlot();
 
