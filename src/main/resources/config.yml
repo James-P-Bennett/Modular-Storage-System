@@ -1,7 +1,7 @@
 # Modular Storage System Configuration
 # Created by Hazmad_
 
-# Network settings
+# Per-network limits
 network:
   # Maximum number of blocks allowed in a single network
   max_blocks: 128
@@ -16,6 +16,7 @@ network:
   max_importers: 200
 
   # Tick interval for importer/exporter operations (20 ticks = 1 second)
+  # Highly recommend you don't adjust this lower than 20
   import_export_tick_interval: 20
 
 
@@ -46,16 +47,12 @@ permissions:
   require_craft_permission: false
   require_admin_permission: true
 
-# Debug settings
-debug:
-  enabled: false
-
 # Command cooldowns (in seconds) - Set to 0 to disable
 # Prevents players from spamming commands and causing server lag
 cooldowns:
   commands:
     info: 5        # /mss info - Display system statistics
-    cleanup: 30    # /mss cleanup - Clean up orphaned data (admin only)
+    cleanup: 10    # /mss cleanup - Clean up orphaned data (admin only)
     recovery: 10   # /mss recovery - Recover lost storage disk
   gui:
     # Cache duration for terminal GUI item lists (in milliseconds)
@@ -98,7 +95,7 @@ database:
     cache_size: 10000
 
   # MySQL/MariaDB settings (used when type is "mysql")
-  # Allows external database connections for better performance/scaling
+  # Allows external database connections
   mysql:
     host: "localhost"
     port: 3306
@@ -113,9 +110,14 @@ database:
       characterEncoding: "utf8"
 
   # Connection pool settings (applies to both SQLite and MySQL)
+  # Don't change these unless you know what you are doing.
   connection_pool:
     maximum_pool_size: 10
     minimum_idle: 2
     connection_timeout: 30000
     idle_timeout: 600000
     max_lifetime: 1800000
+
+# Debug settings
+debug:
+  enabled: false

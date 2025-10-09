@@ -20,11 +20,18 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PlayerListener implements Listener {
 
     private final ModularStorageSystem plugin;
     private final ItemManager itemManager;
+
+    // Disk content check cache to prevent DB spam - 500ms TTL
+    private final Map<String, Boolean> diskContentCache = new ConcurrentHashMap<>();
+    private final Map<String, Long> diskContentCacheExpiry = new ConcurrentHashMap<>();
+    private static final long DISK_CONTENT_CACHE_DURATION_MS = 500; // 500ms
 
     public PlayerListener(ModularStorageSystem plugin) {
         this.plugin = plugin;
@@ -159,7 +166,14 @@ public class PlayerListener implements Listener {
         }
 
         // Remove disk from database if it exists
+        String diskId = itemManager.getStorageDiskId(item);
         removeStorageDiskFromDatabase(item);
+
+        // Invalidate cache entry for this disk
+        if (diskId != null) {
+            diskContentCache.remove(diskId);
+            diskContentCacheExpiry.remove(diskId);
+        }
 
     }
 
@@ -497,6 +511,7 @@ public class PlayerListener implements Listener {
 
     /**
      * Check if a storage disk has any contents (used capacity > 0)
+     * Uses in-memory cache with 500ms TTL to prevent DB spam from repeated checks
      */
     private boolean hasStorageContent(ItemStack disk) {
         String diskId = itemManager.getStorageDiskId(disk);
@@ -504,21 +519,39 @@ public class PlayerListener implements Listener {
             return false; // If no disk ID, assume it's empty
         }
 
+        // Check cache first
+        Long expiry = diskContentCacheExpiry.get(diskId);
+        if (expiry != null && System.currentTimeMillis() < expiry) {
+            Boolean cached = diskContentCache.get(diskId);
+            if (cached != null) {
+                return cached;
+            }
+        }
+
+        // Cache miss - query database
+        boolean result;
         try (Connection conn = plugin.getDatabaseManager().getConnection();
              PreparedStatement stmt = conn.prepareStatement("SELECT used_cells FROM storage_disks WHERE disk_id = ?")) {
-            
+
             stmt.setString(1, diskId);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
                     int usedCells = rs.getInt("used_cells");
-                    return usedCells > 0;
+                    result = usedCells > 0;
+                } else {
+                    result = false; // Disk not found in database, assume empty
                 }
             }
-            return false; // Disk not found in database, assume empty
         } catch (SQLException e) {
             plugin.getLogger().warning("Error checking disk storage content for " + diskId + ": " + e.getMessage());
             return true; // Error occurred, be safe and don't allow recycling
         }
+
+        // Store in cache
+        diskContentCache.put(diskId, result);
+        diskContentCacheExpiry.put(diskId, System.currentTimeMillis() + DISK_CONTENT_CACHE_DURATION_MS);
+
+        return result;
     }
 
     /**

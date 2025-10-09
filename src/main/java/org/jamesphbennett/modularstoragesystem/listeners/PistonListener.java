@@ -10,9 +10,6 @@ import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.util.List;
 
 public class PistonListener implements Listener {
@@ -173,23 +170,9 @@ public class PistonListener implements Listener {
 
     /**
      * Check if a location is marked as an MSS block in the database
+     * Uses shared cache to prevent DB spam from piston events
      */
     private boolean isMarkedAsMSSBlock(Location location) {
-        try (Connection conn = plugin.getDatabaseManager().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(
-                     "SELECT COUNT(*) FROM custom_block_markers WHERE world_name = ? AND x = ? AND y = ? AND z = ?")) {
-
-            stmt.setString(1, location.getWorld().getName());
-            stmt.setInt(2, location.getBlockX());
-            stmt.setInt(3, location.getBlockY());
-            stmt.setInt(4, location.getBlockZ());
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                return rs.next() && rs.getInt(1) > 0;
-            }
-        } catch (Exception e) {
-            plugin.getLogger().warning("Error checking MSS block marker for piston event: " + e.getMessage());
-            return false;
-        }
+        return plugin.getBlockMarkerCache().isMarkedAsMSSBlock(location);
     }
 }
