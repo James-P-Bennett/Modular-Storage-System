@@ -20,6 +20,7 @@ import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
 import org.jamesphbennett.modularstoragesystem.managers.ExporterManager;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class FurnaceExporterGUI implements Listener {
 
@@ -37,6 +38,10 @@ public class FurnaceExporterGUI implements Listener {
     private final int[] MATERIAL_FILTER_SLOTS = {6, 7, 8, 15, 16, 17, 24, 25, 26, 33, 34, 35, 42, 43, 44, 51, 52, 53};
     private final int[] FILLER_SLOTS = {3, 4, 5, 12, 13, 14, 21, 22, 23, 30, 32, 39, 41, 48, 50};
     private final int[] CONTROL_SLOTS = {31, 40, 49};
+
+    // Click rate limiting to prevent DB spam - 250ms cooldown
+    private final Map<UUID, Long> clickCooldowns = new ConcurrentHashMap<>();
+    private static final long CLICK_COOLDOWN_MS = 250; // 250ms between clicks
 
     public FurnaceExporterGUI(ModularStorageSystem plugin, Location exporterLocation, String exporterId, String networkId) {
         this.plugin = plugin;
@@ -213,6 +218,18 @@ public class FurnaceExporterGUI implements Listener {
     public void onInventoryClick(InventoryClickEvent event) {
         if (!event.getInventory().equals(inventory)) return;
         if (!(event.getWhoClicked() instanceof Player player)) return;
+
+        // Click rate limiting to prevent DB spam
+        UUID playerId = player.getUniqueId();
+        long now = System.currentTimeMillis();
+        Long lastClick = clickCooldowns.get(playerId);
+
+        if (lastClick != null && (now - lastClick) < CLICK_COOLDOWN_MS) {
+            event.setCancelled(true);
+            return;
+        }
+
+        clickCooldowns.put(playerId, now);
 
         int slot = event.getRawSlot();
 

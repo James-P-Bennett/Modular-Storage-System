@@ -23,6 +23,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -32,6 +33,7 @@ import java.util.Base64;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class SecurityTerminalGUI implements Listener {
 
@@ -40,12 +42,16 @@ public class SecurityTerminalGUI implements Listener {
     private final String ownerUuid;
     private final Player viewer;
     private final Inventory inventory;
-    
+
     private final List<TrustedPlayer> trustedPlayers = new ArrayList<>();
     private int currentPage = 0;
     private final int playersPerPage = 36; // 4 rows of 9 slots
     private static final HttpClient httpClient = HttpClient.newHttpClient();
-    private static final java.util.Map<String, String> textureCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<String, String> textureCache = new ConcurrentHashMap<>();
+
+    // Click rate limiting to prevent DB spam - 500ms cooldown for permission toggles
+    private final Map<UUID, Long> clickCooldowns = new ConcurrentHashMap<>();
+    private static final long CLICK_COOLDOWN_MS = 500; // 500ms between permission toggle clicks
 
     public SecurityTerminalGUI(ModularStorageSystem plugin, String terminalId, String ownerUuid, Player viewer) {
         this.plugin = plugin;
@@ -397,7 +403,20 @@ public class SecurityTerminalGUI implements Listener {
             if (playerIndex < trustedPlayers.size()) {
                 TrustedPlayer trustedPlayer = trustedPlayers.get(playerIndex);
                 ClickType clickType = event.getClick();
-                
+
+                // Apply cooldown for permission toggle operations (not for removals)
+                if (clickType == ClickType.LEFT || clickType == ClickType.RIGHT) {
+                    UUID playerId = player.getUniqueId();
+                    long now = System.currentTimeMillis();
+                    Long lastClick = clickCooldowns.get(playerId);
+
+                    if (lastClick != null && (now - lastClick) < CLICK_COOLDOWN_MS) {
+                        return; // Silently ignore rapid clicks
+                    }
+
+                    clickCooldowns.put(playerId, now);
+                }
+
                 if (clickType == ClickType.SHIFT_LEFT || clickType == ClickType.SHIFT_RIGHT) {
                     // Remove player
                     removeTrustedPlayer(trustedPlayer);

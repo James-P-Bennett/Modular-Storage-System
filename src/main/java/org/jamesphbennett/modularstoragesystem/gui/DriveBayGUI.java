@@ -25,7 +25,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DriveBayGUI implements Listener {
 
@@ -33,6 +36,10 @@ public class DriveBayGUI implements Listener {
     private final Location driveBayLocation;
     private final String networkId;
     private final Inventory inventory;
+
+    // Click rate limiting to prevent DB spam - 300ms cooldown
+    private final Map<UUID, Long> clickCooldowns = new ConcurrentHashMap<>();
+    private static final long CLICK_COOLDOWN_MS = 300; // 300ms between clicks
 
     public DriveBayGUI(ModularStorageSystem plugin, Location driveBayLocation, String networkId) {
         this.plugin = plugin;
@@ -259,6 +266,18 @@ public class DriveBayGUI implements Listener {
     public void onInventoryClick(InventoryClickEvent event) {
         if (!event.getInventory().equals(inventory)) return;
         if (!(event.getWhoClicked() instanceof Player player)) return;
+
+        // Click rate limiting to prevent DB spam
+        UUID playerId = player.getUniqueId();
+        long now = System.currentTimeMillis();
+        Long lastClick = clickCooldowns.get(playerId);
+
+        if (lastClick != null && (now - lastClick) < CLICK_COOLDOWN_MS) {
+            event.setCancelled(true);
+            return;
+        }
+
+        clickCooldowns.put(playerId, now);
 
         int slot = event.getRawSlot();
         int[] driveSlots = getDriveSlots();
