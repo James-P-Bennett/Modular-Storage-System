@@ -4,14 +4,25 @@ Modular Storage System is a comprehensive Minecraft storage plugin inspired by A
 
 ## Features
 
+### Core Storage System
 - **Network-Based Storage**: Connect Storage Servers, Drive Bays, and Terminals with Network Cables
-- **Multi-Tier Storage Disks**: 1k, 4k, 16k, and 64k capacity tiers with hot-swappable functionality  
+- **Multi-Tier Storage Disks**: 1k, 4k, 16k, and 64k capacity tiers with hot-swappable functionality
 - **Advanced Terminals**: Search, sort, and manage your items with persistent per-terminal settings
-- **Automation System**: Import and export items automatically with configurable filters
-- **Security Controls**: Manage network access with Security Terminals
+- **Disk Information**: Storage disks display detailed tooltips with capacity, usage, and crafter information
 - **Disk Recycling**: Dismantle empty disks to recover components (Shift + Right-click)
+
+### Automation & Management
+- **Automation System**: Import and export items automatically with configurable filters
+- **Furnace Integration**: Specialized exporter GUI for targeting fuel and input slots separately
+- **Security Controls**: Manage network access with Security Terminals
+
+### Crafting & Recipes
 - **Alternative Recipes**: Craft disks using shapeless recipes (Housing + Platter) in 2x2 or 3x3 grids
-- **Recipe Book Integration**: All recipes are unlocked and visible in the vanilla recipe book
+- **Recipe Book Integration**: All recipes can be discovered and visible in the vanilla recipe book
+
+### Performance & Configuration
+- **Block Marker Cache**: Intelligent caching system reduces database queries with 5-second TTL
+- **Click Rate Limiting**: GUI interactions are rate-limited to prevent database spam
 - **Database Backend**: Uses HikariCP connection pooling with SQLite for performance and reliability
 - **Comprehensive Configuration**: Customizable via config.yml, lang.yml, and recipes.yml files
 
@@ -48,9 +59,36 @@ Modular Storage System is a comprehensive Minecraft storage plugin inspired by A
 5. **Set filters** by dragging items into filter slots (empty = import/export everything)
 
 ### Special Container Support
-- **Furnaces**: Exporters can target fuel and input slots separately
+- **Furnaces**: Dedicated GUI with separate filter sections for fuel (left) and input material (right) slots
+  - 18 filter slots for fuel items
+  - 18 filter slots for material items
+  - Intelligent slot targeting for automated smelting setups
 - **Brewing Stands**: Specialized interfaces for ingredient and bottle slots
 - **All Containers**: Works with chests, barrels, hoppers, dispensers, and more
+
+### Filter Configuration
+- **Empty Filters**: Import/export all items (no restrictions)
+- **Item Filters**: Drag items into filter slots to whitelist specific items
+- **Multiple Filters**: Combine multiple items for complex filtering logic
+
+---
+
+## Terminal Features
+
+### Search Functionality
+- **Item Search**: Click the spyglass button (bottom left) to search for items
+- **Type in Chat**: Enter your search term in chat to filter items instantly
+- **Persistent Search**: Search terms are saved per terminal location
+- **Clear Search**: Shift + Click the spyglass or search again to clear
+
+### Sorting Options
+- **Alphabetical Sort**: Default sorting mode, organizes items A-Z
+- **Quantity Sort**: Click the name tag button to sort by item count (highest first)
+- **Persistent Settings**: Sort preference is saved per terminal location
+
+### Storage Interaction
+- **Pagination**: Navigate through pages with previous/next buttons
+- **Real-Time Updates**: Terminal displays live storage capacity and item counts
 
 ---
 
@@ -58,7 +96,7 @@ Modular Storage System is a comprehensive Minecraft storage plugin inspired by A
 
 ### Network Blocks
 
-#### Storage Server
+#### Server
 The core controller of every storage network.
 ```
 NRN    N = Netherite Ingot
@@ -173,8 +211,40 @@ IWI    W = Wind Charge
 ### Storage Capacities
 - **1k Disk**: 8,128 items total (127 items per cell × 64 cells)
 - **4k Disk**: 32,512 items total (508 items per cell × 64 cells)
-- **16k Disk**: 130,048 items total (2,032 items per cell × 64 cells)  
+- **16k Disk**: 130,048 items total (2,032 items per cell × 64 cells)
 - **64k Disk**: 520,192 items total (8,128 items per cell × 64 cells)
+
+### Storage Disk Features
+- **Persistent Tooltips**: Disks display capacity, usage statistics, and crafter information
+- **Unique IDs**: Each disk has a unique identifier for recovery purposes
+- **Crafter Attribution**: Shows who crafted the disk with UUID tracking
+- **Hot-Swappable**: Remove and insert disks without losing data
+- **Empty Recycling**: Shift + Right-click empty disks to recover components
+
+---
+
+## Protection Systems
+
+### World Interaction Protection
+- **Explosion Immunity**: All MSS blocks are protected from creeper, TNT, and other explosions
+  - Drive Bays automatically eject disks on explosion
+  - Exporter/Importer filter settings are preserved
+  - Network data is safely recovered before block destruction
+- **Piston Prevention**: Pistons cannot push, pull, or interfere with MSS blocks
+  - Network cables are also protected from piston movement
+  - Prevents accidental network disruption
+- **Anvil Blocking**: MSS items cannot be renamed or modified in anvils
+  - Protects persistent data and metadata integrity
+  - Prevents players from breaking disk tracking systems
+
+### Performance Protection
+- **Click Rate Limiting**: GUIs enforce cooldowns to prevent database spam
+  - Drive Bay: 300ms cooldown
+  - Terminal: 200ms cooldown
+  - Exporter/Importer: 250ms cooldown
+- **Block Marker Cache**: 5-second TTL cache reduces database load
+  - Shared cache between BlockListener and PistonListener
+  - Automatic cache expiration and cleanup
 
 ---
 
