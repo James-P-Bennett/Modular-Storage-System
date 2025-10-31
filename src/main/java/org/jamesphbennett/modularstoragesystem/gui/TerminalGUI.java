@@ -873,7 +873,6 @@ public class TerminalGUI implements Listener {
                 if (currentPage < maxPages - 1) {
                     currentPage++;
                     updateDisplayedItems();
-                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.pagination.page-change", "current", (currentPage + 1), "total", maxPages));
                 } else {
                     player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.pagination.last-page-message"));
                 }

@@ -354,7 +354,6 @@ gui:
       next-available: "Click to go to next page"
       last-page: "Already on last page"
       last-page-message: "{mss-prefix}You are already on the last page"
-      page-change: "Page changed to {page}"
     info:
       title: "Storage Info"
       search-results: "Search Results: {count} types"
