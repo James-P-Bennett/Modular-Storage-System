@@ -709,9 +709,16 @@ public class ItemManager {
                     builder.append("|customModelData:").append(Objects.requireNonNull(meta.getItemModel()));
                 }
 
-                // Enchantments
+                // Enchantments (for regular enchanted items)
                 if (meta.hasEnchants()) {
                     builder.append("|enchants:").append(meta.getEnchants());
+                }
+
+                // Enchanted book-specific metadata (stored enchantments)
+                if (meta instanceof org.bukkit.inventory.meta.EnchantmentStorageMeta enchantMeta) {
+                    if (enchantMeta.hasStoredEnchants()) {
+                        builder.append("|storedEnchants:").append(enchantMeta.getStoredEnchants());
+                    }
                 }
 
                 // Potion-specific metadata
