@@ -18,7 +18,7 @@ import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class ImporterManager {
+public class ImporterManager implements org.jamesphbennett.modularstoragesystem.network.NetworkManager.NetworkUpdateListener {
 
     private final ModularStorageSystem plugin;
     private final Map<String, ImporterData> activeImporters = new ConcurrentHashMap<>();
@@ -28,6 +28,28 @@ public class ImporterManager {
         this.plugin = plugin;
         loadImporters();
         startImportTask();
+        // Register as a listener for network updates
+        plugin.getNetworkManager().registerUpdateListener(this);
+    }
+
+    /**
+     * Called when a network is updated/registered
+     * No action needed - importers are updated during network detection
+     */
+    @Override
+    public void onNetworkUpdated(String networkId) {
+        // Don't update on every network change - this causes race conditions
+        // Importers will auto-reconnect when they try to import
+    }
+
+    /**
+     * Called when a network is removed/unregistered
+     * Updates importer network assignments to handle disconnections
+     */
+    @Override
+    public void onNetworkRemoved(String networkId) {
+        // Only update when networks are removed
+        updateImporterNetworkAssignments();
     }
 
     /**
@@ -135,8 +157,8 @@ public class ImporterManager {
             }
         }, tickInterval, tickInterval);
 
-        // Periodic validation of importer network assignments (every 30 seconds)
-        plugin.getServer().getScheduler().runTaskTimer(plugin, this::updateImporterNetworkAssignments, 600L, 600L);
+        // Network assignment updates are now handled via NetworkUpdateListener callbacks
+        // REMOVED: Periodic validation timer (now event-driven)
 
     }
 

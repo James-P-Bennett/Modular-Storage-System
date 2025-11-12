@@ -11,12 +11,34 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
 
-public class NetworkSecurityManager {
+public class NetworkSecurityManager implements org.jamesphbennett.modularstoragesystem.network.NetworkManager.NetworkUpdateListener {
 
     private final ModularStorageSystem plugin;
 
     public NetworkSecurityManager(ModularStorageSystem plugin) {
         this.plugin = plugin;
+        // Register as a listener for network updates
+        plugin.getNetworkManager().registerUpdateListener(this);
+    }
+
+    /**
+     * Called when a network is updated/registered
+     * No action needed - terminals are updated during network registration
+     */
+    @Override
+    public void onNetworkUpdated(String networkId) {
+        // Don't update on network creation/update - NetworkManager already handles this in registerNetwork()
+        // Running updateSecurityTerminalNetworkAssignments() here causes race conditions
+    }
+
+    /**
+     * Called when a network is removed/unregistered
+     * Updates security terminal network assignments to handle disconnections
+     */
+    @Override
+    public void onNetworkRemoved(String networkId) {
+        // Only update when networks are removed, not on every update
+        updateSecurityTerminalNetworkAssignments();
     }
 
     /**
@@ -24,12 +46,12 @@ public class NetworkSecurityManager {
      */
     public void createSecurityTerminal(Location location, Player owner, String networkId) throws SQLException {
         String terminalId = UUID.randomUUID().toString();
-        
+
         plugin.getDatabaseManager().executeTransaction(conn -> {
             try (PreparedStatement stmt = conn.prepareStatement(
                     "INSERT INTO security_terminals (terminal_id, world_name, x, y, z, owner_uuid, owner_name, network_id) " +
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?)")) {
-                
+
                 stmt.setString(1, terminalId);
                 stmt.setString(2, location.getWorld().getName());
                 stmt.setInt(3, location.getBlockX());
@@ -38,7 +60,7 @@ public class NetworkSecurityManager {
                 stmt.setString(6, owner.getUniqueId().toString());
                 stmt.setString(7, owner.getName());
                 stmt.setString(8, networkId);
-                
+
                 stmt.executeUpdate();
             }
         });
@@ -72,12 +94,12 @@ public class NetworkSecurityManager {
              PreparedStatement stmt = conn.prepareStatement(
                      "SELECT terminal_id, owner_uuid, owner_name, network_id FROM security_terminals " +
                      "WHERE world_name = ? AND x = ? AND y = ? AND z = ?")) {
-            
+
             stmt.setString(1, location.getWorld().getName());
             stmt.setInt(2, location.getBlockX());
             stmt.setInt(3, location.getBlockY());
             stmt.setInt(4, location.getBlockZ());
-            
+
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
                     return new SecurityTerminalData(
@@ -88,7 +110,8 @@ public class NetworkSecurityManager {
                     );
                 }
             }
-        } catch (SQLException ignored) {
+        } catch (SQLException e) {
+            plugin.getLogger().warning("Error getting security terminal: " + e.getMessage());
         }
         return null;
     }
@@ -311,11 +334,15 @@ public class NetworkSecurityManager {
     public boolean isOwner(Player player, Location location) {
         // Admin bypass - mss.admin permission grants owner privileges
         if (player.hasPermission("mss.admin")) {
-            return false;
+            return true;
         }
-        
+
         SecurityTerminalData terminal = getSecurityTerminal(location);
-        return terminal == null || !player.getUniqueId().toString().equals(terminal.ownerUuid);
+        if (terminal == null) {
+            return false; // Terminal doesn't exist, player can't be owner
+        }
+
+        return player.getUniqueId().toString().equals(terminal.ownerUuid);
     }
 
     /**
@@ -335,6 +362,95 @@ public class NetworkSecurityManager {
                 stmt.executeUpdate();
             }
         });
+    }
+
+    /**
+     * Update security terminal network assignments
+     * Similar to exporter update mechanism - scans all terminals and updates their network IDs
+     * if they've become disconnected or if their stored network is invalid
+     */
+    public void updateSecurityTerminalNetworkAssignments() {
+        try (Connection conn = plugin.getDatabaseManager().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(
+                     "SELECT terminal_id, network_id, world_name, x, y, z FROM security_terminals")) {
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    String terminalId = rs.getString("terminal_id");
+                    String currentNetworkId = rs.getString("network_id");
+                    String worldName = rs.getString("world_name");
+                    int x = rs.getInt("x");
+                    int y = rs.getInt("y");
+                    int z = rs.getInt("z");
+
+                    // Construct the terminal location
+                    org.bukkit.World world = plugin.getServer().getWorld(worldName);
+                    if (world == null) continue;
+
+                    Location terminalLocation = new Location(world, x, y, z);
+
+                    // Check if current network is valid
+                    boolean currentNetworkValid = currentNetworkId != null &&
+                            plugin.getNetworkManager().isNetworkValid(currentNetworkId);
+
+                    if (!currentNetworkValid) {
+                        // Terminal has invalid network - try to find a new network
+                        String newNetworkId = findAdjacentNetwork(terminalLocation);
+
+                        if (newNetworkId != null && !newNetworkId.equals(currentNetworkId)) {
+                            // Found a new valid network - reconnect
+                            try {
+                                updateTerminalNetwork(terminalLocation, newNetworkId);
+                                plugin.debugLog("Updated security terminal " + terminalId +
+                                    " from network " + currentNetworkId + " to " + newNetworkId);
+                            } catch (SQLException e) {
+                                plugin.getLogger().warning("Failed to reconnect security terminal " +
+                                    terminalId + ": " + e.getMessage());
+                            }
+                        } else if (currentNetworkId != null) {
+                            // No valid network found - set to null
+                            try {
+                                updateTerminalNetwork(terminalLocation, null);
+                                plugin.debugLog("Disconnected security terminal " + terminalId +
+                                    " from invalid network " + currentNetworkId);
+                            } catch (SQLException e) {
+                                plugin.getLogger().warning("Failed to disconnect security terminal " +
+                                    terminalId + ": " + e.getMessage());
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().warning("Failed to update security terminal network assignments: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Find a valid network adjacent to the given location
+     */
+    private String findAdjacentNetwork(Location location) {
+        // Check adjacent locations for network blocks or cables (6 face-adjacent blocks)
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    if (dx == 0 && dy == 0 && dz == 0) continue;
+
+                    // Only check face-adjacent blocks (not diagonal)
+                    int nonZero = (dx != 0 ? 1 : 0) + (dy != 0 ? 1 : 0) + (dz != 0 ? 1 : 0);
+                    if (nonZero == 1) {
+                        Location adjacent = location.clone().add(dx, dy, dz);
+                        String networkId = plugin.getNetworkManager().getNetworkId(adjacent);
+
+                        if (networkId != null && !networkId.startsWith("UNCONNECTED") &&
+                                plugin.getNetworkManager().isNetworkValid(networkId)) {
+                            return networkId;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     public enum PermissionType {
