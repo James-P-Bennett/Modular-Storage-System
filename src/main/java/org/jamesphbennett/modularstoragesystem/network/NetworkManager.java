@@ -23,8 +23,48 @@ public class NetworkManager {
     // Flag to reduce redundant drive bay restoration logging
     private final Set<String> restorationLoggedNetworks = new HashSet<>();
 
+    // Network update listeners
+    private final List<NetworkUpdateListener> updateListeners = new ArrayList<>();
+
     public NetworkManager(ModularStorageSystem plugin) {
         this.plugin = plugin;
+    }
+
+    /**
+     * Register a listener to be notified of network updates
+     */
+    public void registerUpdateListener(NetworkUpdateListener listener) {
+        updateListeners.add(listener);
+    }
+
+    /**
+     * Notify all listeners that a network was updated (runs async to avoid blocking main thread)
+     */
+    private void notifyNetworkUpdated(String networkId) {
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            for (NetworkUpdateListener listener : updateListeners) {
+                try {
+                    listener.onNetworkUpdated(networkId);
+                } catch (Exception e) {
+                    plugin.getLogger().warning("Error notifying listener of network update: " + e.getMessage());
+                }
+            }
+        });
+    }
+
+    /**
+     * Notify all listeners that a network was removed (runs async to avoid blocking main thread)
+     */
+    private void notifyNetworkRemoved(String networkId) {
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            for (NetworkUpdateListener listener : updateListeners) {
+                try {
+                    listener.onNetworkRemoved(networkId);
+                } catch (Exception e) {
+                    plugin.getLogger().warning("Error notifying listener of network removal: " + e.getMessage());
+                }
+            }
+        });
     }
 
     /**
@@ -300,6 +340,9 @@ public class NetworkManager {
             // COMPREHENSIVE DRIVE BAY RESTORATION (with reduced logging)
             restoreAllDriveBayContents(conn, network.getNetworkId(), network.getDriveBays());
         });
+
+        // Notify listeners that network was updated
+        notifyNetworkUpdated(network.getNetworkId());
     }
 
     // Network removal
@@ -351,6 +394,9 @@ public class NetworkManager {
         restorationLoggedNetworks.remove(networkId);
 
         plugin.debugLog("Unregistered network " + networkId + " and preserved drive bay contents");
+
+        // Notify listeners that network was removed
+        notifyNetworkRemoved(networkId);
     }
 
     /**
@@ -523,5 +569,22 @@ public class NetworkManager {
     @FunctionalInterface
     public interface NetworkOperation<T> {
         T execute() throws Exception;
+    }
+
+    /**
+     * Listener interface for network update events
+     */
+    public interface NetworkUpdateListener {
+        /**
+         * Called when a network is registered or updated
+         * @param networkId The ID of the network that was registered/updated
+         */
+        void onNetworkUpdated(String networkId);
+
+        /**
+         * Called when a network is unregistered/destroyed
+         * @param networkId The ID of the network that was unregistered
+         */
+        void onNetworkRemoved(String networkId);
     }
 }

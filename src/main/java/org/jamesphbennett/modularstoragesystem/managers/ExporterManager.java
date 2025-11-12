@@ -19,7 +19,7 @@ import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class ExporterManager {
+public class ExporterManager implements org.jamesphbennett.modularstoragesystem.network.NetworkManager.NetworkUpdateListener {
 
     private final ModularStorageSystem plugin;
     private final Map<String, ExporterData> activeExporters = new ConcurrentHashMap<>();
@@ -29,6 +29,28 @@ public class ExporterManager {
         this.plugin = plugin;
         loadExporters();
         startExportTask();
+        // Register as a listener for network updates
+        plugin.getNetworkManager().registerUpdateListener(this);
+    }
+
+    /**
+     * Called when a network is updated/registered
+     * No action needed - exporters are updated during network detection
+     */
+    @Override
+    public void onNetworkUpdated(String networkId) {
+        // Don't update on every network change - this causes race conditions
+        // Exporters will auto-reconnect when they try to export
+    }
+
+    /**
+     * Called when a network is removed/unregistered
+     * Updates exporter network assignments to handle disconnections
+     */
+    @Override
+    public void onNetworkRemoved(String networkId) {
+        // Only update when networks are removed
+        updateExporterNetworkAssignments();
     }
 
     /**
@@ -136,9 +158,8 @@ public class ExporterManager {
             }
         }, tickInterval, tickInterval);
 
-        // ADDED: Periodic validation of exporter network assignments (every 30 seconds)
-        plugin.getServer().getScheduler().runTaskTimer(plugin, this::updateExporterNetworkAssignments, 600L, 600L); // 600 ticks = 30 seconds
-
+        // Network assignment updates are now handled via NetworkUpdateListener callbacks
+        // REMOVED: Periodic validation timer (now event-driven)
         // REMOVED: Particle effects disabled for performance
 
     }

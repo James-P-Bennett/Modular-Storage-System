@@ -318,6 +318,11 @@ public class BlockListener implements Listener {
         // Security terminal conflict checking is handled in the main block placement logic above
         // No need for duplicate checking here
 
+        // Store flags for what type of block was placed (item might change in player's hand before next tick)
+        final boolean wasSecurityTerminal = itemManager.isSecurityTerminal(item);
+        itemManager.isExporter(item);
+        itemManager.isImporter(item);
+
         // Schedule network detection and block direction setting for next tick (after block is fully placed)
         plugin.getServer().getScheduler().runTask(plugin, () -> {
             // Set block direction after the block is fully placed
@@ -332,7 +337,7 @@ public class BlockListener implements Listener {
 
                 // Create security terminal if this was a security terminal placement
                 // Do this after checking the limit but before checking network validity so it works even for standalone terminals
-                if (itemManager.isSecurityTerminal(item)) {
+                if (wasSecurityTerminal) {
                     try {
                         String networkId = null;
                         if (network != null && network.isValid()) {
@@ -424,9 +429,9 @@ public class BlockListener implements Listener {
                     }
                 }
 
-                plugin.getExporterManager().updateExporterNetworkAssignments();
-                plugin.getImporterManager().updateImporterNetworkAssignments();
-                
+                // Network updates are now handled via NetworkUpdateListener callbacks
+                // Managers are automatically notified when registerNetwork() is called
+
                 // Refresh terminals for the network (important for reconnections)
                 if (network != null && network.isValid()) {
                     String finalNetworkId = networkManager.getNetworkId(location);
@@ -610,8 +615,8 @@ public class BlockListener implements Listener {
                         // Always refresh terminals for the original network ID to handle disconnections
                         plugin.getGUIManager().refreshNetworkTerminals(networkId);
 
-                        plugin.getExporterManager().updateExporterNetworkAssignments();
-                        plugin.getImporterManager().updateImporterNetworkAssignments();
+                        // Network updates are now handled via NetworkUpdateListener callbacks
+                        // Managers are automatically notified when registerNetwork()/unregisterNetwork() is called
 
                     } catch (Exception e) {
                         Component message = plugin.getMessageManager().getMessageComponent(player, "errors.removal.error-network-update", "error", e.getMessage());
@@ -833,8 +838,8 @@ public class BlockListener implements Listener {
             }
 
             try {
-                // Check if player is the owner
-                if (plugin.getSecurityManager().isOwner(player, block.getLocation())) {
+                // Check if player is NOT the owner
+                if (!plugin.getSecurityManager().isOwner(player, block.getLocation())) {
                     player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.placement.access-denied-manage-network"));
                     return;
                 }
