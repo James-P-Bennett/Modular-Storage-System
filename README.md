@@ -1,8 +1,12 @@
 # Modular Storage System
 
-Modular Storage System is a comprehensive Minecraft storage plugin inspired by Applied Energistics 2 and Refined Storage. It provides a multi-tiered network-based storage system with craftable, expandable storage disks and an intuitive terminal interface. The plugin features automation capabilities through importers and exporters, making it perfect for advanced storage and logistics systems.
+<img width="1344" height="768" alt="mss" src="https://github.com/user-attachments/assets/1c39c971-735a-4fe6-8419-2972bbcaf79e" />
+
+
+Modular Storage System is a comprehensive Minecraft storage plugin. It provides a multi-tiered network-based storage system with craftable, expandable storage disks and an intuitive terminal interface. The plugin features automation capabilities through importers and exporters, making it perfect for advanced storage and logistics systems.
 
 ## Features
+
 
 ### Core Storage System
 - **Network-Based Storage**: Connect Storage Servers, Drive Bays, and Terminals with Network Cables
@@ -10,11 +14,15 @@ Modular Storage System is a comprehensive Minecraft storage plugin inspired by A
 - **Advanced Terminals**: Search, sort, and manage your items with persistent per-terminal settings
 - **Disk Information**: Storage disks display detailed tooltips with capacity, usage, and crafter information
 - **Disk Recycling**: Dismantle empty disks to recover components (Shift + Right-click)
+<img width="1920" height="991" alt="2025-11-13_23 23 17" src="https://github.com/user-attachments/assets/7f6143c2-6745-4583-9217-1212add67c96" />
+
+
 
 ### Automation & Management
 - **Automation System**: Import and export items automatically with configurable filters
 - **Furnace Integration**: Specialized exporter GUI for targeting fuel and input slots separately
 - **Security Controls**: Manage network access with Security Terminals
+<img width="1920" height="991" alt="2025-11-13_23 30 29" src="https://github.com/user-attachments/assets/9fb0a07d-9b1e-4674-8319-f798f786b54e" />
 
 ### Crafting & Recipes
 - **Alternative Recipes**: Craft disks using shapeless recipes (Housing + Platter) in 2x2 or 3x3 grids
@@ -36,12 +44,14 @@ Modular Storage System is a comprehensive Minecraft storage plugin inspired by A
 3. **Add a Terminal** - Adjacent to the Storage Server or Drive Bay for item access
 4. **Craft Storage Disks** - Start with 1k disks and insert them into the Drive Bay
 5. **Start Storing** - Right-click the Terminal to access your network storage
+<img width="1920" height="991" alt="2025-11-13_23 24 36" src="https://github.com/user-attachments/assets/27a5deae-941d-4625-a852-3e376ffe7876" />
 
 ### Network Components
 - **Storage Server**: Must be present in every network, acts as the controller
 - **Drive Bay**: Stores your storage disks, can have multiple per network
 - **Terminal**: Access point to view and manage stored items
 - **Network Cable**: Extends connections beyond adjacent placement (max 800 cables per network)
+<img width="1920" height="991" alt="2025-11-13_23 23 40" src="https://github.com/user-attachments/assets/3665edd3-2d66-4d49-aeba-109ac51704d8" />
 
 ---
 
@@ -65,6 +75,8 @@ Modular Storage System is a comprehensive Minecraft storage plugin inspired by A
   - Intelligent slot targeting for automated smelting setups
 - **Brewing Stands**: Specialized interfaces for ingredient and bottle slots
 - **All Containers**: Works with chests, barrels, hoppers, dispensers, and more
+<img width="1920" height="991" alt="2025-11-13_23 27 46" src="https://github.com/user-attachments/assets/45008b98-4770-48fd-94bd-60d27781dc47" />
+<img width="1920" height="991" alt="2025-11-13_23 29 30" src="https://github.com/user-attachments/assets/4b8319c0-7ef0-4c42-a65d-e73011ea719f" />
 
 ### Filter Configuration
 - **Empty Filters**: Import/export all items (no restrictions)
@@ -74,12 +86,14 @@ Modular Storage System is a comprehensive Minecraft storage plugin inspired by A
 ---
 
 ## Terminal Features
+<img width="1920" height="991" alt="2025-11-02_16 37 30" src="https://github.com/user-attachments/assets/6fb71108-88d7-4314-8e4d-c4971e353f4d" />
 
 ### Search Functionality
 - **Item Search**: Click the spyglass button (bottom left) to search for items
 - **Type in Chat**: Enter your search term in chat to filter items instantly
 - **Persistent Search**: Search terms are saved per terminal location
 - **Clear Search**: Shift + Click the spyglass or search again to clear
+<img width="1920" height="991" alt="2025-11-13_23 22 56" src="https://github.com/user-attachments/assets/b1f579cc-a401-409b-9f23-d3d8173fd87c" />
 
 ### Sorting Options
 - **Alphabetical Sort**: Default sorting mode, organizes items A-Z
@@ -202,7 +216,7 @@ IPI    I = Iron Ingot, P = Disk Platter (tier)
 IWI    W = Wind Charge
 ```
 
-#### Alternative Shapeless Recipes (Works in 2x2 Survival Grid)
+#### Alternative Shapeless Recipes
 - **1k Disk**: Storage Disk Housing + 1k Disk Platter
 - **4k Disk**: Storage Disk Housing + 4k Disk Platter  
 - **16k Disk**: Storage Disk Housing + 16k Disk Platter
@@ -220,31 +234,6 @@ IWI    W = Wind Charge
 - **Crafter Attribution**: Shows who crafted the disk with UUID tracking
 - **Hot-Swappable**: Remove and insert disks without losing data
 - **Empty Recycling**: Shift + Right-click empty disks to recover components
-
----
-
-## Protection Systems
-
-### World Interaction Protection
-- **Explosion Immunity**: All MSS blocks are protected from creeper, TNT, and other explosions
-  - Drive Bays automatically eject disks on explosion
-  - Exporter/Importer filter settings are preserved
-  - Network data is safely recovered before block destruction
-- **Piston Prevention**: Pistons cannot push, pull, or interfere with MSS blocks
-  - Network cables are also protected from piston movement
-  - Prevents accidental network disruption
-- **Anvil Blocking**: MSS items cannot be renamed or modified in anvils
-  - Protects persistent data and metadata integrity
-  - Prevents players from breaking disk tracking systems
-
-### Performance Protection
-- **Click Rate Limiting**: GUIs enforce cooldowns to prevent database spam
-  - Drive Bay: 300ms cooldown
-  - Terminal: 200ms cooldown
-  - Exporter/Importer: 250ms cooldown
-- **Block Marker Cache**: 5-second TTL cache reduces database load
-  - Shared cache between BlockListener and PistonListener
-  - Automatic cache expiration and cleanup
 
 ---
 
