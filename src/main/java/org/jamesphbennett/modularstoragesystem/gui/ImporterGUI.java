@@ -209,6 +209,33 @@ public class ImporterGUI implements Listener {
         infoMeta.lore(infoLore);
         info.setItemMeta(infoMeta);
         inventory.setItem(33, info);
+
+        // Bottle XP toggle button
+        boolean isFurnaceTarget = target != null && (
+            target.getBlock().getType() == Material.FURNACE ||
+            target.getBlock().getType() == Material.BLAST_FURNACE ||
+            target.getBlock().getType() == Material.SMOKER
+        );
+
+        if (isFurnaceTarget) {
+            boolean bottleXpEnabled = data != null && data.bottleXp;
+            ItemStack bottleXpToggle = new ItemStack(bottleXpEnabled ? Material.EXPERIENCE_BOTTLE : Material.GLASS_BOTTLE);
+            ItemMeta bottleXpMeta = bottleXpToggle.getItemMeta();
+            bottleXpMeta.displayName(plugin.getMessageManager().getMessageComponent(null, bottleXpEnabled ? "gui.importer.xp.enabled" : "gui.importer.xp.disabled"));
+            List<Component> bottleXpLore = new ArrayList<>();
+            bottleXpLore.add(Component.empty());
+            if (bottleXpEnabled) {
+                bottleXpLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.importer.xp.enabled-description"));
+                bottleXpLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.importer.xp.enabled-requirement"));
+            } else {
+                bottleXpLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.importer.xp.disabled"));
+            }
+            bottleXpLore.add(Component.empty());
+            bottleXpLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.importer.xp.toggle"));
+            bottleXpMeta.lore(bottleXpLore);
+            bottleXpToggle.setItemMeta(bottleXpMeta);
+            inventory.setItem(39, bottleXpToggle);
+        }
     }
 
     /**
@@ -605,6 +632,9 @@ public class ImporterGUI implements Listener {
             case 31:
                 handleClearFilters(player);
                 break;
+            case 39:
+                handleBottleXpToggleClick(player);
+                break;
             default:
                 break;
         }
@@ -665,6 +695,21 @@ public class ImporterGUI implements Listener {
         saveFilters();
         setupGUI();
         player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.filter.cleared", "action", "import"));
+    }
+
+    private void handleBottleXpToggleClick(Player player) {
+        try {
+            ImporterManager.ImporterData data = plugin.getImporterManager().getImporterAtLocation(importerLocation);
+            if (data == null) return;
+
+            boolean newState = !data.bottleXp;
+            plugin.getImporterManager().toggleBottleXp(importerId, newState);
+            setupGUI();
+
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, newState ? "gui.importer.xp.toggle-enabled" : "gui.importer.xp.toggle-disabled"));
+        } catch (Exception e) {
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.importer.xp.toggle-error", "error", e.getMessage()));
+        }
     }
 
     private void saveFilters() {

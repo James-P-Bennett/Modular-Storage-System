@@ -60,14 +60,16 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
         public final String networkId;
         public final Location location;
         public boolean enabled;
+        public boolean bottleXp;
         public final List<String> filterItems = new ArrayList<>();
         public long lastImport;
 
-        public ImporterData(String importerId, String networkId, Location location, boolean enabled) {
+        public ImporterData(String importerId, String networkId, Location location, boolean enabled, boolean bottleXp) {
             this.importerId = importerId;
             this.networkId = networkId;
             this.location = location;
             this.enabled = enabled;
+            this.bottleXp = bottleXp;
             this.lastImport = System.currentTimeMillis();
         }
     }
@@ -78,7 +80,7 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
     private void loadImporters() {
         try (Connection conn = plugin.getDatabaseManager().getConnection();
              PreparedStatement stmt = conn.prepareStatement(
-                     "SELECT i.importer_id, i.network_id, i.world_name, i.x, i.y, i.z, i.enabled, i.last_import " +
+                     "SELECT i.importer_id, i.network_id, i.world_name, i.x, i.y, i.z, i.enabled, i.bottle_xp, i.last_import " +
                              "FROM importers i")) {
 
             try (ResultSet rs = stmt.executeQuery()) {
@@ -90,11 +92,12 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
                     int y = rs.getInt("y");
                     int z = rs.getInt("z");
                     boolean enabled = rs.getBoolean("enabled");
+                    boolean bottleXp = rs.getBoolean("bottle_xp");
 
                     org.bukkit.World world = plugin.getServer().getWorld(worldName);
                     if (world != null) {
                         Location location = new Location(world, x, y, z);
-                        ImporterData data = new ImporterData(importerId, networkId, location, enabled);
+                        ImporterData data = new ImporterData(importerId, networkId, location, enabled, bottleXp);
 
                         // Load filters for this importer
                         loadImporterFilters(conn, data);
@@ -250,7 +253,7 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
                     
                     // Update in memory - replace the importer data object
                     activeImporters.remove(importer.importerId);
-                    ImporterData updatedData = new ImporterData(importer.importerId, adjacentNetworkId, importer.location, importer.enabled);
+                    ImporterData updatedData = new ImporterData(importer.importerId, adjacentNetworkId, importer.location, importer.enabled, importer.bottleXp);
                     updatedData.filterItems.addAll(importer.filterItems);
                     activeImporters.put(importer.importerId, updatedData);
                     
@@ -311,6 +314,10 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
 
             ItemStack outputItem = furnaceInventory.getItem(outputSlot);
             if (outputItem == null || outputItem.getType().isAir()) {
+                // Even if no output, check for XP bottling
+                if (importer.bottleXp) {
+                    bottleFurnaceXp(importer, furnaceContainer);
+                }
                 return; // No items to import
             }
 
@@ -318,6 +325,10 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
             if (!importer.filterItems.isEmpty()) {
                 String itemHash = plugin.getItemManager().generateItemHash(outputItem);
                 if (!importer.filterItems.contains(itemHash)) {
+                    // Item not in filter, but still check for XP bottling
+                    if (importer.bottleXp) {
+                        bottleFurnaceXp(importer, furnaceContainer);
+                    }
                     return; // Item not in filter
                 }
             }
@@ -349,8 +360,128 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
                 plugin.getGUIManager().refreshNetworkTerminals(importer.networkId);
             }
 
+            // After importing items, check for XP bottling
+            if (importer.bottleXp) {
+                bottleFurnaceXp(importer, furnaceContainer);
+            }
+
         } catch (Exception e) {
             plugin.getLogger().severe("Error importing from furnace: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Bottle XP from a furnace if enough XP is available
+     */
+    private void bottleFurnaceXp(ImporterData importer, Container furnaceContainer) {
+        try {
+            if (!importer.enabled || !importer.bottleXp) {
+                return;
+            }
+
+            if (!(furnaceContainer instanceof org.bukkit.block.Furnace furnace)) {
+                return; // Not a furnace
+            }
+
+            // Calculate total XP from recipes used
+            Map<org.bukkit.inventory.CookingRecipe<?>, Integer> recipesUsed = furnace.getRecipesUsed();
+            if (recipesUsed.isEmpty()) {
+                return; // No XP to bottle
+            }
+
+            float totalXp = 0.0f;
+            for (Map.Entry<org.bukkit.inventory.CookingRecipe<?>, Integer> entry : recipesUsed.entrySet()) {
+                totalXp += entry.getKey().getExperience() * entry.getValue();
+            }
+
+            // Check if we have enough XP (12 XP minimum for one bottle)
+            // We take 12 XP per bottle (more than the max 11 XP drop) to ensure a cost
+            if (totalXp < 12.0f) {
+                return; // Not enough XP
+            }
+
+            // Calculate how many bottles we can make
+            int bottlesToMake = (int) (totalXp / 12.0f);
+            if (bottlesToMake == 0) {
+                return;
+            }
+
+            // Check if we have glass bottles in the network
+            ItemStack glassBottleTemplate = new ItemStack(Material.GLASS_BOTTLE, 1);
+            String glassBottleHash = plugin.getItemManager().generateItemHash(glassBottleTemplate);
+
+            // Try to retrieve glass bottles from network
+            ItemStack retrievedBottles;
+            try {
+                retrievedBottles = plugin.getStorageManager().retrieveItems(importer.networkId, glassBottleHash, bottlesToMake);
+            } catch (Exception e) {
+                plugin.debugLog("Error retrieving glass bottles: " + e.getMessage());
+                return; // Failed to retrieve
+            }
+
+            if (retrievedBottles == null || retrievedBottles.getAmount() == 0) {
+                return; // No glass bottles available
+            }
+
+            int glassBottlesRetrieved = retrievedBottles.getAmount();
+
+            // Create experience bottles
+            int bottlesToCreate = Math.min(bottlesToMake, glassBottlesRetrieved);
+            ItemStack expBottles = new ItemStack(Material.EXPERIENCE_BOTTLE, bottlesToCreate);
+
+            // Store experience bottles in network
+            List<ItemStack> expBottlesToStore = new ArrayList<>();
+            expBottlesToStore.add(expBottles);
+            List<ItemStack> leftoverExpBottles = plugin.getStorageManager().storeItems(importer.networkId, expBottlesToStore);
+
+            // Calculate how many were actually stored
+            int expBottlesStored = bottlesToCreate - (leftoverExpBottles.isEmpty() ? 0 : leftoverExpBottles.getFirst().getAmount());
+
+            if (expBottlesStored > 0) {
+                // Successfully bottled XP!
+                // Calculate XP used (12 XP per bottle - more than max 11 XP drop to ensure cost)
+                float xpUsed = expBottlesStored * 12.0f;
+
+                // Reduce recipe counts proportionally
+                float xpRemaining = totalXp - xpUsed;
+                if (xpRemaining < 0.01f) {
+                    // Clear all recipe counts if we used all XP
+                    for (org.bukkit.inventory.CookingRecipe<?> recipe : recipesUsed.keySet()) {
+                        furnace.setRecipeUsedCount(recipe, 0);
+                    }
+                } else {
+                    // Proportionally reduce recipe counts
+                    float reductionRatio = xpRemaining / totalXp;
+                    for (Map.Entry<org.bukkit.inventory.CookingRecipe<?>, Integer> entry : recipesUsed.entrySet()) {
+                        int newCount = (int) Math.floor(entry.getValue() * reductionRatio);
+                        furnace.setRecipeUsedCount(entry.getKey(), newCount);
+                    }
+                }
+
+                // Save the furnace state changes
+                furnace.update();
+
+                // Return unused glass bottles if any
+                int unusedGlassBottles = glassBottlesRetrieved - expBottlesStored;
+                if (unusedGlassBottles > 0) {
+                    ItemStack unusedBottles = new ItemStack(Material.GLASS_BOTTLE, unusedGlassBottles);
+                    List<ItemStack> unusedList = new ArrayList<>();
+                    unusedList.add(unusedBottles);
+                    plugin.getStorageManager().storeItems(importer.networkId, unusedList);
+                }
+
+                // Refresh terminals
+                plugin.getGUIManager().refreshNetworkTerminals(importer.networkId);
+            } else {
+                // Failed to store exp bottles, return glass bottles
+                List<ItemStack> returnList = new ArrayList<>();
+                returnList.add(retrievedBottles);
+                plugin.getStorageManager().storeItems(importer.networkId, returnList);
+            }
+
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error bottling furnace XP: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -558,6 +689,20 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
     }
 
     /**
+     * Toggle importer bottle XP state
+     */
+    public void toggleBottleXp(String importerId, boolean bottleXp) throws SQLException {
+        ImporterData data = activeImporters.get(importerId);
+        if (data != null) {
+            data.bottleXp = bottleXp;
+
+            plugin.getDatabaseManager().executeUpdate(
+                    "UPDATE importers SET bottle_xp = ?, updated_at = CURRENT_TIMESTAMP WHERE importer_id = ?",
+                    bottleXp, importerId);
+        }
+    }
+
+    /**
      * Update filter for an importer
      */
     public void updateImporterFilter(String importerId, List<ItemStack> filterItems) throws SQLException {
@@ -648,7 +793,7 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
 
                     // Update in memory - create new ImporterData with UNCONNECTED status
                     activeImporters.remove(importer.importerId);
-                    ImporterData disconnectedData = new ImporterData(importer.importerId, "UNCONNECTED", importer.location, false);
+                    ImporterData disconnectedData = new ImporterData(importer.importerId, "UNCONNECTED", importer.location, false, importer.bottleXp);
                     disconnectedData.filterItems.addAll(importer.filterItems);
                     activeImporters.put(importer.importerId, disconnectedData);
 
@@ -668,11 +813,11 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
         String finalNetworkId = (networkId != null) ? networkId : "UNCONNECTED";
 
         plugin.getDatabaseManager().executeUpdate(
-                "INSERT INTO importers (importer_id, network_id, world_name, x, y, z, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
-                importerId, finalNetworkId, location.getWorld().getName(), location.getBlockX(), location.getBlockY(), location.getBlockZ(), false);
+                "INSERT INTO importers (importer_id, network_id, world_name, x, y, z, enabled, bottle_xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                importerId, finalNetworkId, location.getWorld().getName(), location.getBlockX(), location.getBlockY(), location.getBlockZ(), false, false);
 
         // Add to memory
-        ImporterData importerData = new ImporterData(importerId, finalNetworkId, location, false);
+        ImporterData importerData = new ImporterData(importerId, finalNetworkId, location, false, false);
         activeImporters.put(importerId, importerData);
         importerCycleIndex.put(importerId, 0); // Initialize cycle index
 
@@ -700,7 +845,7 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
 
                         // Update in memory
                         activeImporters.remove(importer.importerId);
-                        ImporterData updatedData = new ImporterData(importer.importerId, newNetworkId, importer.location, importer.enabled);
+                        ImporterData updatedData = new ImporterData(importer.importerId, newNetworkId, importer.location, importer.enabled, importer.bottleXp);
                         updatedData.filterItems.addAll(importer.filterItems);
                         activeImporters.put(importer.importerId, updatedData);
 
@@ -716,7 +861,7 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
 
                         // Update in memory
                         activeImporters.remove(importer.importerId);
-                        ImporterData disconnectedData = new ImporterData(importer.importerId, "UNCONNECTED", importer.location, false);
+                        ImporterData disconnectedData = new ImporterData(importer.importerId, "UNCONNECTED", importer.location, false, importer.bottleXp);
                         disconnectedData.filterItems.addAll(importer.filterItems);
                         activeImporters.put(importer.importerId, disconnectedData);
 

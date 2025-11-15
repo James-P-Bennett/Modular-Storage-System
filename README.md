@@ -1,7 +1,7 @@
 # Modular Storage System
 
-<img width="1344" height="768" alt="mss" src="https://github.com/user-attachments/assets/1c39c971-735a-4fe6-8419-2972bbcaf79e" />
 
+![MSS-Banner.png](media%2FMSS-Banner.png)
 
 Modular Storage System is a comprehensive Minecraft storage plugin. It provides a multi-tiered network-based storage system with craftable, expandable storage disks and an intuitive terminal interface. The plugin features automation capabilities through importers and exporters, making it perfect for advanced storage and logistics systems.
 
@@ -14,7 +14,7 @@ Modular Storage System is a comprehensive Minecraft storage plugin. It provides 
 - **Advanced Terminals**: Search, sort, and manage your items with persistent per-terminal settings
 - **Disk Information**: Storage disks display detailed tooltips with capacity, usage, and crafter information
 - **Disk Recycling**: Dismantle empty disks to recover components (Shift + Right-click)
-<img width="1920" height="991" alt="2025-11-13_23 23 17" src="https://github.com/user-attachments/assets/7f6143c2-6745-4583-9217-1212add67c96" />
+![TerminalItemHover.png](media%2FTerminalItemHover.png)
 
 
 
@@ -22,7 +22,7 @@ Modular Storage System is a comprehensive Minecraft storage plugin. It provides 
 - **Automation System**: Import and export items automatically with configurable filters
 - **Furnace Integration**: Specialized exporter GUI for targeting fuel and input slots separately
 - **Security Controls**: Manage network access with Security Terminals
-<img width="1920" height="991" alt="2025-11-13_23 30 29" src="https://github.com/user-attachments/assets/9fb0a07d-9b1e-4674-8319-f798f786b54e" />
+![Autocrafting.png](media%2FAutocrafting.png)
 
 ### Crafting & Recipes
 - **Alternative Recipes**: Craft disks using shapeless recipes (Housing + Platter) in 2x2 or 3x3 grids
@@ -44,14 +44,14 @@ Modular Storage System is a comprehensive Minecraft storage plugin. It provides 
 3. **Add a Terminal** - Adjacent to the Storage Server or Drive Bay for item access
 4. **Craft Storage Disks** - Start with 1k disks and insert them into the Drive Bay
 5. **Start Storing** - Right-click the Terminal to access your network storage
-<img width="1920" height="991" alt="2025-11-13_23 24 36" src="https://github.com/user-attachments/assets/27a5deae-941d-4625-a852-3e376ffe7876" />
+![BasicSetup.png](media%2FBasicSetup.png)
 
 ### Network Components
 - **Storage Server**: Must be present in every network, acts as the controller
 - **Drive Bay**: Stores your storage disks, can have multiple per network
 - **Terminal**: Access point to view and manage stored items
 - **Network Cable**: Extends connections beyond adjacent placement (max 800 cables per network)
-<img width="1920" height="991" alt="2025-11-13_23 23 40" src="https://github.com/user-attachments/assets/3665edd3-2d66-4d49-aeba-109ac51704d8" />
+![DriveBayGUI.png](media%2FDriveBayGUI.png)
 
 ---
 
@@ -70,13 +70,18 @@ Modular Storage System is a comprehensive Minecraft storage plugin. It provides 
 
 ### Special Container Support
 - **Furnaces**: Dedicated GUI with separate filter sections for fuel (left) and input material (right) slots
+  - XP Bottling Feature - Bottle XP generated from smelting
   - 18 filter slots for fuel items
   - 18 filter slots for material items
   - Intelligent slot targeting for automated smelting setups
+  ![FurnaceImporterBottleXP.png](media%2FFurnaceImporterBottleXP.png)
+
+
 - **Brewing Stands**: Specialized interfaces for ingredient and bottle slots
 - **All Containers**: Works with chests, barrels, hoppers, dispensers, and more
-<img width="1920" height="991" alt="2025-11-13_23 27 46" src="https://github.com/user-attachments/assets/45008b98-4770-48fd-94bd-60d27781dc47" />
-<img width="1920" height="991" alt="2025-11-13_23 29 30" src="https://github.com/user-attachments/assets/4b8319c0-7ef0-4c42-a65d-e73011ea719f" />
+![FurnaceAutomation.png](media%2FFurnaceAutomation.png)
+![PotionsAutomation.png](media%2FPotionsAutomation.png)
+
 
 ### Filter Configuration
 - **Empty Filters**: Import/export all items (no restrictions)
@@ -86,23 +91,20 @@ Modular Storage System is a comprehensive Minecraft storage plugin. It provides 
 ---
 
 ## Terminal Features
-<img width="1920" height="991" alt="2025-11-02_16 37 30" src="https://github.com/user-attachments/assets/6fb71108-88d7-4314-8e4d-c4971e353f4d" />
 
 ### Search Functionality
 - **Item Search**: Click the spyglass button (bottom left) to search for items
 - **Type in Chat**: Enter your search term in chat to filter items instantly
 - **Persistent Search**: Search terms are saved per terminal location
 - **Clear Search**: Shift + Click the spyglass or search again to clear
-<img width="1920" height="991" alt="2025-11-13_23 22 56" src="https://github.com/user-attachments/assets/b1f579cc-a401-409b-9f23-d3d8173fd87c" />
+
 
 ### Sorting Options
 - **Alphabetical Sort**: Default sorting mode, organizes items A-Z
 - **Quantity Sort**: Click the name tag button to sort by item count (highest first)
 - **Persistent Settings**: Sort preference is saved per terminal location
+![TerminalSortingFeature.png](media%2FTerminalSortingFeature.png)
 
-### Storage Interaction
-- **Pagination**: Navigate through pages with previous/next buttons
-- **Real-Time Updates**: Terminal displays live storage capacity and item counts
 
 ---
 
@@ -241,14 +243,14 @@ IWI    W = Wind Charge
 
 The plugin provides several administrative and utility commands:
 
-| Command | Description | Permission |
-|---------|-------------|------------|
-| `/mss help` | Show help menu with all available commands | Default |
-| `/mss give <item> [player]` | Give MSS items to yourself or another player | `modularstoragesystem.admin` |
-| `/mss recovery <disk_id>` | Recover a lost storage disk by its ID | `modularstoragesystem.recovery` |
-| `/mss info` | Show plugin statistics and network information | `modularstoragesystem.admin` |
-| `/mss recipes` | List all available recipes and their status | `modularstoragesystem.admin` |
-| `/mss reload [config\|recipes\|all]` | Reload configuration files | `modularstoragesystem.admin` |
+| Command                              | Description                                    | Permission                      |
+|--------------------------------------|------------------------------------------------|---------------------------------|
+| `/mss help`                          | Show help menu with all available commands     | Default                         |
+| `/mss give <item> [player]`          | Give MSS items to yourself or another player   | `modularstoragesystem.admin`    |
+| `/mss recovery <disk_id>`            | Recover a lost storage disk by its ID          | `modularstoragesystem.recovery` |
+| `/mss info`                          | Show plugin statistics and network information | `modularstoragesystem.admin`    |
+| `/mss recipes`                       | List all available recipes and their status    | `modularstoragesystem.admin`    |
+| `/mss reload [config\|recipes\|all]` | Reload configuration files                     | `modularstoragesystem.admin`    |
 
 ### Available Items for `/mss give`
 - `storage_server`, `drive_bay`, `mss_terminal`, `security_terminal`

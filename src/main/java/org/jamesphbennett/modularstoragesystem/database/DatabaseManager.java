@@ -310,6 +310,77 @@ public class DatabaseManager {
     }
 
     /**
+     * Migrate importers table to include bottle_xp column for XP bottling feature
+     */
+    private void migrateBottleXpSupport() throws SQLException {
+        try (Connection conn = getConnection()) {
+            // Check if bottle_xp column exists in importers
+            boolean needsMigration = false;
+
+            if (plugin.getConfigManager().isMySql()) {
+                // MySQL: Use INFORMATION_SCHEMA
+                String checkQuery = """
+                    SELECT COUNT(*) as count FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'importers' AND COLUMN_NAME = 'bottle_xp'
+                    """;
+                try (var stmt = conn.prepareStatement(checkQuery)) {
+                    stmt.setString(1, plugin.getConfigManager().getMysqlDatabase());
+                    try (var rs = stmt.executeQuery()) {
+                        if (rs.next() && rs.getInt("count") == 0) {
+                            needsMigration = true;
+                            plugin.getLogger().info("Database migration needed - adding bottle_xp column to importers");
+                        }
+                    }
+                }
+            } else {
+                // SQLite: Use PRAGMA
+                try (var stmt = conn.createStatement();
+                     var rs = stmt.executeQuery("PRAGMA table_info(importers)")) {
+                    boolean hasBottleXpColumn = false;
+                    while (rs.next()) {
+                        String columnName = rs.getString("name");
+                        if ("bottle_xp".equals(columnName)) {
+                            hasBottleXpColumn = true;
+                            break;
+                        }
+                    }
+
+                    if (!hasBottleXpColumn) {
+                        needsMigration = true;
+                        plugin.getLogger().info("Database migration needed - adding bottle_xp column to importers");
+                    }
+                }
+            }
+
+            if (needsMigration) {
+                conn.setAutoCommit(false);
+
+                try {
+                    // Add bottle_xp column with default value false
+                    String boolType = plugin.getConfigManager().isMySql() ? "BOOLEAN" : "INTEGER";
+                    try (var stmt = conn.createStatement()) {
+                        stmt.execute("ALTER TABLE importers ADD COLUMN bottle_xp " + boolType + " DEFAULT " + (plugin.getConfigManager().isMySql() ? "false" : "0"));
+                    }
+
+                    // Update existing importers to have bottle_xp = false (safe default)
+                    try (var stmt = conn.createStatement()) {
+                        stmt.execute("UPDATE importers SET bottle_xp = " + (plugin.getConfigManager().isMySql() ? "false" : "0") + " WHERE bottle_xp IS NULL");
+                    }
+
+                    conn.commit();
+                    plugin.getLogger().info("Successfully added bottle_xp column to importers table");
+
+                } catch (Exception e) {
+                    conn.rollback();
+                    throw new SQLException("Failed to migrate bottle XP support", e);
+                } finally {
+                    conn.setAutoCommit(true);
+                }
+            }
+        }
+    }
+
+    /**
      * Migrate exporter_filters table to include item_data column
      */
     private void migrateExporterFilters() throws SQLException {
@@ -672,6 +743,9 @@ public class DatabaseManager {
 
             // Run slot targeting migration
             migrateSlotTargeting();
+
+            // Run bottle XP support migration
+            migrateBottleXpSupport();
 
             // Check if we need to migrate storage_items table constraint
             boolean needsMigration = false;

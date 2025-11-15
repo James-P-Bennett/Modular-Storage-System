@@ -507,6 +507,15 @@ gui:
       info: "Importer Information"
       no-filters: "No filters to clear"
       cleared-success: "{mss-prefix}<green>Cleared all filters - will now import everything.</green>"
+    xp:
+      enabled: "<green>Bottle XP: Enabled</green>"
+      disabled: "<gray>Bottle XP: Disabled</gray>"
+      enabled-description: "Automatically bottles furnace XP"
+      enabled-requirement: "Requires: Glass Bottles in network"
+      toggle: "<yellow>Click to toggle</yellow>"
+      toggle-enabled: "{mss-prefix}<green>Bottle XP enabled</green>"
+      toggle-disabled: "{mss-prefix}<yellow>Bottle XP disabled</yellow>"
+      toggle-error: "{mss-prefix}<red>Error toggling Bottle XP: {error}</red>"
     
     # Brewing Stand specific importer
     brewing:
