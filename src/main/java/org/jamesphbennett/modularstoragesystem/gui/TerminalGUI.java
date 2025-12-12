@@ -149,9 +149,9 @@ public class TerminalGUI implements Listener {
         List<Component> sortLore = new ArrayList<>();
         sortLore.add(Component.empty());
         sortLore.add(plugin.getMessageManager().getMessageComponent(null, switch (sortMode) {
-            case ALPHABETICAL -> "gui.terminal.sorting.to-alphabetical";
-            case QUANTITY -> "gui.terminal.sorting.to-quantity";
-            case CREATIVE -> "gui.terminal.sorting.to-creative";
+            case ALPHABETICAL -> "gui.terminal.sorting.to-quantity";
+            case QUANTITY -> "gui.terminal.sorting.to-creative";
+            case CREATIVE -> "gui.terminal.sorting.to-alphabetical";
         }));
         sortMeta.lore(sortLore);
 
@@ -217,9 +217,9 @@ public class TerminalGUI implements Listener {
 
         infoLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.terminal.pagination.page-info", "current", (currentPage + 1), "total", maxPages));
         infoLore.add(plugin.getMessageManager().getMessageComponent(null, switch (sortMode) {
-            case ALPHABETICAL -> "gui.terminal.info.sort-mode-quantity";
-            case QUANTITY -> "gui.terminal.info.sort-mode-creative";
-            case CREATIVE -> "gui.terminal.info.sort-mode-alphabetical";
+            case ALPHABETICAL -> "gui.terminal.info.sort-mode-alphabetical";
+            case QUANTITY -> "gui.terminal.info.sort-mode-quantity";
+            case CREATIVE -> "gui.terminal.info.sort-mode-creative";
         }));
 
         // Show items on current page
