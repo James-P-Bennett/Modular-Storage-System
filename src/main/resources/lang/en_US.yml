@@ -337,13 +337,16 @@ gui:
     sorting:
       alphabetical: "<blue>Sorting: Alphabetically</blue>"
       quantity: "<blue>Sorting: Quantity</blue>"
+      creative: "<blue>Sorting: Creative</blue>"
       to-alphabetical: "Click to sort Alphabetically."
       to-quantity: "Click to sort by Quantity"
+      to-creative: "Click to sort by Creative Menu"
       mode-quantity: "<blue>Quantity</blue>"
       mode-alphabetical: "<blue>Alphabetical (A-Z)</blue>"
       changed: "{mss-prefix}<yellow>Sorting changed to: {mode}</yellow>"
       changed-to-quantity: "{mss-prefix}<yellow>Sorting changed to: Quantity</yellow>"
       changed-to-alphabetical: "{mss-prefix}<yellow>Sorting changed to: Alphabetical (A-Z)</yellow>"
+      changed-to-creative: "{mss-prefix}<yellow>Sorting changed to: Creative Menu (A-Z)</yellow>"
     pagination:
       previous: "Previous Page"
       next: "Next Page"

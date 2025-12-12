@@ -25,6 +25,12 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class TerminalGUI implements Listener {
 
+    public enum SortModes {
+        ALPHABETICAL,
+        QUANTITY,
+        CREATIVE,
+    }
+
     private final ModularStorageSystem plugin;
     private final Location terminalLocation;
     private final String networkId;
@@ -41,7 +47,7 @@ public class TerminalGUI implements Listener {
     private boolean isSearchActive = false;
 
     // Sorting functionality
-    private boolean isQuantitySortActive; // false = alphabetical, true = quantity
+    private SortModes sortMode;
 
     // Click rate limiting to prevent DB spam - 200ms cooldown
     private final Map<UUID, Long> clickCooldowns = new ConcurrentHashMap<>();
@@ -64,8 +70,8 @@ public class TerminalGUI implements Listener {
         }
 
         // Check for saved sorting preference for this terminal location
-        this.isQuantitySortActive = plugin.getGUIManager().getTerminalQuantitySort(terminalLocation);
-        if (isQuantitySortActive) {
+        this.sortMode = plugin.getGUIManager().getTerminalSortMode(terminalLocation);
+        if (sortMode != SortModes.ALPHABETICAL) {
             plugin.debugLog("debug.gui.sort-saved", "key", terminalLocation.toString());
         }
 
@@ -127,28 +133,27 @@ public class TerminalGUI implements Listener {
     }
 
     private void updateSortingButton() {
-        ItemStack sortButton = new ItemStack(Material.NAME_TAG);
+        ItemStack sortButton = new ItemStack(switch (sortMode) {
+            case ALPHABETICAL -> Material.NAME_TAG;
+            case QUANTITY -> Material.HOPPER;
+            case CREATIVE -> Material.STRUCTURE_BLOCK;
+        });
+
         ItemMeta sortMeta = sortButton.getItemMeta();
+        sortMeta.displayName(plugin.getMessageManager().getMessageComponent(null, switch (sortMode) {
+            case ALPHABETICAL -> "gui.terminal.sorting.alphabetical";
+            case QUANTITY -> "gui.terminal.sorting.quantity";
+            case CREATIVE -> "gui.terminal.sorting.creative";
+        }));
 
-        if (isQuantitySortActive) {
-            // Quantity sorting is active
-            sortMeta.displayName(plugin.getMessageManager().getMessageComponent(null, "gui.terminal.sorting.quantity"));
-            List<Component> sortLore = new ArrayList<>();
-            sortLore.add(Component.empty());
-            sortLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.terminal.sorting.to-alphabetical"));
-            sortMeta.lore(sortLore);
-
-            // Add glowing effect
-            sortMeta.addEnchant(Enchantment.UNBREAKING, 1, true);
-            sortMeta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
-        } else {
-            // Alphabetical sorting is active (default)
-            sortMeta.displayName(plugin.getMessageManager().getMessageComponent(null, "gui.terminal.sorting.alphabetical"));
-            List<Component> sortLore = new ArrayList<>();
-            sortLore.add(Component.empty());
-            sortLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.terminal.sorting.to-quantity"));
-            sortMeta.lore(sortLore);
-        }
+        List<Component> sortLore = new ArrayList<>();
+        sortLore.add(Component.empty());
+        sortLore.add(plugin.getMessageManager().getMessageComponent(null, switch (sortMode) {
+            case ALPHABETICAL -> "gui.terminal.sorting.to-alphabetical";
+            case QUANTITY -> "gui.terminal.sorting.to-quantity";
+            case CREATIVE -> "gui.terminal.sorting.to-creative";
+        }));
+        sortMeta.lore(sortLore);
 
         sortButton.setItemMeta(sortMeta);
         inventory.setItem(50, sortButton); // Next to search button
@@ -211,8 +216,11 @@ public class TerminalGUI implements Listener {
         }
 
         infoLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.terminal.pagination.page-info", "current", (currentPage + 1), "total", maxPages));
-        String sortModeKey = isQuantitySortActive ? "gui.terminal.info.sort-mode-quantity" : "gui.terminal.info.sort-mode-alphabetical";
-        infoLore.add(plugin.getMessageManager().getMessageComponent(null, sortModeKey));
+        infoLore.add(plugin.getMessageManager().getMessageComponent(null, switch (sortMode) {
+            case ALPHABETICAL -> "gui.terminal.info.sort-mode-quantity";
+            case QUANTITY -> "gui.terminal.info.sort-mode-creative";
+            case CREATIVE -> "gui.terminal.info.sort-mode-alphabetical";
+        }));
 
         // Show items on current page
         int startIndex = currentPage * itemsPerPage;
@@ -255,7 +263,7 @@ public class TerminalGUI implements Listener {
             updateDisplayedItems();
 
             String searchInfo = isSearchActive ? ", filtered to " + filteredItems.size() + " results" : "";
-            plugin.debugLog("debug.gui.items-loaded", "total", allItems.size(), "search", searchInfo, "sorting", (isQuantitySortActive ? "quantity" : "alphabetical"));
+            plugin.debugLog("debug.gui.items-loaded", "total", allItems.size(), "search", searchInfo, "sorting", sortMode.name());
         } catch (Exception e) {
             plugin.getLogger().severe("Error loading terminal items: " + e.getMessage());
         }
@@ -265,22 +273,41 @@ public class TerminalGUI implements Listener {
      * Apply sorting to the items list based on current sort mode
      */
     private void applySorting() {
-        if (isQuantitySortActive) {
-            // Sort by quantity (descending) - most items first
-            allItems.sort((a, b) -> {
-                int quantityCompare = Integer.compare(b.quantity(), a.quantity());
-                if (quantityCompare != 0) {
-                    return quantityCompare;
+        switch (sortMode) {
+            case CREATIVE:
+                try {
+                    // Sort by creative category and then ordinal
+                    allItems.sort(
+                        Comparator
+                            .comparing(
+                                (StoredItem i) -> i.itemStack().getType().getCreativeCategory(),
+                                Comparator.nullsLast(Comparator.comparingInt(Enum::ordinal))
+                            )
+                            .thenComparingInt(i -> i.itemStack().getType().ordinal())
+                    );
+                } catch (Exception e) {
+                    // Fallback to ordinal sorting if creative category access fails
+                    allItems.sort(Comparator.comparingInt(item -> item.itemStack().getType().ordinal()));
                 }
-                // If quantities are equal, fall back to alphabetical
-                return a.itemStack().getType().name().compareTo(b.itemStack().getType().name());
-            });
-            plugin.debugLog("debug.gui.sorting-applied", "type", "quantity (most items first)");
-        } else {
-            // Sort alphabetically by item type name (default)
-            allItems.sort(Comparator.comparing(item -> item.itemStack().getType().name()));
-            plugin.debugLog("debug.gui.sorting-applied", "type", "alphabetical");
+                break;
+            case QUANTITY:
+                // Sort by quantity (descending) - most items first
+                allItems.sort((a, b) -> {
+                    int quantityCompare = Integer.compare(b.quantity(), a.quantity());
+                    if (quantityCompare != 0) {
+                        return quantityCompare;
+                    }
+                    // If quantities are equal, fall back to alphabetical
+                    return a.itemStack().getType().name().compareTo(b.itemStack().getType().name());
+                });
+                break;
+            case ALPHABETICAL:
+            default:
+                // Sort alphabetically by item type name (default)
+                allItems.sort(Comparator.comparing(item -> item.itemStack().getType().name()));
+                break;
         }
+        plugin.debugLog("debug.gui.sorting-applied", "type", sortMode.name());
     }
 
     private void applySearchFilter() {
@@ -323,7 +350,7 @@ public class TerminalGUI implements Listener {
                 return scoreCompare;
             }
             // If scores are equal, use current sort mode as tiebreaker
-            if (isQuantitySortActive) {
+            if (sortMode == SortModes.QUANTITY) {
                 int quantityCompare = Integer.compare(b.item.quantity(), a.item.quantity());
                 if (quantityCompare != 0) {
                     return quantityCompare;
@@ -446,16 +473,21 @@ public class TerminalGUI implements Listener {
     }
 
     /**
-     * Toggle sorting mode between alphabetical and quantity-based
+     * Cycle sorting mode between the options
      */
-    public void toggleSorting() {
-        isQuantitySortActive = !isQuantitySortActive;
+    public void cycleSorting() {
+        // Cycle through modes
+        sortMode = switch (sortMode) {
+            case ALPHABETICAL -> SortModes.QUANTITY;
+            case QUANTITY -> SortModes.CREATIVE;
+            case CREATIVE -> SortModes.ALPHABETICAL;
+        };
         this.currentPage = 0; // Reset to first page
 
         // Save the sorting preference for this terminal
-        plugin.getGUIManager().setTerminalQuantitySort(terminalLocation, isQuantitySortActive);
+        plugin.getGUIManager().setTerminalSortMode(terminalLocation, sortMode);
 
-        plugin.debugLog("debug.gui.sorting-applied", "type", (isQuantitySortActive ? "quantity" : "alphabetical"));
+        plugin.debugLog("debug.gui.sorting-applied", "type", sortMode.name());
 
         // Re-apply sorting to all items
         applySorting();
@@ -537,7 +569,7 @@ public class TerminalGUI implements Listener {
         // Store current search state and sorting mode
         String savedSearchTerm = currentSearchTerm;
         boolean wasSearchActive = isSearchActive;
-        boolean wasSortingByQuantity = isQuantitySortActive;
+        SortModes savedSortMode = sortMode;
 
         loadItems();
 
@@ -547,8 +579,8 @@ public class TerminalGUI implements Listener {
         }
 
         // Restore sorting mode
-        if (wasSortingByQuantity != isQuantitySortActive) {
-            isQuantitySortActive = wasSortingByQuantity;
+        if (!savedSortMode.equals(sortMode)) {
+            sortMode = savedSortMode;
             applySorting();
             if (isSearchActive) {
                 applySearchFilter();
@@ -559,7 +591,7 @@ public class TerminalGUI implements Listener {
         int itemCountAfter = allItems.size();
         plugin.debugLog("Terminal refresh complete: " + itemCountBefore + " -> " + itemCountAfter + " item types" +
                 (wasSearchActive ? " (search preserved: '" + savedSearchTerm + "')" : "") +
-                " (sorting: " + (isQuantitySortActive ? "quantity" : "alphabetical") + ")");
+                " (sorting: " + sortMode.name() + ")");
     }
 
     @EventHandler
@@ -603,9 +635,12 @@ public class TerminalGUI implements Listener {
         if (slot == 50) {
             event.setCancelled(true);
 
-            toggleSorting();
-            String messageKey = isQuantitySortActive ? "gui.terminal.sorting.changed-to-quantity" : "gui.terminal.sorting.changed-to-alphabetical";
-            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, messageKey));
+            cycleSorting();
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, switch (sortMode) {
+                case ALPHABETICAL -> "gui.terminal.sorting.changed-to-alphabetical";
+                case QUANTITY -> "gui.terminal.sorting.changed-to-quantity";
+                case CREATIVE -> "gui.terminal.sorting.changed-to-creative";
+            }));
             return;
         }
 
