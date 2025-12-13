@@ -10,6 +10,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.Container;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
+import org.jamesphbennett.modularstoragesystem.gui.TerminalGUI.SortModes;
 
 import java.util.Map;
 import java.util.Set;
@@ -30,7 +31,7 @@ public class GUIManager {
     private final Map<UUID, BukkitRunnable> searchTimeoutTasks = new ConcurrentHashMap<>();
     private static final int SEARCH_TIMEOUT_SECONDS = 10;
     private final Map<String, String> terminalSearchTerms = new ConcurrentHashMap<>();
-    private final Map<String, Boolean> terminalQuantitySort = new ConcurrentHashMap<>();
+    private final Map<String, SortModes> terminalSortMode = new ConcurrentHashMap<>();
 
     private final Map<UUID, SecurityTerminalGUI> playersAwaitingPlayerInput = new ConcurrentHashMap<>();
     private final Map<UUID, BukkitRunnable> playerInputTimeoutTasks = new ConcurrentHashMap<>();
@@ -364,20 +365,20 @@ public class GUIManager {
     /**
      * Get saved quantity sort setting for a terminal location
      */
-    public boolean getTerminalQuantitySort(Location terminalLocation) {
-        return terminalQuantitySort.getOrDefault(getTerminalKey(terminalLocation), false);
+    public SortModes getTerminalSortMode(Location terminalLocation) {
+        return terminalSortMode.getOrDefault(getTerminalKey(terminalLocation), SortModes.ALPHABETICAL);
     }
 
     /**
-     * Save quantity sort setting for a terminal location
+     * Save sort mode setting for a terminal location
      */
-    public void setTerminalQuantitySort(Location terminalLocation, boolean quantitySort) {
+    public void setTerminalSortMode(Location terminalLocation, SortModes sortMode) {
         String key = getTerminalKey(terminalLocation);
-        if (quantitySort) {
-            terminalQuantitySort.put(key, true);
+        if (sortMode != SortModes.ALPHABETICAL) {
+            terminalSortMode.put(key, sortMode);
             plugin.debugLog("Saved quantity sort setting for terminal at " + key);
         } else {
-            terminalQuantitySort.remove(key);
+            terminalSortMode.remove(key);
             plugin.debugLog("Cleared quantity sort setting for terminal at " + key + " (using default alphabetical)");
         }
     }
@@ -934,7 +935,7 @@ public class GUIManager {
         playersAwaitingPlayerInput.clear();
         playerInputTimeoutTasks.clear();
         terminalSearchTerms.clear();
-        terminalQuantitySort.clear();
+        terminalSortMode.clear();
     }
 
 }

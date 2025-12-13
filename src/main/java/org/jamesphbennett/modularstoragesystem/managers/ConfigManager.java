@@ -1,17 +1,22 @@
 package org.jamesphbennett.modularstoragesystem.managers;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
-
-import java.io.File;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 public class ConfigManager {
 
@@ -26,6 +31,7 @@ public class ConfigManager {
     private int maxImporters;
     private int exportTickInterval;
     private Set<Material> blacklistedItems;
+    private Map<Material, Integer> creativeSortOrder;
     private boolean requireUsePermission;
     private boolean requireCraftPermission;
 
@@ -81,6 +87,7 @@ public class ConfigManager {
         loadNetworkSettings();
         loadStorageSettings();
         loadBlacklistedItems();
+        loadCreativeMenuOrder();
         loadPermissionSettings();
         loadLoggingSettings();
         loadDebugSettings();
@@ -120,6 +127,35 @@ public class ConfigManager {
     private void loadRecipeSettings() {
         recipesEnabled = recipesConfig.getBoolean("settings.enabled", true);
         showUnlockMessages = recipesConfig.getBoolean("settings.show_unlock_messages", false);
+    }
+
+    private void loadCreativeMenuOrder() {
+        creativeSortOrder = new HashMap<>();
+        File file = new File(plugin.getDataFolder(), "creative_menu.txt");
+        
+        if (!file.exists()) {
+            plugin.saveResource("creative_menu.txt", false);
+        }
+        
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            int index = 0;
+            while ((line = reader.readLine()) != null) {
+                String materialName = line.trim();
+                if (materialName.isEmpty()) continue;
+
+                Material material = Material.matchMaterial(materialName.replace("minecraft:", ""));
+                if (material != null && !creativeSortOrder.containsKey(material)) {
+                    creativeSortOrder.put(material, index++);
+                }
+            }
+        } catch (IOException e) {
+            plugin.getLogger().warning("Failed to load creative_menu.txt: " + e.getMessage());
+        }
+    }
+
+    public int getCreativeMenuOrder(Material material) {
+        return creativeSortOrder.getOrDefault(material, Integer.MAX_VALUE);
     }
 
     private void loadNetworkSettings() {
