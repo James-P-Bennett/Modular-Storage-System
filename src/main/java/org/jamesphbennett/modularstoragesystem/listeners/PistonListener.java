@@ -44,7 +44,6 @@ public class PistonListener implements Listener {
 
         // Safe type checking to prevent ClassCastException
         if (!(pistonBlock.getBlockData() instanceof org.bukkit.block.data.type.Piston pistonData)) {
-            plugin.getLogger().warning("Piston block data is not of type Piston: " + pistonBlock.getBlockData().getClass().getSimpleName());
             return;
         }
 
@@ -105,7 +104,6 @@ public class PistonListener implements Listener {
 
         // Safe type checking to prevent ClassCastException
         if (!(pistonBlock.getBlockData() instanceof org.bukkit.block.data.type.Piston pistonData)) {
-            plugin.getLogger().warning("Piston block data is not of type Piston: " + pistonBlock.getBlockData().getClass().getSimpleName());
             return;
         }
 
