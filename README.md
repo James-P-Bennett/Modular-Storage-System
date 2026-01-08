@@ -102,6 +102,7 @@ Modular Storage System is a comprehensive Minecraft storage plugin. It provides 
 ### Sorting Options
 - **Alphabetical Sort**: Default sorting mode, organizes items A-Z
 - **Quantity Sort**: Click the name tag button to sort by item count (highest first)
+- **Creative Menu Sort**: Click the button again to sort the same way the creative menu is organized
 - **Persistent Settings**: Sort preference is saved per terminal location
 ![TerminalSortingFeature.png](media%2FTerminalSortingFeature.png)
 
