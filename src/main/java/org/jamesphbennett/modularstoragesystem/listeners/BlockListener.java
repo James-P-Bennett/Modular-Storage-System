@@ -113,6 +113,14 @@ public class BlockListener implements Listener {
             return;
         }
 
+        // Check item-specific placement permission
+        String itemType = getItemTypeForPermission(item);
+        if (itemType != null && !plugin.getPermissionManager().canUse(player, itemType)) {
+            event.setCancelled(true);
+            plugin.getPermissionManager().sendUseDeniedMessage(player, itemType, "place");
+            return;
+        }
+
         // Check for security terminal permissions for block modification
         // We need to check adjacent blocks to see if there's a security terminal network
         String adjacentNetworkId = null;
@@ -686,6 +694,12 @@ public class BlockListener implements Listener {
                 return;
             }
 
+            // Check item-specific permission
+            if (!plugin.getPermissionManager().canUse(player, "exporter")) {
+                plugin.getPermissionManager().sendUseDeniedMessage(player, "exporter", "open");
+                return;
+            }
+
             try {
                 String networkId = networkManager.getNetworkId(block.getLocation());
                 if (networkId == null) {
@@ -723,6 +737,12 @@ public class BlockListener implements Listener {
 
             if (plugin.getConfigManager().isRequireUsePermission() && !player.hasPermission("modularstoragesystem.use")) {
                 player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.interaction.no-use-permission-importers"));
+                return;
+            }
+
+            // Check item-specific permission
+            if (!plugin.getPermissionManager().canUse(player, "importer")) {
+                plugin.getPermissionManager().sendUseDeniedMessage(player, "importer", "open");
                 return;
             }
 
@@ -776,6 +796,12 @@ public class BlockListener implements Listener {
                 return;
             }
 
+            // Check item-specific permission
+            if (!plugin.getPermissionManager().canUse(player, "mss_terminal")) {
+                plugin.getPermissionManager().sendUseDeniedMessage(player, "mss_terminal", "open");
+                return;
+            }
+
             try {
                 String networkId = networkManager.getNetworkId(block.getLocation());
                 if (networkId == null || !networkManager.isNetworkValid(networkId)) {
@@ -809,6 +835,12 @@ public class BlockListener implements Listener {
                 return;
             }
 
+            // Check item-specific permission
+            if (!plugin.getPermissionManager().canUse(player, "storage_server")) {
+                plugin.getPermissionManager().sendUseDeniedMessage(player, "storage_server", "open");
+                return;
+            }
+
             try {
                 // Check security permissions (unless player has admin bypass)
                 String networkId = networkManager.getNetworkId(block.getLocation());
@@ -834,6 +866,12 @@ public class BlockListener implements Listener {
 
             if (plugin.getConfigManager().isRequireUsePermission() && !player.hasPermission("modularstoragesystem.use")) {
                 player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.placement.access-denied-manage-network"));
+                return;
+            }
+
+            // Check item-specific permission
+            if (!plugin.getPermissionManager().canUse(player, "security_terminal")) {
+                plugin.getPermissionManager().sendUseDeniedMessage(player, "security_terminal", "open");
                 return;
             }
 
@@ -868,6 +906,12 @@ public class BlockListener implements Listener {
 
             if (plugin.getConfigManager().isRequireUsePermission() && !player.hasPermission("modularstoragesystem.use")) {
                 player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.interaction.no-use-permission-drive-bays"));
+                return;
+            }
+
+            // Check item-specific permission
+            if (!plugin.getPermissionManager().canUse(player, "drive_bay")) {
+                plugin.getPermissionManager().sendUseDeniedMessage(player, "drive_bay", "open");
                 return;
             }
 
@@ -1472,7 +1516,31 @@ public class BlockListener implements Listener {
                 }
             }
         }
-        
+
         return true;
+    }
+
+    /**
+     * Get the item type for permission checking from an ItemStack
+     * @param item The item being placed
+     * @return The item type for permission checking, or null if not an MSS item
+     */
+    private String getItemTypeForPermission(ItemStack item) {
+        if (itemManager.isStorageServer(item)) {
+            return "storage_server";
+        } else if (itemManager.isDriveBay(item)) {
+            return "drive_bay";
+        } else if (itemManager.isMSSTerminal(item)) {
+            return "mss_terminal";
+        } else if (itemManager.isNetworkCable(item)) {
+            return "network_cable";
+        } else if (itemManager.isExporter(item)) {
+            return "exporter";
+        } else if (itemManager.isImporter(item)) {
+            return "importer";
+        } else if (itemManager.isSecurityTerminal(item)) {
+            return "security_terminal";
+        }
+        return null;
     }
 }

@@ -34,6 +34,7 @@ public final class ModularStorageSystem extends JavaPlugin {
     private ExporterManager exporterManager;
     private ImporterManager importerManager;
     private NetworkSecurityManager securityManager;
+    private PermissionManager permissionManager;
     private MessageManager messageManager;
     private BlockMarkerCache blockMarkerCache;
 
@@ -66,6 +67,7 @@ public final class ModularStorageSystem extends JavaPlugin {
             exporterManager = new ExporterManager(this);
             importerManager = new ImporterManager(this);
             securityManager = new NetworkSecurityManager(this);
+            permissionManager = new PermissionManager(this);
 
             // Start periodic GUI validation task (every 30 seconds)
             getServer().getScheduler().runTaskTimer(this, () -> {
@@ -173,6 +175,10 @@ public final class ModularStorageSystem extends JavaPlugin {
 
     public NetworkSecurityManager getSecurityManager() {
         return securityManager;
+    }
+
+    public PermissionManager getPermissionManager() {
+        return permissionManager;
     }
 
     public MessageManager getMessageManager() {

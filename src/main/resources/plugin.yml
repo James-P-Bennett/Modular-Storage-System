@@ -19,3 +19,102 @@ permissions:
   modularstoragesystem.recovery:
     description: Permission to use recovery commands
     default: op
+
+  # Wildcard permissions
+  mss.craft.*:
+    description: Permission to craft all MSS items
+    default: true
+  mss.use.*:
+    description: Permission to use/place/interact with all MSS items
+    default: true
+
+  # Craft permissions - Network Blocks
+  mss.craft.storage_server:
+    description: Permission to craft Storage Server
+    default: true
+  mss.craft.drive_bay:
+    description: Permission to craft Drive Bay
+    default: true
+  mss.craft.mss_terminal:
+    description: Permission to craft MSS Terminal
+    default: true
+  mss.craft.network_cable:
+    description: Permission to craft Network Cable
+    default: true
+  mss.craft.exporter:
+    description: Permission to craft Exporter
+    default: true
+  mss.craft.importer:
+    description: Permission to craft Importer
+    default: true
+  mss.craft.security_terminal:
+    description: Permission to craft Security Terminal
+    default: true
+
+  # Craft permissions - Storage Disks
+  mss.craft.storage_disk_1k:
+    description: Permission to craft 1k Storage Disk
+    default: true
+  mss.craft.storage_disk_4k:
+    description: Permission to craft 4k Storage Disk
+    default: true
+  mss.craft.storage_disk_16k:
+    description: Permission to craft 16k Storage Disk
+    default: true
+  mss.craft.storage_disk_64k:
+    description: Permission to craft 64k Storage Disk
+    default: true
+
+  # Craft permissions - Components
+  mss.craft.disk_platter_1k:
+    description: Permission to craft 1k Disk Platter
+    default: true
+  mss.craft.disk_platter_4k:
+    description: Permission to craft 4k Disk Platter
+    default: true
+  mss.craft.disk_platter_16k:
+    description: Permission to craft 16k Disk Platter
+    default: true
+  mss.craft.disk_platter_64k:
+    description: Permission to craft 64k Disk Platter
+    default: true
+  mss.craft.storage_disk_housing:
+    description: Permission to craft Storage Disk Housing
+    default: true
+
+  # Use permissions - Network Blocks
+  mss.use.storage_server:
+    description: Permission to place and view Storage Server info
+    default: true
+  mss.use.drive_bay:
+    description: Permission to place and open Drive Bay
+    default: true
+  mss.use.mss_terminal:
+    description: Permission to place and open MSS Terminal
+    default: true
+  mss.use.network_cable:
+    description: Permission to place Network Cable
+    default: true
+  mss.use.exporter:
+    description: Permission to place and configure Exporter
+    default: true
+  mss.use.importer:
+    description: Permission to place and configure Importer
+    default: true
+  mss.use.security_terminal:
+    description: Permission to place and manage Security Terminal
+    default: true
+
+  # Use permissions - Storage Disks (for inserting/removing from drive bays)
+  mss.use.storage_disk_1k:
+    description: Permission to insert/remove 1k Storage Disks
+    default: true
+  mss.use.storage_disk_4k:
+    description: Permission to insert/remove 4k Storage Disks
+    default: true
+  mss.use.storage_disk_16k:
+    description: Permission to insert/remove 16k Storage Disks
+    default: true
+  mss.use.storage_disk_64k:
+    description: Permission to insert/remove 64k Storage Disks
+    default: true

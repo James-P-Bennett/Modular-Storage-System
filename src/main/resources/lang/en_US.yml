@@ -105,7 +105,7 @@ commands:
     all-success: "{mss-prefix}<green>All configurations reloaded successfully!</green>"
     all-error: "{mss-prefix}<red>Error reloading configurations: {error}</red>"
 
-# Error Messages  
+# Error Messages
 errors:
   general:
     missing-message: "{mss-prefix}<red>Missing message: {key}</red>"
@@ -218,6 +218,33 @@ errors:
 
   cable:
     placement-error: "{mss-prefix}<red>Error placing cable: {error}</red>"
+
+# Permission Messages
+permissions:
+  craft-denied: "{mss-prefix}<red>You don't have permission to craft <yellow>{item}</yellow>.</red>"
+  use-denied: "{mss-prefix}<red>You don't have permission to use <yellow>{item}</yellow>.</red>"
+  use-denied-place: "{mss-prefix}<red>You don't have permission to place <yellow>{item}</yellow>.</red>"
+  use-denied-open: "{mss-prefix}<red>You don't have permission to open <yellow>{item}</yellow>.</red>"
+  use-denied-modify: "{mss-prefix}<red>You don't have permission to modify <yellow>{item}</yellow>.</red>"
+
+# Item Display Names
+items:
+  storage_server: "Storage Server"
+  drive_bay: "Drive Bay"
+  mss_terminal: "Terminal"
+  network_cable: "Network Cable"
+  exporter: "Exporter"
+  importer: "Importer"
+  security_terminal: "Security Terminal"
+  storage_disk_1k: "1k Storage Disk"
+  storage_disk_4k: "4k Storage Disk"
+  storage_disk_16k: "16k Storage Disk"
+  storage_disk_64k: "64k Storage Disk"
+  disk_platter_1k: "1k Disk Platter"
+  disk_platter_4k: "4k Disk Platter"
+  disk_platter_16k: "16k Disk Platter"
+  disk_platter_64k: "64k Disk Platter"
+  storage_disk_housing: "Storage Disk Housing"
 
 # Drive Bay Errors (referenced as drive-bay.error.*)
 # This is a separate top-level section, not under errors.

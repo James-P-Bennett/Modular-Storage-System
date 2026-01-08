@@ -375,6 +375,14 @@ public class DriveBayGUI implements Listener {
             if (plugin.getItemManager().isStorageDisk(cursorItem)) {
                 event.setCancelled(true);
 
+                // Check permission to insert disk
+                String diskTier = plugin.getItemManager().getDiskTier(cursorItem);
+                String diskType = "storage_disk_" + (diskTier != null ? diskTier : "1k");
+                if (!plugin.getPermissionManager().canUse(player, diskType)) {
+                    plugin.getPermissionManager().sendUseDeniedMessage(player, diskType, "insert");
+                    return;
+                }
+
                 if (clickedItem == null || clickedItem.getType().isAir()) {
                     if (placeDiskInSlot(player, driveSlotIndex, cursorItem)) {
                         event.getView().setCursor(null);
@@ -385,6 +393,14 @@ public class DriveBayGUI implements Listener {
                     }
                 } else {
                     if (plugin.getItemManager().isStorageDisk(clickedItem)) {
+                        // Check permission to swap disk (need permission for the disk being inserted)
+                        String swapDiskTier = plugin.getItemManager().getDiskTier(cursorItem);
+                        String swapDiskType = "storage_disk_" + (swapDiskTier != null ? swapDiskTier : "1k");
+                        if (!plugin.getPermissionManager().canUse(player, swapDiskType)) {
+                            plugin.getPermissionManager().sendUseDeniedMessage(player, swapDiskType, "insert");
+                            return;
+                        }
+
                         if (swapDisksInSlot(player, driveSlotIndex, cursorItem)) {
                             event.getView().setCursor(clickedItem);
                             //                                updateTitleItem();
@@ -400,6 +416,15 @@ public class DriveBayGUI implements Listener {
             if (clickedItem != null && !clickedItem.getType().isAir()) {
                 if (plugin.getItemManager().isStorageDisk(clickedItem)) {
                     event.setCancelled(true);
+
+                    // Check permission to remove disk
+                    String diskTier = plugin.getItemManager().getDiskTier(clickedItem);
+                    String diskType = "storage_disk_" + (diskTier != null ? diskTier : "1k");
+                    if (!plugin.getPermissionManager().canUse(player, diskType)) {
+                        plugin.getPermissionManager().sendUseDeniedMessage(player, diskType, "remove");
+                        return;
+                    }
+
                     if (removeDiskFromSlot(player, driveSlotIndex)) {
                         String diskId = plugin.getItemManager().getStorageDiskId(clickedItem);
                         ItemStack updatedDisk = loadStorageDiskWithCurrentStats(diskId);

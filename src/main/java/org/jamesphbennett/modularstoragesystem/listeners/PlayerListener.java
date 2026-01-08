@@ -275,6 +275,14 @@ public class PlayerListener implements Listener {
                 return;
             }
 
+            // Check crafting permission for all MSS items
+            String itemType = getItemTypeFromRecipeKey(recipeKey);
+            if (!plugin.getPermissionManager().canCraft(player, itemType)) {
+                event.setCancelled(true);
+                plugin.getPermissionManager().sendCraftDeniedMessage(player, itemType);
+                return;
+            }
+
             // Only handle storage disk recipes here (components are handled by custom system)
             if (isStorageDiskRecipe(shapedRecipe)) {
                 handleStorageDiskCrafting(event, player, recipeKey);
@@ -350,6 +358,16 @@ public class PlayerListener implements Listener {
      * Handle storage disk crafting (vanilla recipes but need database registration)
      */
     private void handleStorageDiskCrafting(CraftItemEvent event, Player player, String recipeKey) {
+        // Extract item type from recipe key for permission check
+        String itemType = getItemTypeFromRecipeKey(recipeKey);
+
+        // Check crafting permission
+        if (!plugin.getPermissionManager().canCraft(player, itemType)) {
+            event.setCancelled(true);
+            plugin.getPermissionManager().sendCraftDeniedMessage(player, itemType);
+            return;
+        }
+
         ItemStack storageDisk = null;
         String diskType = "1k"; // Default
 
@@ -388,6 +406,16 @@ public class PlayerListener implements Listener {
     }
 
     private void handleCustomComponentCrafting(CraftItemEvent event, Player player, String recipeName) {
+        // Extract item type from recipe name for permission check
+        String itemType = getItemTypeFromRecipeKey(recipeName);
+
+        // Check crafting permission
+        if (!plugin.getPermissionManager().canCraft(player, itemType)) {
+            event.setCancelled(true);
+            plugin.getPermissionManager().sendCraftDeniedMessage(player, itemType);
+            return;
+        }
+
         // Check if this is a storage disk recipe that needs special handling
         if (isStorageDiskAltRecipe(recipeName)) {
             handleStorageDiskAltCrafting(event, player, recipeName);
@@ -578,5 +606,19 @@ public class PlayerListener implements Listener {
         } catch (SQLException e) {
             plugin.getLogger().warning("Error removing recycled disk " + diskId + " from database: " + e.getMessage());
         }
+    }
+
+    /**
+     * Extract item type from recipe key for permission checking
+     * Converts recipe keys like "storage_disk_1k" to "storage_disk_1k", "storage_disk_4k_alt" to "storage_disk_4k", etc.
+     * @param recipeKey The recipe key or name
+     * @return The item type for permission checking
+     */
+    private String getItemTypeFromRecipeKey(String recipeKey) {
+        // For alternative recipes (shapeless), remove the "_alt" suffix
+        if (recipeKey.endsWith("_alt")) {
+            return recipeKey.substring(0, recipeKey.length() - 4);
+        }
+        return recipeKey;
     }
 }
