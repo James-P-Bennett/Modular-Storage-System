@@ -61,15 +61,17 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
         public final Location location;
         public boolean enabled;
         public boolean bottleXp;
+        public boolean ejectBuckets;
         public final List<String> filterItems = new ArrayList<>();
         public long lastImport;
 
-        public ImporterData(String importerId, String networkId, Location location, boolean enabled, boolean bottleXp) {
+        public ImporterData(String importerId, String networkId, Location location, boolean enabled, boolean bottleXp, boolean ejectBuckets) {
             this.importerId = importerId;
             this.networkId = networkId;
             this.location = location;
             this.enabled = enabled;
             this.bottleXp = bottleXp;
+            this.ejectBuckets = ejectBuckets;
             this.lastImport = System.currentTimeMillis();
         }
     }
@@ -80,7 +82,7 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
     private void loadImporters() {
         try (Connection conn = plugin.getDatabaseManager().getConnection();
              PreparedStatement stmt = conn.prepareStatement(
-                     "SELECT i.importer_id, i.network_id, i.world_name, i.x, i.y, i.z, i.enabled, i.bottle_xp, i.last_import " +
+                     "SELECT i.importer_id, i.network_id, i.world_name, i.x, i.y, i.z, i.enabled, i.bottle_xp, i.eject_buckets, i.last_import " +
                              "FROM importers i")) {
 
             try (ResultSet rs = stmt.executeQuery()) {
@@ -93,11 +95,12 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
                     int z = rs.getInt("z");
                     boolean enabled = rs.getBoolean("enabled");
                     boolean bottleXp = rs.getBoolean("bottle_xp");
+                    boolean ejectBuckets = rs.getBoolean("eject_buckets");
 
                     org.bukkit.World world = plugin.getServer().getWorld(worldName);
                     if (world != null) {
                         Location location = new Location(world, x, y, z);
-                        ImporterData data = new ImporterData(importerId, networkId, location, enabled, bottleXp);
+                        ImporterData data = new ImporterData(importerId, networkId, location, enabled, bottleXp, ejectBuckets);
 
                         // Load filters for this importer
                         loadImporterFilters(conn, data);
@@ -253,7 +256,7 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
                     
                     // Update in memory - replace the importer data object
                     activeImporters.remove(importer.importerId);
-                    ImporterData updatedData = new ImporterData(importer.importerId, adjacentNetworkId, importer.location, importer.enabled, importer.bottleXp);
+                    ImporterData updatedData = new ImporterData(importer.importerId, adjacentNetworkId, importer.location, importer.enabled, importer.bottleXp, importer.ejectBuckets);
                     updatedData.filterItems.addAll(importer.filterItems);
                     activeImporters.put(importer.importerId, updatedData);
                     
@@ -363,6 +366,11 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
             // After importing items, check for XP bottling
             if (importer.bottleXp) {
                 bottleFurnaceXp(importer, furnaceContainer);
+            }
+
+            // After importing items and bottling XP, check for bucket ejection
+            if (importer.ejectBuckets) {
+                ejectEmptyBuckets(importer, furnaceInventory);
             }
 
         } catch (Exception e) {
@@ -485,6 +493,54 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
         }
     }
 
+    /**
+     * Eject empty buckets from furnace fuel slot into network
+     */
+    private void ejectEmptyBuckets(ImporterData importer, Inventory furnaceInventory) {
+        try {
+            if (!importer.enabled || !importer.ejectBuckets) {
+                return;
+            }
+
+            int fuelSlot = 1; // Furnace fuel slot
+            ItemStack fuelItem = furnaceInventory.getItem(fuelSlot);
+
+            // Check if the fuel slot contains an empty bucket
+            if (fuelItem == null || fuelItem.getType() != Material.BUCKET) {
+                return; // No empty bucket to eject
+            }
+
+            // Try to store the empty bucket(s) in the network
+            List<ItemStack> bucketsToStore = new ArrayList<>();
+            bucketsToStore.add(fuelItem.clone());
+
+            List<ItemStack> leftoverBuckets = plugin.getStorageManager().storeItems(importer.networkId, bucketsToStore);
+
+            // Calculate what was actually stored
+            int originalAmount = fuelItem.getAmount();
+            int leftoverAmount = leftoverBuckets.isEmpty() ? 0 : leftoverBuckets.getFirst().getAmount();
+            int storedAmount = originalAmount - leftoverAmount;
+
+            if (storedAmount > 0) {
+                // Remove stored buckets from furnace fuel slot
+                if (leftoverAmount == 0) {
+                    furnaceInventory.setItem(fuelSlot, null);
+                } else {
+                    fuelItem.setAmount(leftoverAmount);
+                    furnaceInventory.setItem(fuelSlot, fuelItem);
+                }
+
+                importer.lastImport = System.currentTimeMillis();
+                updateLastImport(importer.importerId);
+
+                // Refresh any open terminals
+                plugin.getGUIManager().refreshNetworkTerminals(importer.networkId);
+            }
+
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error ejecting empty buckets from furnace: " + e.getMessage());
+        }
+    }
 
     /**
      * Import from brewing stand bottom potion slots (slots 0, 1, 2)
@@ -703,6 +759,20 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
     }
 
     /**
+     * Toggle eject buckets setting for an importer
+     */
+    public void toggleEjectBuckets(String importerId, boolean ejectBuckets) throws SQLException {
+        ImporterData data = activeImporters.get(importerId);
+        if (data != null) {
+            data.ejectBuckets = ejectBuckets;
+
+            plugin.getDatabaseManager().executeUpdate(
+                    "UPDATE importers SET eject_buckets = ?, updated_at = CURRENT_TIMESTAMP WHERE importer_id = ?",
+                    ejectBuckets, importerId);
+        }
+    }
+
+    /**
      * Update filter for an importer
      */
     public void updateImporterFilter(String importerId, List<ItemStack> filterItems) throws SQLException {
@@ -793,7 +863,7 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
 
                     // Update in memory - create new ImporterData with UNCONNECTED status
                     activeImporters.remove(importer.importerId);
-                    ImporterData disconnectedData = new ImporterData(importer.importerId, "UNCONNECTED", importer.location, false, importer.bottleXp);
+                    ImporterData disconnectedData = new ImporterData(importer.importerId, "UNCONNECTED", importer.location, false, importer.bottleXp, importer.ejectBuckets);
                     disconnectedData.filterItems.addAll(importer.filterItems);
                     activeImporters.put(importer.importerId, disconnectedData);
 
@@ -817,7 +887,7 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
                 importerId, finalNetworkId, location.getWorld().getName(), location.getBlockX(), location.getBlockY(), location.getBlockZ(), false, false);
 
         // Add to memory
-        ImporterData importerData = new ImporterData(importerId, finalNetworkId, location, false, false);
+        ImporterData importerData = new ImporterData(importerId, finalNetworkId, location, false, false, false);
         activeImporters.put(importerId, importerData);
         importerCycleIndex.put(importerId, 0); // Initialize cycle index
 
@@ -845,7 +915,7 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
 
                         // Update in memory
                         activeImporters.remove(importer.importerId);
-                        ImporterData updatedData = new ImporterData(importer.importerId, newNetworkId, importer.location, importer.enabled, importer.bottleXp);
+                        ImporterData updatedData = new ImporterData(importer.importerId, newNetworkId, importer.location, importer.enabled, importer.bottleXp, importer.ejectBuckets);
                         updatedData.filterItems.addAll(importer.filterItems);
                         activeImporters.put(importer.importerId, updatedData);
 
@@ -861,7 +931,7 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
 
                         // Update in memory
                         activeImporters.remove(importer.importerId);
-                        ImporterData disconnectedData = new ImporterData(importer.importerId, "UNCONNECTED", importer.location, false, importer.bottleXp);
+                        ImporterData disconnectedData = new ImporterData(importer.importerId, "UNCONNECTED", importer.location, false, importer.bottleXp, importer.ejectBuckets);
                         disconnectedData.filterItems.addAll(importer.filterItems);
                         activeImporters.put(importer.importerId, disconnectedData);
 

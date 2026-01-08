@@ -543,7 +543,17 @@ gui:
       toggle-enabled: "{mss-prefix}<green>Bottle XP enabled</green>"
       toggle-disabled: "{mss-prefix}<yellow>Bottle XP disabled</yellow>"
       toggle-error: "{mss-prefix}<red>Error toggling Bottle XP: {error}</red>"
-    
+
+    eject-buckets:
+      enabled: "<green>Eject Buckets: Enabled</green>"
+      disabled: "<gray>Eject Buckets: Disabled</gray>"
+      enabled-description: "Imports empty buckets from fuel slot"
+      disabled-description: "Empty buckets stay in fuel slot"
+      toggle: "<yellow>Click to toggle</yellow>"
+      toggle-enabled: "{mss-prefix}<green>Eject Buckets enabled</green>"
+      toggle-disabled: "{mss-prefix}<yellow>Eject Buckets disabled</yellow>"
+      toggle-error: "{mss-prefix}<red>Error toggling Eject Buckets: {error}</red>"
+
     # Brewing Stand specific importer
     brewing:
       title: "<green><b>Importer</b></green>"

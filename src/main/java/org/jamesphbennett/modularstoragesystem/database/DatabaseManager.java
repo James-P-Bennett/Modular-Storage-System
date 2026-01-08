@@ -381,6 +381,77 @@ public class DatabaseManager {
     }
 
     /**
+     * Migrate importers table to include eject_buckets column for bucket ejection feature
+     */
+    private void migrateEjectBucketsSupport() throws SQLException {
+        try (Connection conn = getConnection()) {
+            // Check if eject_buckets column exists in importers
+            boolean needsMigration = false;
+
+            if (plugin.getConfigManager().isMySql()) {
+                // MySQL: Use INFORMATION_SCHEMA
+                String checkQuery = """
+                    SELECT COUNT(*) as count FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'importers' AND COLUMN_NAME = 'eject_buckets'
+                    """;
+                try (var stmt = conn.prepareStatement(checkQuery)) {
+                    stmt.setString(1, plugin.getConfigManager().getMysqlDatabase());
+                    try (var rs = stmt.executeQuery()) {
+                        if (rs.next() && rs.getInt("count") == 0) {
+                            needsMigration = true;
+                            plugin.getLogger().info("Database migration needed - adding eject_buckets column to importers");
+                        }
+                    }
+                }
+            } else {
+                // SQLite: Use PRAGMA
+                try (var stmt = conn.createStatement();
+                     var rs = stmt.executeQuery("PRAGMA table_info(importers)")) {
+                    boolean hasEjectBucketsColumn = false;
+                    while (rs.next()) {
+                        String columnName = rs.getString("name");
+                        if ("eject_buckets".equals(columnName)) {
+                            hasEjectBucketsColumn = true;
+                            break;
+                        }
+                    }
+
+                    if (!hasEjectBucketsColumn) {
+                        needsMigration = true;
+                        plugin.getLogger().info("Database migration needed - adding eject_buckets column to importers");
+                    }
+                }
+            }
+
+            if (needsMigration) {
+                conn.setAutoCommit(false);
+
+                try {
+                    // Add eject_buckets column with default value false
+                    String boolType = plugin.getConfigManager().isMySql() ? "BOOLEAN" : "INTEGER";
+                    try (var stmt = conn.createStatement()) {
+                        stmt.execute("ALTER TABLE importers ADD COLUMN eject_buckets " + boolType + " DEFAULT " + (plugin.getConfigManager().isMySql() ? "false" : "0"));
+                    }
+
+                    // Update existing importers to have eject_buckets = false (safe default)
+                    try (var stmt = conn.createStatement()) {
+                        stmt.execute("UPDATE importers SET eject_buckets = " + (plugin.getConfigManager().isMySql() ? "false" : "0") + " WHERE eject_buckets IS NULL");
+                    }
+
+                    conn.commit();
+                    plugin.getLogger().info("Successfully added eject_buckets column to importers table");
+
+                } catch (Exception e) {
+                    conn.rollback();
+                    throw new SQLException("Failed to migrate eject buckets support", e);
+                } finally {
+                    conn.setAutoCommit(true);
+                }
+            }
+        }
+    }
+
+    /**
      * Migrate exporter_filters table to include item_data column
      */
     private void migrateExporterFilters() throws SQLException {
@@ -746,6 +817,9 @@ public class DatabaseManager {
 
             // Run bottle XP support migration
             migrateBottleXpSupport();
+
+            // Run eject buckets support migration
+            migrateEjectBucketsSupport();
 
             // Check if we need to migrate storage_items table constraint
             boolean needsMigration = false;

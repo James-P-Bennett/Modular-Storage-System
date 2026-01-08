@@ -235,6 +235,31 @@ public class ImporterGUI implements Listener {
             bottleXpMeta.lore(bottleXpLore);
             bottleXpToggle.setItemMeta(bottleXpMeta);
             inventory.setItem(39, bottleXpToggle);
+
+            // Eject Buckets toggle button (next to Bottle XP)
+            boolean ejectBucketsEnabled = data != null && data.ejectBuckets;
+            ItemStack ejectBucketsToggle = new ItemStack(ejectBucketsEnabled ? Material.LAVA_BUCKET : Material.BUCKET);
+            ItemMeta ejectBucketsMeta = ejectBucketsToggle.getItemMeta();
+            ejectBucketsMeta.displayName(plugin.getMessageManager().getMessageComponent(null, ejectBucketsEnabled ? "gui.importer.eject-buckets.enabled" : "gui.importer.eject-buckets.disabled"));
+            List<Component> ejectBucketsLore = new ArrayList<>();
+            ejectBucketsLore.add(Component.empty());
+            if (ejectBucketsEnabled) {
+                ejectBucketsLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.importer.eject-buckets.enabled-description"));
+            } else {
+                ejectBucketsLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.importer.eject-buckets.disabled-description"));
+            }
+            ejectBucketsLore.add(Component.empty());
+            ejectBucketsLore.add(plugin.getMessageManager().getMessageComponent(null, "gui.importer.eject-buckets.toggle"));
+            ejectBucketsMeta.lore(ejectBucketsLore);
+
+            // Add shimmer/enchantment glint when enabled
+            if (ejectBucketsEnabled) {
+                ejectBucketsMeta.addEnchant(org.bukkit.enchantments.Enchantment.UNBREAKING, 1, true);
+                ejectBucketsMeta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
+            }
+
+            ejectBucketsToggle.setItemMeta(ejectBucketsMeta);
+            inventory.setItem(41, ejectBucketsToggle);
         }
     }
 
@@ -635,6 +660,9 @@ public class ImporterGUI implements Listener {
             case 39:
                 handleBottleXpToggleClick(player);
                 break;
+            case 41:
+                handleEjectBucketsToggleClick(player);
+                break;
             default:
                 break;
         }
@@ -709,6 +737,21 @@ public class ImporterGUI implements Listener {
             player.sendMessage(plugin.getMessageManager().getMessageComponent(player, newState ? "gui.importer.xp.toggle-enabled" : "gui.importer.xp.toggle-disabled"));
         } catch (Exception e) {
             player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.importer.xp.toggle-error", "error", e.getMessage()));
+        }
+    }
+
+    private void handleEjectBucketsToggleClick(Player player) {
+        try {
+            ImporterManager.ImporterData data = plugin.getImporterManager().getImporterAtLocation(importerLocation);
+            if (data == null) return;
+
+            boolean newState = !data.ejectBuckets;
+            plugin.getImporterManager().toggleEjectBuckets(importerId, newState);
+            setupGUI();
+
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, newState ? "gui.importer.eject-buckets.toggle-enabled" : "gui.importer.eject-buckets.toggle-disabled"));
+        } catch (Exception e) {
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.importer.eject-buckets.toggle-error", "error", e.getMessage()));
         }
     }
 
