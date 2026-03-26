@@ -9,6 +9,7 @@ import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -31,7 +32,7 @@ public class ConfigManager {
     private int maxImporters;
     private int exportTickInterval;
     private Set<Material> blacklistedItems;
-    private Map<Material, Integer> creativeSortOrder;
+    private Map<Material, Integer> creativeSortOrder = new HashMap<>();
     private boolean requireUsePermission;
     private boolean requireCraftPermission;
 
@@ -140,17 +141,41 @@ public class ConfigManager {
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
             int index = 0;
+            int lineNumber = 0;
             while ((line = reader.readLine()) != null) {
+                lineNumber++;
                 String materialName = line.trim();
-                if (materialName.isEmpty()) continue;
+                if (materialName.isEmpty() || materialName.startsWith("#")) {
+                    continue;
+                }
 
-                Material material = Material.matchMaterial(materialName.replace("minecraft:", ""));
-                if (material != null && !creativeSortOrder.containsKey(material)) {
+                Material material = resolveCreativeMenuMaterial(materialName);
+                if (material == null) {
+                    plugin.getLogger().warning("Invalid material in creative_menu.txt at line " + lineNumber + ": " + materialName);
+                    continue;
+                }
+
+                if (!creativeSortOrder.containsKey(material)) {
                     creativeSortOrder.put(material, index++);
                 }
             }
         } catch (IOException e) {
             plugin.getLogger().warning("Failed to load creative_menu.txt: " + e.getMessage());
+        }
+    }
+
+    private Material resolveCreativeMenuMaterial(String rawName) {
+        String candidate = rawName.trim();
+        if (candidate.contains(":")) {
+            candidate = candidate.substring(candidate.lastIndexOf(':') + 1).trim();
+        }
+        if (candidate.isEmpty()) return null;
+
+        Material material = Material.matchMaterial(candidate.toLowerCase(Locale.ROOT));
+        if (material != null) {
+            return material;
+        } else {
+            return null;
         }
     }
 

@@ -72,7 +72,7 @@ public class TerminalGUI implements Listener {
         // Check for saved sorting preference for this terminal location
         this.sortMode = plugin.getGUIManager().getTerminalSortMode(terminalLocation);
         if (sortMode != SortModes.ALPHABETICAL) {
-            plugin.debugLog("debug.gui.sort-saved", "key", terminalLocation.toString());
+            plugin.debugLog("debug.gui.sort-saved", "key", terminalLocation.toString(), "mode", sortMode.name());
         }
 
         setupGUI();
@@ -276,8 +276,10 @@ public class TerminalGUI implements Listener {
         switch (sortMode) {
             case CREATIVE:
                 // Sort using the order set in creative_menu.txt
-                allItems.sort(Comparator.comparingInt(item -> 
-                    plugin.getConfigManager().getCreativeMenuOrder(item.itemStack().getType())));
+                allItems.sort(Comparator
+                    .comparingInt((StoredItem item) -> plugin.getConfigManager()
+                        .getCreativeMenuOrder(item.itemStack().getType()))
+                    .thenComparing(item -> item.itemStack().getType().name()));
                 break;
             case QUANTITY:
                 // Sort by quantity (descending) - most items first
@@ -568,7 +570,7 @@ public class TerminalGUI implements Listener {
         }
 
         // Restore sorting mode
-        if (!savedSortMode.equals(sortMode)) {
+        if (savedSortMode != sortMode) {
             sortMode = savedSortMode;
             applySorting();
             if (isSearchActive) {

@@ -238,6 +238,7 @@ public class MessageManager {
      * Get player's locale, with fallback to default
      */
     private String getPlayerLocale(Player player) {
+        if (player == null) return DEFAULT_LANGUAGE;
         try {
             // Get player's client locale (e.g., "en_US", "es_ES", "fr_FR")
             Locale locale = player.locale();
