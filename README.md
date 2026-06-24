@@ -14,7 +14,7 @@ Modular Storage System is a comprehensive Minecraft storage plugin. It provides 
 - **Advanced Terminals**: Search, sort, and manage your items with persistent per-terminal settings
 - **Disk Information**: Storage disks display detailed tooltips with capacity, usage, and crafter information
 - **Disk Recycling**: Dismantle empty disks to recover components (Shift + Right-click)
-![TerminalItemHover.png](media%2FTerminalItemHover.png)
+![Storage network overview](media%2Fmss_overview.png)
 
 
 
@@ -22,7 +22,7 @@ Modular Storage System is a comprehensive Minecraft storage plugin. It provides 
 - **Automation System**: Import and export items automatically with configurable filters
 - **Furnace Integration**: Specialized exporter GUI for targeting fuel and input slots separately
 - **Security Controls**: Manage network access with Security Terminals
-![Autocrafting.png](media%2FAutocrafting.png)
+![Security Terminal GUI](media%2Fsecurity_gui.png)
 
 ### Customization & Visuals
 - **Optional Resource Pack**: Gives MSS items distinct custom models so they're told apart from the vanilla blocks they reuse — items still work and are fully named/described without the pack
@@ -31,6 +31,7 @@ Modular Storage System is a comprehensive Minecraft storage plugin. It provides 
 - **Player-Facing Placement**: MSS blocks orient their front toward whoever places them
 - **Terminal Screen Glow**: Optional soft light in front of Terminal / Security Terminal screens (toggle in config)
 - **Vanilla Recipes**: Everything is crafted with normal recipes at a crafting table and shows up in the vanilla recipe book
+![MSS item skins](media%2Fmss_items_wall.png)
 
 ### Performance & Configuration
 - **Block Marker Cache**: Intelligent caching system reduces database queries with 5-second TTL
@@ -49,14 +50,14 @@ Modular Storage System is a comprehensive Minecraft storage plugin. It provides 
 3. **Add a Terminal** - Adjacent to the Storage Server or Drive Bay for item access
 4. **Craft Storage Disks** - Start with 1k disks and insert them into the Drive Bay
 5. **Start Storing** - Right-click the Terminal to access your network storage
-![BasicSetup.png](media%2FBasicSetup.png)
+![A built storage network](media%2Fmss_system.png)
 
 ### Network Components
 - **Storage Server**: Must be present in every network, acts as the controller
 - **Drive Bay**: Stores your storage disks, can have multiple per network
 - **Terminal**: Access point to view and manage stored items
 - **PoE Cable**: Extends connections beyond adjacent placement (max 800 cables per network)
-![DriveBayGUI.png](media%2FDriveBayGUI.png)
+![Drive Bay GUI](media%2Fbay_gui.png)
 
 ---
 
@@ -79,13 +80,11 @@ Modular Storage System is a comprehensive Minecraft storage plugin. It provides 
   - 18 filter slots for fuel items
   - 18 filter slots for material items
   - Intelligent slot targeting for automated smelting setups
-  ![FurnaceImporterBottleXP.png](media%2FFurnaceImporterBottleXP.png)
 
 
 - **Brewing Stands**: Specialized interfaces for ingredient and bottle slots
 - **All Containers**: Works with chests, barrels, hoppers, dispensers, and more
-![FurnaceAutomation.png](media%2FFurnaceAutomation.png)
-![PotionsAutomation.png](media%2FPotionsAutomation.png)
+![Furnace automation showcase](media%2Fmss_automation_showcase.png)
 
 
 ### Filter Configuration
@@ -108,7 +107,7 @@ Modular Storage System is a comprehensive Minecraft storage plugin. It provides 
 - **Alphabetical Sort**: Default sorting mode, organizes items A-Z
 - **Quantity Sort**: Click the name tag button to sort by item count (highest first)
 - **Persistent Settings**: Sort preference is saved per terminal location
-![TerminalSortingFeature.png](media%2FTerminalSortingFeature.png)
+![Terminal GUI](media%2Fterminal_gui.png)
 
 
 ---
