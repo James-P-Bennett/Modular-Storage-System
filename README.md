@@ -9,7 +9,7 @@ Modular Storage System is a comprehensive Minecraft storage plugin. It provides 
 
 
 ### Core Storage System
-- **Network-Based Storage**: Connect Storage Servers, Drive Bays, and Terminals with Network Cables
+- **Network-Based Storage**: Connect Storage Servers, Drive Bays, and Terminals with PoE Cables
 - **Multi-Tier Storage Disks**: 1k, 4k, 16k, and 64k capacity tiers with hot-swappable functionality
 - **Advanced Terminals**: Search, sort, and manage your items with persistent per-terminal settings
 - **Disk Information**: Storage disks display detailed tooltips with capacity, usage, and crafter information
@@ -24,15 +24,20 @@ Modular Storage System is a comprehensive Minecraft storage plugin. It provides 
 - **Security Controls**: Manage network access with Security Terminals
 ![Autocrafting.png](media%2FAutocrafting.png)
 
-### Crafting & Recipes
-- **Alternative Recipes**: Craft disks using shapeless recipes (Housing + Platter) in 2x2 or 3x3 grids
-- **Recipe Book Integration**: All recipes can be discovered and visible in the vanilla recipe book
+### Customization & Visuals
+- **Optional Resource Pack**: Gives MSS items distinct custom models so they're told apart from the vanilla blocks they reuse — items still work and are fully named/described without the pack
+- **Connection-Aware Cable Pipes**: Optionally render placed PoE Cables as pipes that visually join to their neighbours
+- **Iron Wrench**: Right-click to rotate an MSS block, Shift + Right-click to dismantle it straight back into your inventory
+- **Player-Facing Placement**: MSS blocks orient their front toward whoever places them
+- **Terminal Screen Glow**: Optional soft light in front of Terminal / Security Terminal screens (toggle in config)
+- **Vanilla Recipes**: Everything is crafted with normal recipes at a crafting table and shows up in the vanilla recipe book
 
 ### Performance & Configuration
 - **Block Marker Cache**: Intelligent caching system reduces database queries with 5-second TTL
 - **Click Rate Limiting**: GUI interactions are rate-limited to prevent database spam
-- **Database Backend**: Uses HikariCP connection pooling with SQLite for performance and reliability
-- **Comprehensive Configuration**: Customizable via config.yml, lang.yml, and recipes.yml files
+- **Database Backend**: HikariCP connection pooling with **SQLite** (default) or **MySQL/MariaDB**
+- **Cross-Version**: A single jar (built against MC 1.21) runs on Paper and its forks across MC 1.21 → latest
+- **Comprehensive Configuration**: Customizable via config.yml, lang/en_US.yml, and recipes.yml files
 
 ---
 
@@ -50,7 +55,7 @@ Modular Storage System is a comprehensive Minecraft storage plugin. It provides 
 - **Storage Server**: Must be present in every network, acts as the controller
 - **Drive Bay**: Stores your storage disks, can have multiple per network
 - **Terminal**: Access point to view and manage stored items
-- **Network Cable**: Extends connections beyond adjacent placement (max 800 cables per network)
+- **PoE Cable**: Extends connections beyond adjacent placement (max 800 cables per network)
 ![DriveBayGUI.png](media%2FDriveBayGUI.png)
 
 ---
@@ -64,7 +69,7 @@ Modular Storage System is a comprehensive Minecraft storage plugin. It provides 
 ### Setup Process
 1. **Craft an Importer or Exporter**
 2. **Place it adjacent to a container** (chest, furnace, hopper, etc.)
-3. **Connect it to your network** using Network Cables
+3. **Connect it to your network** using PoE Cables
 4. **Right-click to configure** filters and enable/disable
 5. **Set filters** by dragging items into filter slots (empty = import/export everything)
 
@@ -108,121 +113,10 @@ Modular Storage System is a comprehensive Minecraft storage plugin. It provides 
 
 ---
 
-## Items and Crafting Recipes
+## Items & Storage
 
-### Network Blocks
-
-#### Server
-The core controller of every storage network.
-```
-NRN    N = Netherite Ingot
-RAR    R = Redstone  
-NRN    A = Amethyst Shard
-```
-
-#### Drive Bay  
-Houses up to 7 removable storage disks.
-```
-BOB    B = Copper Block
-CCC    C = Chest
-BOB    O = Crying Obsidian
-```
-
-#### Terminal
-Access point for viewing and managing stored items.
-```
-TTT    T = Tinted Glass
-QEQ    Q = Quartz
-DRD    D = Diamond, R = Redstone, E = Emerald
-```
-
-#### Security Terminal
-Controls network access and permissions.
-```
-IEI    I = Iron Bars
-ITI    E = Ender Pearl
-III    T = MSS Terminal
-```
-
-### Network Infrastructure
-
-#### Network Cable (yields 4)
-Extends network connections over distances.
-```
-GGG    G = Glass Pane
-CRC    C = Copper Ingot
-GGG    R = Redstone
-```
-
-#### Exporter
-Automatically exports items from network to containers.
-```
-R1R    R = Comparator
-csc    1 = 1k Disk Platter
-RhR    c = Network Cable, s = Sticky Piston, h = Hopper
-```
-
-#### Importer  
-Automatically imports items from containers to network.
-```
-R1R    R = Comparator
-cpc    1 = 1k Disk Platter  
-RhR    c = Network Cable, p = Piston, h = Hopper
-```
-
-### Storage Components
-
-#### Storage Disk Housing
-Base component for all storage disks.
-```
-TTT    T = Tinted Glass
-I I    I = Iron Ingot
-IWI    W = Wind Charge
-```
-
-#### 1k Disk Platter
-```
-RGR    R = Redstone
-GRG    G = Gold Ingot
-RGR
-```
-
-#### 4k Disk Platter
-```
-BGB    B = Blaze Rod, G = Gold Ingot
-111    1 = 1k Disk Platter
-ERE    E = Ender Pearl, R = Nether Brick
-```
-
-#### 16k Disk Platter  
-```
-BDB    B = Breeze Rod, D = Diamond
-444    4 = 4k Disk Platter
-PRP    P = Ender Pearl, R = Nether Brick
-```
-
-#### 64k Disk Platter
-```
-SES    S = Shulker Shell, E = Ender Eye
-666    6 = 16k Disk Platter  
-PRP    P = Ender Pearl, R = Nether Brick
-```
-
-### Storage Disks
-
-#### Standard Recipes (3x3 Crafting Table)
-All storage disks follow this pattern:
-```
-TTT    T = Tinted Glass
-IPI    I = Iron Ingot, P = Disk Platter (tier)
-IWI    W = Wind Charge
-```
-
-#### Alternative Shapeless Recipes
-- **1k Disk**: Storage Disk Housing + 1k Disk Platter
-- **4k Disk**: Storage Disk Housing + 4k Disk Platter  
-- **16k Disk**: Storage Disk Housing + 16k Disk Platter
-- **64k Disk**: Storage Disk Housing + 64k Disk Platter
+### Crafting
+All MSS items are crafted with normal recipes at a **vanilla crafting table** and appear in the **vanilla recipe book**. Storage disks can also be assembled from a Storage Disk Housing + a tier Disk Platter. Every recipe — shape, ingredients, and whether it's enabled — is fully configurable in **recipes.yml**.
 
 ### Storage Capacities
 - **1k Disk**: 8,128 items total (127 items per cell × 64 cells)
@@ -250,15 +144,14 @@ The plugin provides several administrative and utility commands:
 | `/mss recovery <disk_id>`            | Recover a lost storage disk by its ID          | `modularstoragesystem.recovery` |
 | `/mss info`                          | Show plugin statistics and network information | `modularstoragesystem.admin`    |
 | `/mss recipes`                       | List all available recipes and their status    | `modularstoragesystem.admin`    |
-| `/mss reload [config\|recipes\|all]` | Reload configuration files                     | `modularstoragesystem.admin`    |
+| `/mss reload [config\|recipes\|all]` | Reload configuration files (incl. the resource pack) | `modularstoragesystem.admin`    |
 | `/mss migratedb <sqlite\|mysql>`     | Import all data from the other database into the active one | `modularstoragesystem.admin`    |
 
 ### Available Items for `/mss give`
-- `storage_server`, `drive_bay`, `mss_terminal`, `security_terminal`
-- `network_cable`, `exporter`, `importer`
-- `storage_disk_housing`
-- `disk_platter_1k`, `disk_platter_4k`, `disk_platter_16k`, `disk_platter_64k`
-- `storage_disk_1k`, `storage_disk_4k`, `storage_disk_16k`, `storage_disk_64k`
+- `server`, `bay`, `terminal`, `security`
+- `cable`, `exporter`, `importer`, `wrench`
+- `housing`, `platter1k`, `platter4k`, `platter16k`, `platter64k`
+- `disk1k`, `disk4k`, `disk16k`, `disk64k`
 
 ---
 
@@ -266,7 +159,7 @@ The plugin provides several administrative and utility commands:
 
 The plugin includes three main configuration files:
 
-- **config.yml**: Network limits, database settings, permissions, and performance options
+- **config.yml**: Network limits, database settings, permissions, performance options, and the resource pack
 - **lang/en_US.yml**: All plugin messages and text (supports localization)
 - **recipes.yml**: Complete recipe definitions with enable/disable options for each recipe
 
@@ -322,11 +215,12 @@ hand-merge instead.
 ---
 
 ## Requirements
-- **Server**: Spigot/Paper 1.21+  
+- **Server**: Paper **1.21+** and its forks (Purpur, Pufferfish, …) — **not** Spigot. One jar runs across MC 1.21 → latest.
 - **Java**: OpenJDK 21 or higher
 
 ## Installation
 1. Download the latest release
-2. Place the .jar file in your server's plugins folder  
+2. Place the .jar file in your server's plugins folder
 3. Restart your server
 4. Configure the plugin via the generated config files as needed
+5. *(Optional)* Enable the resource pack in `config.yml` to give MSS items their custom skins
