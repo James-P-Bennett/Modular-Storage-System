@@ -5,11 +5,18 @@ import co.aikar.commands.annotation.*;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
+import org.jamesphbennett.modularstoragesystem.blocks.MSSBlockType;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -126,6 +133,7 @@ public class MSSCommand extends BaseCommand {
             case "exporter" -> plugin.getItemManager().createExporter();
             case "importer" -> plugin.getItemManager().createImporter();
             case "security", "security_terminal" -> plugin.getItemManager().createSecurityTerminal();
+            case "wrench", "mss_wrench" -> plugin.getItemManager().createWrench();
 
             // Storage disks
             case "disk", "storage_disk", "disk1k" -> plugin.getItemManager().createStorageDisk(
@@ -343,6 +351,7 @@ public class MSSCommand extends BaseCommand {
             case "config":
                 try {
                     plugin.getConfigManager().loadConfig();
+                    if (plugin.getResourcePackManager() != null) plugin.getResourcePackManager().reload();
                     sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.reload.config-success"));
                 } catch (Exception e) {
                     sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.reload.config-error", "error", e.getMessage()));
@@ -374,6 +383,7 @@ public class MSSCommand extends BaseCommand {
                     plugin.getConfigManager().reloadConfig();
                     plugin.getRecipeManager().reloadRecipes();
                     plugin.getMessageManager().reloadLanguages();
+                    if (plugin.getResourcePackManager() != null) plugin.getResourcePackManager().reload();
                     sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.reload.all-success"));
                     sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.reload.recipes-note"));
                 } catch (Exception e) {
@@ -384,6 +394,131 @@ public class MSSCommand extends BaseCommand {
             default:
                 sender.sendMessage(plugin.getMessageManager().getMessageComponent(player, "commands.reload.usage"));
                 break;
+        }
+    }
+
+    @Subcommand("migratedb")
+    @Description("Import ALL plugin data from the other database (sqlite/mysql) into the active one")
+    @CommandPermission("modularstoragesystem.admin")
+    @Syntax("<sqlite|mysql> [confirm]")
+    public void onMigrateDb(CommandSender sender, String source, @Optional String confirmation) {
+        var mm = plugin.getMessageManager();
+        String src = source.toLowerCase();
+        if (!src.equals("sqlite") && !src.equals("mysql")) {
+            sender.sendMessage(mm.getMessageComponent(null, "commands.migratedb.invalid-source"));
+            return;
+        }
+        String activeType = plugin.getConfigManager().isMySql() ? "mysql" : "sqlite";
+        if (src.equals(activeType)) {
+            sender.sendMessage(mm.getMessageComponent(null, "commands.migratedb.same-as-active", "source", src));
+            return;
+        }
+        if (!"confirm".equalsIgnoreCase(confirmation)) {
+            sender.sendMessage(mm.getMessageComponent(null, "commands.migratedb.confirm-warn", "active", activeType, "source", src));
+            sender.sendMessage(mm.getMessageComponent(null, "commands.migratedb.confirm-howto", "source", src));
+            return;
+        }
+        sender.sendMessage(mm.getMessageComponent(null, "commands.migratedb.importing", "source", src, "active", activeType));
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                Map<String, Integer> counts = plugin.getDatabaseManager().migrateFrom(src);
+                int total = counts.values().stream().mapToInt(Integer::intValue).sum();
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    sender.sendMessage(mm.getMessageComponent(null, "commands.migratedb.complete", "rows", String.valueOf(total), "source", src));
+                    counts.forEach((t, n) -> { if (n > 0) sender.sendMessage(mm.getMessageComponent(null, "commands.migratedb.table-row", "table", t, "count", String.valueOf(n))); });
+                    sender.sendMessage(mm.getMessageComponent(null, "commands.migratedb.restart-note"));
+                });
+            } catch (Exception e) {
+                plugin.getServer().getScheduler().runTask(plugin, () ->
+                        sender.sendMessage(mm.getMessageComponent(null, "commands.migratedb.failed", "error", e.getMessage())));
+                plugin.getLogger().severe("DB migration from " + src + " failed: " + e.getMessage());
+            }
+        });
+    }
+
+    @Subcommand("convert")
+    @Description("Convert already-placed MSS blocks (loaded chunks) to the current resource-pack mode")
+    @CommandPermission("modularstoragesystem.admin")
+    @Syntax("[confirm]")
+    public void onConvert(CommandSender sender, @Optional String confirmation) {
+        var mm = plugin.getMessageManager();
+        boolean packOn = plugin.getConfigManager().isResourcePackEnabled();
+        String mode = packOn ? "note block (pack ON)" : "vanilla (pack OFF)";
+        if (!"confirm".equalsIgnoreCase(confirmation)) {
+            sender.sendMessage(mm.getMessageComponent(null, "commands.convert.confirm-warn", "mode", mode));
+            sender.sendMessage(mm.getMessageComponent(null, "commands.convert.confirm-howto"));
+            return;
+        }
+        // Read markers off-thread; mutate blocks on the main thread. Identity is the marker (Material-independent),
+        // so simply re-typing the block to the current mode's Material keeps the network/marker intact. Only blocks
+        // in loaded chunks are touched (no forced chunk loads); the rest auto-convert on the next break + re-place.
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            List<Object[]> markers = new ArrayList<>();
+            try (Connection conn = plugin.getDatabaseManager().getConnection();
+                 PreparedStatement stmt = conn.prepareStatement(
+                         "SELECT world_name, x, y, z, block_type FROM custom_block_markers")) {
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        if (MSSBlockType.byMarker(rs.getString("block_type")) == null) continue; // only the 5 swappable roles
+                        markers.add(new Object[]{rs.getString("world_name"), rs.getInt("x"), rs.getInt("y"), rs.getInt("z"), rs.getString("block_type")});
+                    }
+                }
+            } catch (Exception e) {
+                plugin.getServer().getScheduler().runTask(plugin, () ->
+                        sender.sendMessage(mm.getMessageComponent(null, "commands.convert.failed", "error", e.getMessage())));
+                return;
+            }
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                int converted = 0, unloaded = 0, mismatch = 0;
+                for (Object[] m : markers) {
+                    MSSBlockType role = MSSBlockType.byMarker((String) m[4]);
+                    if (role == null) continue;
+                    World w = Bukkit.getWorld((String) m[0]);
+                    int x = (int) m[1], y = (int) m[2], z = (int) m[3];
+                    if (w == null || !w.isChunkLoaded(x >> 4, z >> 4)) { unloaded++; continue; }
+                    Block b = w.getBlockAt(x, y, z);
+                    Material target = role.placedMaterial(packOn);
+                    Material cur = b.getType();
+                    if (cur == target) {
+                        if (packOn) stampNoteState(b, role); // already right Material — just ensure the combo is correct
+                    } else if (role.accepts(cur) || cur == Material.MUSHROOM_STEM
+                            || cur == Material.BROWN_MUSHROOM_BLOCK || cur == Material.RED_MUSHROOM_BLOCK) {
+                        // role's vanilla OR pack material (accepts both — so note->vanilla AND vanilla->note both
+                        // migrate), OR any mushroom block (a legacy brown/red/stem from an earlier mushroom-type
+                        // choice) — re-type to the current target so a mode switch is migratable.
+                        b.setType(target, false); // applyPhysics=false: no events, marker + network survive
+                        if (packOn) stampNoteState(b, role);
+                        converted++;
+                    } else {
+                        mismatch++; // marker present but the block is no longer an MSS Material (changed/griefed)
+                    }
+                }
+                sender.sendMessage(mm.getMessageComponent(null, "commands.convert.complete",
+                        "mode", mode, "converted", String.valueOf(converted),
+                        "unloaded", String.valueOf(unloaded), "mismatch", String.valueOf(mismatch)));
+            });
+        });
+    }
+
+    /** Stamp a note block's state (instrument=piglin, note=role facing 0, powered=false) so the pack renders this role. */
+    private void stampNoteState(Block block, MSSBlockType role) {
+        if (block.getType() != MSSBlockType.NOTE) return;
+        block.setBlockData(Bukkit.createBlockData(
+                "minecraft:note_block[instrument=piglin,note=" + role.noteFor(0) + ",powered=false]"), false);
+    }
+
+    /**
+     * Strip every physical copy of a disk_id from the player's inventory. Used by /mss recovery so repeated
+     * runs (or recovering a disk the player is already holding) never leave duplicate disk items behind —
+     * the freshly recovered, current-generation copy is the only one that remains.
+     */
+    private void removeInventoryCopiesOfDisk(Player player, String diskId) {
+        for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
+            ItemStack inv = player.getInventory().getItem(slot);
+            if (inv != null && plugin.getItemManager().isStorageDisk(inv)
+                    && diskId.equalsIgnoreCase(plugin.getItemManager().getStorageDiskId(inv))) {
+                player.getInventory().setItem(slot, null);
+            }
         }
     }
 
@@ -458,6 +593,15 @@ public class MSSCommand extends BaseCommand {
                         int maxCells = rs.getInt("max_cells");
                         rs.getString("tier");
 
+                        // Anti-dupe: bump the stored generation so any OTHER physical copy of this disk_id
+                        // (e.g. one still in a player's inventory) is invalidated. createStorageDiskWithId
+                        // (called below) re-reads and stamps this bumped value onto the recovered copy.
+                        try (PreparedStatement genStmt = conn.prepareStatement(
+                                "UPDATE storage_disks SET generation = generation + 1 WHERE disk_id = ?")) {
+                            genStmt.setString(1, diskId.toUpperCase());
+                            genStmt.executeUpdate();
+                        }
+
                         // If this was a forced recovery, remove the disk from drive bay slots
                         if (forceConfirm) {
                             try (PreparedStatement removeStmt = conn.prepareStatement(
@@ -469,6 +613,8 @@ public class MSSCommand extends BaseCommand {
 
                                 // Return to main thread for inventory operations
                                 plugin.getServer().getScheduler().runTask(plugin, () -> {
+                                    // Tidy: strip any existing copies of this disk so recovery never leaves a duplicate item.
+                                    removeInventoryCopiesOfDisk(player, diskId.toUpperCase());
                                     // Create the storage disk with the original ID
                                     ItemStack recoveredDisk = plugin.getItemManager().createStorageDiskWithId(diskId.toUpperCase(), crafterUUID, crafterName);
                                     recoveredDisk = plugin.getItemManager().updateStorageDiskLore(recoveredDisk, usedCells, maxCells);
@@ -494,6 +640,8 @@ public class MSSCommand extends BaseCommand {
                         } else {
                             // Return to main thread for inventory operations
                             plugin.getServer().getScheduler().runTask(plugin, () -> {
+                                // Tidy: strip any existing copies of this disk so recovery never leaves a duplicate item.
+                                removeInventoryCopiesOfDisk(player, diskId.toUpperCase());
                                 // Create the storage disk with the original ID
                                 ItemStack recoveredDisk = plugin.getItemManager().createStorageDiskWithId(diskId.toUpperCase(), crafterUUID, crafterName);
                                 recoveredDisk = plugin.getItemManager().updateStorageDiskLore(recoveredDisk, usedCells, maxCells);

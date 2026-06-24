@@ -45,7 +45,14 @@ public class TerminalGUI implements Listener {
 
     // Click rate limiting to prevent DB spam - 200ms cooldown
     private final Map<UUID, Long> clickCooldowns = new ConcurrentHashMap<>();
-    private static final long CLICK_COOLDOWN_MS = 200; // 200ms between clicks
+    private static final long CLICK_COOLDOWN_MS = 200; // 200ms between item-display (withdraw/cursor-deposit) clicks
+    // Shift-click deposits are coalesced into a per-player batch and flushed as ONE storeItems transaction a couple
+    // ticks later. A vanilla shift+double-click is a one-tick BURST of one-stack shift-clicks (one per matching
+    // stack), so batching them deposits everything in a single transaction — no timing heuristic, DB-cheap.
+    private final Map<UUID, List<ItemStack>> pendingDeposits = new ConcurrentHashMap<>();
+    private static final long DEPOSIT_FLUSH_DELAY_TICKS = 2;  // batch window that coalesces the shift-burst
+    private final Map<UUID, Long> depositAllCooldowns = new ConcurrentHashMap<>();
+    private static final long DEPOSIT_ALL_COOLDOWN_MS = 1000; // how often a (double-click) deposit-all may run
 
     public TerminalGUI(ModularStorageSystem plugin, Location terminalLocation, String networkId) {
         this.plugin = plugin;
@@ -572,9 +579,17 @@ public class TerminalGUI implements Listener {
         long now = System.currentTimeMillis();
         Long lastClick = clickCooldowns.get(playerId);
 
-        // Only apply cooldown to item slots (0-35), not navigation/search buttons
+        // Rate-limit item-slot operations (0-35) AND shift-click deposits from the player inventory
+        // (slot >= GUI size). Both run a storeItems/retrieveItems transaction + a full refresh; the
+        // shift-from-inventory deposit path was previously un-gated, allowing DB-spam by shift-spamming
+        // a full inventory of distinct item types into the terminal.
         int slot = event.getRawSlot();
-        if (slot >= 0 && slot < 36) {
+        boolean shiftDeposit = event.isShiftClick() && slot >= inventory.getSize();
+        // Per-click ~200ms gate for item-display DB gestures (withdraw / cursor-deposit). Shift deposits are NOT
+        // gated here — they are coalesced into a batched flush (a vanilla shift+double-click is a one-tick burst of
+        // these and all of them must be captured). A plain double-click is a no-DB collect-to-cursor, also ungated.
+        boolean rateLimited = (slot >= 0 && slot < 36);
+        if (rateLimited) {
             if (lastClick != null && (now - lastClick) < CLICK_COOLDOWN_MS) {
                 event.setCancelled(true);
                 return;
@@ -623,53 +638,44 @@ public class TerminalGUI implements Listener {
             return;
         }
 
-        // Handle shift-clicks from player inventory for item storage
-        if ((event.getClick() == ClickType.SHIFT_LEFT || event.getClick() == ClickType.SHIFT_RIGHT) &&
-                slot >= inventory.getSize()) {
-
-            // Shift-clicking FROM player inventory TO terminal (to store items)
-            ItemStack itemToStore = event.getCurrentItem();
-
-            if (itemToStore != null && !itemToStore.getType().isAir()) {
-                event.setCancelled(true);
-
-                // Check if item is allowed to be stored
-                if (plugin.getItemManager().isItemBlacklisted(itemToStore)) {
-                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.storage.not-allowed"));
-                    return;
-                }
-
-                // Store the item
-                try {
-                    List<ItemStack> toStore = new ArrayList<>();
-                    toStore.add(itemToStore.clone());
-
-                    List<ItemStack> remainders = plugin.getStorageManager().storeItems(networkId, toStore);
-
-                    if (remainders.isEmpty()) {
-                        // All items stored successfully
-                        event.setCurrentItem(null);
-//                        player.sendMessage(miniMessage.deserialize("<green>Stored " + itemToStore.getAmount() + " " +
-//                                itemToStore.getType().name().toLowerCase().replace("_", " ")));
-
-                        // Refresh display immediately
-                        refresh();
-                    } else {
-                        // Some items couldn't be stored
-                        ItemStack remainder = remainders.getFirst();
-                        event.setCurrentItem(remainder);
-                        int stored = itemToStore.getAmount() - remainder.getAmount();
-                        if (stored > 0) {
-                            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.storage.partial", "stored", stored, "remaining", remainder.getAmount()));
-                            refresh();
-                        } else {
-                            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.storage.full"));
-                        }
-                    }
-                } catch (Exception e) {
-                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.storage.error", "error", e.getMessage()));
-                        }
+        // Vanilla double-click = COLLECT_TO_CURSOR: gather matching stacks from the PLAYER inventory ONTO the cursor
+        // (up to a full stack). It does NOT deposit into the network and never pulls from the read-only display.
+        // (Deposit-all is the shift+double-click burst, handled below.) Pure inventory move — no DB, no gate.
+        if (event.getClick() == ClickType.DOUBLE_CLICK) {
+            event.setCancelled(true);
+            ItemStack cursor = event.getCursor();
+            if (cursor == null || cursor.getType().isAir()) return;
+            int room = cursor.getMaxStackSize() - cursor.getAmount();
+            for (int i = 0; i < 36 && room > 0; i++) {
+                ItemStack it = player.getInventory().getItem(i);
+                if (it == null || !it.isSimilar(cursor)) continue;
+                int take = Math.min(room, it.getAmount());
+                cursor.setAmount(cursor.getAmount() + take);
+                if (take >= it.getAmount()) player.getInventory().setItem(i, null);
+                else it.setAmount(it.getAmount() - take);
+                room -= take;
             }
+            event.getView().setCursor(cursor);
+            player.updateInventory();
+            return;
+        }
+
+        // Shift-click from the player inventory deposits the clicked stack. To faithfully + cheaply replicate a
+        // vanilla shift+double-click (a one-tick BURST of one-stack shift-clicks, one per matching stack), each is
+        // removed now and coalesced into a per-player batch, flushed as ONE storeItems transaction a couple ticks
+        // later: a single click deposits one stack, a burst deposits the lot — no timing heuristic, <=1 txn/flush.
+        if (shiftDeposit) {
+            event.setCancelled(true);
+            ItemStack clicked = event.getCurrentItem();
+            if (clicked == null || clicked.getType().isAir()) return;
+            if (plugin.getItemManager().isItemBlacklisted(clicked)) {
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.storage.not-allowed"));
+                return;
+            }
+            List<ItemStack> batch = pendingDeposits.computeIfAbsent(playerId, k -> new ArrayList<>());
+            batch.add(clicked.clone());
+            event.setCurrentItem(null);
+            if (batch.size() == 1) scheduleDepositFlush(player);
             return;
         }
 
@@ -688,6 +694,76 @@ public class TerminalGUI implements Listener {
 
         // All other clicks (in player inventory) are allowed for manual item management
         // Don't cancel these clicks
+    }
+
+    /** Schedule a single batched flush of the player's pending shift-deposits a couple ticks out (coalesces a burst). */
+    private void scheduleDepositFlush(Player player) {
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> flushPendingDeposits(player), DEPOSIT_FLUSH_DELAY_TICKS);
+    }
+
+    /** Deposit the player's batched shift-deposits as ONE storeItems transaction; return any overflow to them. */
+    private void flushPendingDeposits(Player player) {
+        List<ItemStack> batch = pendingDeposits.remove(player.getUniqueId());
+        if (batch == null || batch.isEmpty()) return;
+        List<ItemStack> giveBack;
+        try {
+            giveBack = plugin.getStorageManager().storeItems(networkId, batch);
+        } catch (Exception e) {
+            giveBack = batch; // on failure, hand everything back rather than eating it (items were already removed)
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.storage.error", "error", e.getMessage()));
+        }
+        for (ItemStack rem : giveBack) {
+            if (rem == null || rem.getType().isAir()) continue;
+            for (ItemStack leftover : player.getInventory().addItem(rem).values()) {
+                player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+            }
+        }
+        refresh();
+        player.updateInventory();
+    }
+
+    /**
+     * Deposit EVERY stack matching {@code ref} — a matching cursor stack plus all matching stacks in the player's
+     * main inventory (slots 0-35) — into the network in ONE transaction. Shared by the shift-click and double-click
+     * "store all of this item" gestures. Anything that doesn't fit is returned to the player.
+     */
+    private void depositAllMatching(Player player, ItemStack ref, org.bukkit.event.inventory.InventoryClickEvent event) {
+        if (ref == null || ref.getType().isAir()) return;
+        if (plugin.getItemManager().isItemBlacklisted(ref)) {
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.storage.not-allowed"));
+            return;
+        }
+
+        // Match vanilla: the "deposit all" gesture leaves the stack on the cursor untouched — only matching stacks
+        // in the player's main inventory (slots 0-35) are deposited.
+        List<ItemStack> toStore = new ArrayList<>();
+        for (int i = 0; i < 36; i++) {
+            ItemStack it = player.getInventory().getItem(i);
+            if (it != null && it.isSimilar(ref)) {
+                toStore.add(it.clone());
+                player.getInventory().setItem(i, null);
+            }
+        }
+        if (toStore.isEmpty()) return;
+
+        try {
+            List<ItemStack> remainders = plugin.getStorageManager().storeItems(networkId, toStore);
+            boolean anyLeft = false;
+            for (ItemStack rem : remainders) {
+                if (rem == null || rem.getType().isAir()) continue;
+                anyLeft = true;
+                for (ItemStack leftover : player.getInventory().addItem(rem).values()) {
+                    player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+                }
+            }
+            if (anyLeft) {
+                player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.storage.full"));
+            }
+            refresh();
+            player.updateInventory();
+        } catch (Exception e) {
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.storage.error", "error", e.getMessage()));
+        }
     }
 
     /**
@@ -830,7 +906,13 @@ public class TerminalGUI implements Listener {
                             // Put the items back in storage
                             try {
                                 List<ItemStack> putBack = new ArrayList<>(leftover.values());
-                                plugin.getStorageManager().storeItems(networkId, putBack);
+                                List<ItemStack> notStored = plugin.getStorageManager().storeItems(networkId, putBack);
+                                if (notStored != null && !notStored.isEmpty()) {
+                                    // Network couldn't take them back either — return to the player instead of losing them
+                                    for (ItemStack item : notStored) {
+                                        player.getWorld().dropItemNaturally(player.getLocation(), item);
+                                    }
+                                }
 
                             } catch (Exception e) {
                                 // Last resort - drop the items
@@ -907,6 +989,18 @@ public class TerminalGUI implements Listener {
         }
 
         if (draggedIntoItemArea) {
+            // Rate-limit: a drag into the item area runs a storeItems transaction + refresh, exactly like a
+            // click, but onInventoryDrag was previously un-gated. Share the click cooldown map so a player
+            // can't alternate click/drag to bypass the limit.
+            if (event.getWhoClicked() instanceof Player rlPlayer) {
+                long dragNow = System.currentTimeMillis();
+                Long dragLast = clickCooldowns.get(rlPlayer.getUniqueId());
+                if (dragLast != null && (dragNow - dragLast) < CLICK_COOLDOWN_MS) {
+                    event.setCancelled(true);
+                    return;
+                }
+                clickCooldowns.put(rlPlayer.getUniqueId(), dragNow);
+            }
             // Dragging into item display area - try to store the item
             if (event.getWhoClicked() instanceof Player player) {
                 ItemStack draggedItem = event.getOldCursor();

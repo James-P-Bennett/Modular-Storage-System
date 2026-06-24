@@ -110,7 +110,11 @@ public class DatabaseManager {
         String database = plugin.getConfigManager().getMysqlDatabase();
         boolean useSsl = plugin.getConfigManager().isMysqlUseSsl();
 
-        String jdbcUrl = String.format("jdbc:mysql://%s:%d/%s?useSSL=%s", host, port, database, useSsl);
+        // allowPublicKeyRetrieval is required to authenticate against MySQL 8+ (caching_sha2_password) over a
+        // NON-SSL connection; the driver otherwise refuses to fetch the server's public key. Only add it when
+        // SSL is disabled (when SSL is on, the key is exchanged over the secure channel).
+        String jdbcUrl = String.format("jdbc:mysql://%s:%d/%s?useSSL=%s%s", host, port, database, useSsl,
+                useSsl ? "" : "&allowPublicKeyRetrieval=true");
         config.setJdbcUrl(jdbcUrl);
 
         // MySQL credentials
@@ -223,7 +227,7 @@ public class DatabaseManager {
                         "UPDATE storage_disks SET max_cells = ? WHERE max_cells != ?")) {
                     stmt.setInt(1, 64); // New standard
                     stmt.setInt(2, 64); // Only update if not already 64
-
+                    stmt.executeUpdate();
                 }
 
                 conn.commit();
@@ -286,9 +290,11 @@ public class DatabaseManager {
                 conn.setAutoCommit(false);
 
                 try {
-                    // Add slot_target column with default value 'generic'
+                    // Add slot_target column with default 'generic'. Use VARCHAR on MySQL — TEXT columns
+                    // can't have a DEFAULT there; SQLite TEXT does allow a default.
+                    String slotTargetType = plugin.getConfigManager().isMySql() ? "VARCHAR(64)" : "TEXT";
                     try (var stmt = conn.createStatement()) {
-                        stmt.execute("ALTER TABLE exporter_filters ADD COLUMN slot_target TEXT DEFAULT 'generic'");
+                        stmt.execute("ALTER TABLE exporter_filters ADD COLUMN slot_target " + slotTargetType + " DEFAULT 'generic'");
                     }
 
                     // Update existing filters to 'generic' (safe default for backward compatibility)
@@ -452,6 +458,67 @@ public class DatabaseManager {
     }
 
     /**
+     * Add the anti-dupe generation column to storage_disks (default 0). Existing disks become generation 0,
+     * matching items that have no generation PDC (also treated as 0), so nothing breaks for current disks.
+     */
+    private void migrateDiskGeneration() throws SQLException {
+        try (Connection conn = getConnection()) {
+            boolean needsMigration = false;
+
+            if (plugin.getConfigManager().isMySql()) {
+                String checkQuery = """
+                    SELECT COUNT(*) as count FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'storage_disks' AND COLUMN_NAME = 'generation'
+                    """;
+                try (var stmt = conn.prepareStatement(checkQuery)) {
+                    stmt.setString(1, plugin.getConfigManager().getMysqlDatabase());
+                    try (var rs = stmt.executeQuery()) {
+                        if (rs.next() && rs.getInt("count") == 0) {
+                            needsMigration = true;
+                            plugin.getLogger().info("Database migration needed - adding generation column to storage_disks");
+                        }
+                    }
+                }
+            } else {
+                try (var stmt = conn.createStatement();
+                     var rs = stmt.executeQuery("PRAGMA table_info(storage_disks)")) {
+                    boolean hasColumn = false;
+                    while (rs.next()) {
+                        if ("generation".equals(rs.getString("name"))) {
+                            hasColumn = true;
+                            break;
+                        }
+                    }
+                    if (!hasColumn) {
+                        needsMigration = true;
+                        plugin.getLogger().info("Database migration needed - adding generation column to storage_disks");
+                    }
+                }
+            }
+
+            if (needsMigration) {
+                conn.setAutoCommit(false);
+                try {
+                    String intColType = plugin.getConfigManager().isMySql() ? "INT" : "INTEGER";
+                    try (var stmt = conn.createStatement()) {
+                        stmt.execute("ALTER TABLE storage_disks ADD COLUMN generation " + intColType + " NOT NULL DEFAULT 0");
+                    }
+                    try (var stmt = conn.createStatement()) {
+                        stmt.execute("UPDATE storage_disks SET generation = 0 WHERE generation IS NULL");
+                    }
+                    conn.commit();
+                    plugin.getLogger().info("Successfully added generation column to storage_disks table");
+                } catch (Exception e) {
+                    conn.rollback();
+                    throw new SQLException("Failed to migrate disk generation support", e);
+                } finally {
+                    conn.setAutoCommit(true);
+                }
+            }
+        }
+    }
+
+    /**
      * Migrate exporter_filters table to include item_data column
      */
     private void migrateExporterFilters() throws SQLException {
@@ -582,11 +649,12 @@ public class DatabaseManager {
                 tier %s DEFAULT '1k',
                 max_cells %s NOT NULL DEFAULT 64,
                 used_cells %s NOT NULL DEFAULT 0,
+                generation %s NOT NULL DEFAULT 0,
                 created_at %s,
                 updated_at %s,
                 FOREIGN KEY (network_id) REFERENCES networks(network_id) ON DELETE SET NULL
             )
-            """, textType, textType, textType, textType, textType, intType, intType, timestampDefault, timestampUpdate),
+            """, textType, textType, textType, textType, textType, intType, intType, intType, timestampDefault, timestampUpdate),
 
                 // Drive bay slots table
                 String.format("""
@@ -735,9 +803,20 @@ public class DatabaseManager {
                     stmt.execute(query);
                 }
 
-                // Create indexes
+                // Create indexes. MySQL does NOT support "CREATE INDEX IF NOT EXISTS" (that's SQLite/Postgres
+                // syntax), so for MySQL strip it and ignore the "duplicate key name" error (1061) to keep
+                // re-runs idempotent. SQLite keeps the IF NOT EXISTS form.
+                boolean mysqlIndexes = plugin.getConfigManager().isMySql();
                 for (String query : indexCreationQueries) {
-                    stmt.execute(query);
+                    if (mysqlIndexes) {
+                        try {
+                            stmt.execute(query.replace("CREATE INDEX IF NOT EXISTS ", "CREATE INDEX "));
+                        } catch (SQLException e) {
+                            if (e.getErrorCode() != 1061) throw e; // 1061 = ER_DUP_KEYNAME (index already exists)
+                        }
+                    } else {
+                        stmt.execute(query);
+                    }
                 }
 
                 conn.commit();
@@ -797,6 +876,101 @@ public class DatabaseManager {
         return dataSource.getConnection();
     }
 
+    // All plugin tables, parents-before-children (only matters as a sensible order; FK checks are
+    // disabled during the copy anyway).
+    private static final String[] MIGRATION_TABLES = {
+            "networks", "custom_block_markers", "network_blocks", "storage_disks", "drive_bay_slots",
+            "storage_items", "exporters", "exporter_filters", "importers", "importer_filters",
+            "security_terminals", "security_terminal_players"
+    };
+
+    /**
+     * Copy ALL plugin data from the OTHER database ("sqlite" or "mysql") into the currently-active
+     * database, replacing whatever the active DB currently holds. Used to move between SQLite and MySQL
+     * without data loss. Atomic: on any error the active DB is rolled back unchanged. Returns rows copied
+     * per table. Synchronous — call this off the main thread.
+     */
+    public java.util.Map<String, Integer> migrateFrom(String sourceType) throws SQLException {
+        java.util.Map<String, Integer> counts = new java.util.LinkedHashMap<>();
+        boolean destMysql = plugin.getConfigManager().isMySql();
+        try (java.sql.Connection src = openExternalConnection(sourceType);
+             Connection dst = getConnection()) {
+
+            // Sentinel: make sure the source actually has an MSS schema before we wipe the destination.
+            try (Statement s = src.createStatement(); java.sql.ResultSet rs = s.executeQuery("SELECT COUNT(*) FROM storage_disks")) {
+                rs.next();
+            } catch (SQLException e) {
+                throw new SQLException("Source database '" + sourceType + "' has no MSS tables - nothing to migrate", e);
+            }
+
+            dst.setAutoCommit(false);
+            try (Statement s = dst.createStatement()) {
+                if (destMysql) s.execute("SET FOREIGN_KEY_CHECKS=0");
+            }
+            try {
+                for (String table : MIGRATION_TABLES) {
+                    try (Statement s = dst.createStatement()) {
+                        s.execute("DELETE FROM " + table);
+                    }
+                    counts.put(table, copyTable(src, dst, table));
+                }
+                dst.commit();
+            } catch (SQLException e) {
+                dst.rollback();
+                throw e;
+            } finally {
+                try (Statement s = dst.createStatement()) {
+                    if (destMysql) s.execute("SET FOREIGN_KEY_CHECKS=1");
+                } catch (SQLException ignored) {
+                }
+                dst.setAutoCommit(true);
+            }
+        }
+        return counts;
+    }
+
+    private int copyTable(java.sql.Connection src, Connection dst, String table) throws SQLException {
+        try (Statement s = src.createStatement(); java.sql.ResultSet rs = s.executeQuery("SELECT * FROM " + table)) {
+            java.sql.ResultSetMetaData md = rs.getMetaData();
+            int cols = md.getColumnCount();
+            StringBuilder colList = new StringBuilder();
+            StringBuilder placeholders = new StringBuilder();
+            for (int i = 1; i <= cols; i++) {
+                if (i > 1) { colList.append(", "); placeholders.append(", "); }
+                colList.append(md.getColumnName(i));
+                placeholders.append("?");
+            }
+            String insertSql = "INSERT INTO " + table + " (" + colList + ") VALUES (" + placeholders + ")";
+            int count = 0;
+            try (PreparedStatement ins = dst.prepareStatement(insertSql)) {
+                while (rs.next()) {
+                    for (int i = 1; i <= cols; i++) {
+                        ins.setObject(i, rs.getObject(i));
+                    }
+                    ins.addBatch();
+                    if (++count % 500 == 0) ins.executeBatch();
+                }
+                ins.executeBatch();
+            }
+            return count;
+        }
+    }
+
+    /** Open a direct (non-pooled) connection to the other database type, read from config. */
+    private java.sql.Connection openExternalConnection(String type) throws SQLException {
+        if ("sqlite".equalsIgnoreCase(type)) {
+            return java.sql.DriverManager.getConnection("jdbc:sqlite:" + plugin.getDataFolder().getAbsolutePath() + "/storage.db");
+        } else if ("mysql".equalsIgnoreCase(type)) {
+            boolean useSsl = plugin.getConfigManager().isMysqlUseSsl();
+            String url = String.format("jdbc:mysql://%s:%d/%s?useSSL=%s%s",
+                    plugin.getConfigManager().getMysqlHost(), plugin.getConfigManager().getMysqlPort(),
+                    plugin.getConfigManager().getMysqlDatabase(), useSsl, useSsl ? "" : "&allowPublicKeyRetrieval=true");
+            return java.sql.DriverManager.getConnection(url,
+                    plugin.getConfigManager().getMysqlUsername(), plugin.getConfigManager().getMysqlPassword());
+        }
+        throw new SQLException("Unknown source database type: " + type + " (expected 'sqlite' or 'mysql')");
+    }
+
     /**
      * Migrate database to remove the unique constraint that prevents multiple cells of same item type
      * AND update cell counts to 64
@@ -820,6 +994,9 @@ public class DatabaseManager {
 
             // Run eject buckets support migration
             migrateEjectBucketsSupport();
+
+            // Run disk generation (anti-dupe) migration
+            migrateDiskGeneration();
 
             // Check if we need to migrate storage_items table constraint
             boolean needsMigration = false;

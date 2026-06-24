@@ -5,6 +5,7 @@ import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.inventory.ItemStack;
 import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
+import org.jamesphbennett.modularstoragesystem.blocks.MSSBlockType;
 import org.jamesphbennett.modularstoragesystem.network.NetworkInfo;
 
 import java.sql.Connection;
@@ -30,11 +31,17 @@ public class ExplosionManager {
         List<Location> exporterLocations = new ArrayList<>();
         List<Location> importerLocations = new ArrayList<>();
         List<Location> securityTerminalLocations = new ArrayList<>();
+        // Capture each affected network's id NOW, before the markers are wiped below. Otherwise a network whose
+        // surviving block isn't adjacent to the rubble (e.g. a security terminal across a cable) is never
+        // re-validated and keeps claiming the destroyed storage server, blocking a rebuild.
+        Set<String> affectedNetworkIds = new HashSet<>();
 
         // First pass: identify our custom blocks in the explosion
         for (Block block : blockList) {
             if (isCustomNetworkBlock(block)) {
                 customBlocksToHandle.add(block);
+                String nid = findNetworkIdForLocation(block.getLocation());
+                if (nid != null) affectedNetworkIds.add(nid);
 
                 if (isCustomDriveBay(block)) {
                     driveBayLocations.add(block.getLocation());
@@ -135,7 +142,7 @@ public class ExplosionManager {
         }
 
         // Schedule network updates after explosion
-        plugin.getServer().getScheduler().runTask(plugin, () -> updateNetworksAfterExplosion(customBlocksToHandle));
+        plugin.getServer().getScheduler().runTask(plugin, () -> updateNetworksAfterExplosion(customBlocksToHandle, affectedNetworkIds));
     }
 
     /**
@@ -157,8 +164,10 @@ public class ExplosionManager {
         return plugin.getDisksManager().findDriveBayNetworkId(location);
     }
 
-    private void updateNetworksAfterExplosion(List<Block> destroyedBlocks) {
-        Set<String> affectedNetworks = new HashSet<>();
+    private void updateNetworksAfterExplosion(List<Block> destroyedBlocks, Set<String> destroyedNetworkIds) {
+        // Seed with the networks captured before the markers were wiped, so a network is re-validated (and
+        // unregistered when it no longer has a storage server) even if no surviving block sits next to the rubble.
+        Set<String> affectedNetworks = new HashSet<>(destroyedNetworkIds);
 
         // Find all networks that might be affected
         for (Block block : destroyedBlocks) {
@@ -236,6 +245,9 @@ public class ExplosionManager {
                     stmt.executeUpdate();
                 }
             });
+
+            // Invalidate the marker cache so network detection no longer sees the destroyed block (no stale read).
+            plugin.getBlockMarkerCache().invalidateAllBlockTypesAtLocation(location);
         } catch (Exception e) {
             plugin.getLogger().severe("Error removing custom block marker: " + e.getMessage());
         }
@@ -252,7 +264,7 @@ public class ExplosionManager {
      * Check if a block is a custom storage server
      */
     private boolean isCustomStorageServer(Block block) {
-        if (block.getType() != org.bukkit.Material.CHISELED_TUFF) return false;
+        if (!MSSBlockType.STORAGE_SERVER.accepts(block.getType())) return false;
         return isMarkedAsCustomBlock(block.getLocation(), "STORAGE_SERVER");
     }
 
@@ -260,7 +272,7 @@ public class ExplosionManager {
      * Check if a block is a custom drive bay
      */
     private boolean isCustomDriveBay(Block block) {
-        if (block.getType() != org.bukkit.Material.CHISELED_TUFF_BRICKS) return false;
+        if (!MSSBlockType.DRIVE_BAY.accepts(block.getType())) return false;
         return isMarkedAsCustomBlock(block.getLocation(), "DRIVE_BAY");
     }
 
@@ -268,7 +280,7 @@ public class ExplosionManager {
      * Check if a block is a custom MSS terminal
      */
     private boolean isCustomMSSTerminal(Block block) {
-        if (block.getType() != org.bukkit.Material.CRAFTER) return false;
+        if (!MSSBlockType.MSS_TERMINAL.accepts(block.getType())) return false;
         return isMarkedAsCustomBlock(block.getLocation(), "MSS_TERMINAL");
     }
 
@@ -289,7 +301,7 @@ public class ExplosionManager {
      * Check if a block is a custom security terminal
      */
     private boolean isCustomSecurityTerminal(Block block) {
-        if (block.getType() != org.bukkit.Material.OBSERVER) return false;
+        if (!MSSBlockType.SECURITY_TERMINAL.accepts(block.getType())) return false;
         return isMarkedAsCustomBlock(block.getLocation(), "SECURITY_TERMINAL");
     }
 
@@ -297,7 +309,7 @@ public class ExplosionManager {
      * Check if a block is a custom network cable
      */
     private boolean isCustomNetworkCable(Block block) {
-        if (block.getType() != org.bukkit.Material.HEAVY_CORE) return false;
+        if (!MSSBlockType.NETWORK_CABLE.accepts(block.getType())) return false;
         return plugin.getCableManager().isCustomNetworkCable(block);
     }
 
@@ -305,23 +317,10 @@ public class ExplosionManager {
      * Check if a location is marked as a custom block in the database
      */
     private boolean isMarkedAsCustomBlock(Location location, String blockType) {
-        try (Connection conn = plugin.getDatabaseManager().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(
-                     "SELECT COUNT(*) FROM custom_block_markers WHERE world_name = ? AND x = ? AND y = ? AND z = ? AND block_type = ?")) {
-
-            stmt.setString(1, location.getWorld().getName());
-            stmt.setInt(2, location.getBlockX());
-            stmt.setInt(3, location.getBlockY());
-            stmt.setInt(4, location.getBlockZ());
-            stmt.setString(5, blockType);
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                return rs.next() && rs.getInt(1) > 0;
-            }
-        } catch (Exception e) {
-            plugin.getLogger().warning("Error checking custom block marker: " + e.getMessage());
-            return false;
-        }
+        // Route through the shared marker cache (consistent with NetworkManager / NetworkConnectivityManager /
+        // CableManager) so an explosion overlapping a large network doesn't fan out into uncached per-block
+        // main-thread SELECTs. The cache is invalidated on every marker write/delete.
+        return plugin.getBlockMarkerCache().isMarkedAsCustomBlock(location, blockType);
     }
 
     /**

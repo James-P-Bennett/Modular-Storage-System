@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "north": "modularstoragesystem:item/security_terminal_north",
+    "south": "modularstoragesystem:item/security_terminal_south",
+    "east": "modularstoragesystem:item/security_terminal_east",
+    "west": "modularstoragesystem:item/security_terminal_west",
+    "up": "modularstoragesystem:item/security_terminal_top",
+    "down": "modularstoragesystem:item/security_terminal_bottom",
+    "particle": "modularstoragesystem:item/security_terminal_north"
+  }
+}

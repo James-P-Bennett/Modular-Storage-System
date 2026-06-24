@@ -467,8 +467,10 @@ public class NetworkSecurityManager implements org.jamesphbennett.modularstorage
                      "UPDATE security_terminals SET network_id = NULL WHERE network_id = ?")) {
             
             stmt.setString(1, networkId);
+            stmt.executeUpdate();
 
-        } catch (SQLException ignored) {
+        } catch (SQLException e) {
+            plugin.getLogger().warning("Failed to clear security terminal network association for " + networkId + ": " + e.getMessage());
         }
     }
 

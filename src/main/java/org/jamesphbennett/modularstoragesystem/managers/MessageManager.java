@@ -10,7 +10,9 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -123,6 +125,28 @@ public class MessageManager {
     public Component getMessageComponent(Player player, String key, Object... placeholders) {
         String message = getMessage(player, key, placeholders);
         return miniMessage.deserialize(message);
+    }
+
+    /**
+     * Get a list of message components (e.g. item lore lines) for a player's locale.
+     * The key must point at a YAML string list; each line supports placeholders and MiniMessage.
+     * Falls back to the default language, then to an empty list if the key is missing.
+     */
+    public List<Component> getMessageComponentList(Player player, String key, Object... placeholders) {
+        String locale = getPlayerLocale(player);
+        YamlConfiguration config = loadedLanguages.get(locale);
+
+        List<String> lines = (config != null && config.isList(key)) ? config.getStringList(key) : null;
+        if (lines == null) {
+            YamlConfiguration defaultConfig = loadedLanguages.get(DEFAULT_LANGUAGE);
+            lines = (defaultConfig != null && defaultConfig.isList(key)) ? defaultConfig.getStringList(key) : List.of();
+        }
+
+        List<Component> result = new ArrayList<>(lines.size());
+        for (String line : lines) {
+            result.add(miniMessage.deserialize(applyPlaceholders(line, placeholders)));
+        }
+        return result;
     }
 
     /**

@@ -121,3 +121,61 @@ database:
 # Debug settings
 debug:
   enabled: false
+
+# ============================================================
+# Resource pack - gives MSS items distinct custom models so they're told apart
+# from the vanilla blocks/items they're built on. Items always work and are
+# named/described without a pack; this only changes how they LOOK in the
+# inventory/hand. (A pack cannot reskin a block once it is PLACED in the world -
+# placed MSS blocks always look like their vanilla block.)
+# ============================================================
+resource-pack:
+  # Master switch. false = MSS tags nothing and items render as their plain
+  # vanilla material. true = MSS stamps items so a pack can reskin them.
+  enabled: false
+
+  # PROTOTYPE: render placed network cables as connection-aware PIPES that visually join to neighbours,
+  # using one item_display entity per cable (needs enabled: true + the pack). One entity per cable, so it
+  # adds entity load on big networks — opt-in. false = cables keep their plain placed look.
+  cable-pipes: false
+
+  # Who delivers the pack to clients?
+  #   false = you handle it (server.properties 'resource-pack', or another
+  #           resource-pack plugin). MSS only tags the items.
+  #   true  = MSS pushes the pack to players on join, using the settings below.
+  handled-by-mss: false
+
+  # How MSS makes the pack available (only used when handled-by-mss: true).
+  self-host:
+    # true  = MSS runs a tiny built-in HTTP server and serves the pack itself
+    #         (no external host needed). false = MSS points clients at 'url' below.
+    enabled: true
+    # Port the built-in server binds. Must be reachable by clients (open/forward it).
+    port: 25566
+    # Host/IP clients use to reach the built-in server - your server's PUBLIC ip or
+    # domain. Leave blank to use the server's configured IP; set it if players can't
+    # download the pack.
+    public-address: ""
+    # The pack .zip in the plugin folder that MSS serves (place your built pack here).
+    file: "resourcepack.zip"
+
+  # External direct https link to the pack .zip (only used when self-host.enabled: false).
+  url: ""
+
+  # SHA-1 of the pack. Leave blank to auto-compute (from the local zip when self-hosting,
+  # or by fetching the url). A correct hash lets clients cache the pack between joins.
+  sha1: ""
+
+  # If a player declines or fails to load the pack:
+  #   false = let them keep playing (items just look vanilla)
+  #   true  = treat the pack as required (client re-prompts / refuses to connect)
+  required: false
+
+  # Prompt shown to players when the pack is offered (MiniMessage).
+  prompt: "<yellow>Install the Modular Storage System pack to see custom item textures.</yellow>"
+
+# MSS Terminal / Security Terminal screen glow. When enabled, the air block directly in front of a terminal's
+# screen emits a bright light (level 14, near torch-max). It follows the block on wrench-rotate and clears on
+# break. Only lights an AIR block (a terminal flush against a wall won't glow).
+terminal-light:
+  enabled: true

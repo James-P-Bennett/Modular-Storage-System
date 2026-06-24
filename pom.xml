@@ -6,7 +6,7 @@
 
     <groupId>org.jamesphbennett</groupId>
     <artifactId>modularstoragesystem</artifactId>
-    <version>BETA-1.7.0</version>
+    <version>Release-1.0.0</version>
     <packaging>jar</packaging>
 
     <name>Modular Storage System</name>
@@ -37,7 +37,9 @@
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
-            <version>1.21.8-R0.1-SNAPSHOT</version>
+            <!-- Compile against the OLDEST supported MC (1.21) so the single jar is forward-compatible to
+                 every newer Paper/fork build (1.21 -> 26.x). Only API present in 1.21 is used. -->
+            <version>1.21-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
 

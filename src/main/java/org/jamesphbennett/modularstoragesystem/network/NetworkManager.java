@@ -4,6 +4,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
+import org.jamesphbennett.modularstoragesystem.blocks.MSSBlockType;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -114,12 +115,11 @@ public class NetworkManager {
 
             if (plugin.getCableManager().isCustomNetworkCable(block)) {
                 networkCables.add(current);
-            } else if (isExporter(block)) {
-                // Exporters count as network blocks and extend connectivity
-                networkBlocks.add(current);
-            } else if (isImporter(block)) {
-                // Importers count as network blocks and extend connectivity
-                networkBlocks.add(current);
+            } else if (isExporter(block) || isImporter(block)) {
+                // Exporters/importers extend connectivity (their neighbours are still traversed below) but
+                // are NOT counted as network blocks — they have their own per-network role limits
+                // (max_exporters / max_importers). Keeping them out of networkBlocks means they no longer
+                // consume a block slot or get a network_blocks "block" row (which would double-count them).
             } else {
                 networkBlocks.add(current);
 
@@ -160,10 +160,13 @@ public class NetworkManager {
             return null;
         }
 
-        // Check block limit (excluding cables)
+        // Do NOT return null when over the block limit. The placement handler (BlockListener) checks the same
+        // count and rejects + refunds the offending block; returning null here makes that rejection path
+        // unreachable (network==null falls to the generic branch) and leaves the over-limit block
+        // placed-but-unregistered, permanently breaking the network. The topology is valid — the caller
+        // decides whether it is over the limit.
         if (networkBlocks.size() > plugin.getConfigManager().getMaxNetworkBlocks()) {
             plugin.getLogger().warning("Network exceeds block limit: " + networkBlocks.size() + "/" + plugin.getConfigManager().getMaxNetworkBlocks());
-            return null;
         }
 
         // Check cable limits
@@ -283,12 +286,23 @@ public class NetworkManager {
     // Network registration
     public void registerNetwork(NetworkInfo network, UUID ownerUUID) throws SQLException {
         plugin.getDatabaseManager().executeTransaction(conn -> {
-            // Insert or update network
-            try (PreparedStatement stmt = conn.prepareStatement(
-                    "INSERT OR REPLACE INTO networks (network_id, owner_uuid, last_accessed) VALUES (?, ?, CURRENT_TIMESTAMP)")) {
-                stmt.setString(1, network.getNetworkId());
-                stmt.setString(2, ownerUUID != null ? ownerUUID.toString() : "00000000-0000-0000-0000-000000000000");
-                stmt.executeUpdate();
+            // Portable upsert: UPDATE, then INSERT only if the row didn't exist. We deliberately avoid
+            // INSERT OR REPLACE here — it is SQLite-only syntax AND does a delete+reinsert, which on MySQL
+            // (InnoDB FKs enforced) would trigger storage_disks.network_id ON DELETE SET NULL and orphan
+            // every disk in the network. UPDATE preserves the row (and its created_at).
+            String ownerStr = ownerUUID != null ? ownerUUID.toString() : "00000000-0000-0000-0000-000000000000";
+            try (PreparedStatement upd = conn.prepareStatement(
+                    "UPDATE networks SET owner_uuid = ?, last_accessed = CURRENT_TIMESTAMP WHERE network_id = ?")) {
+                upd.setString(1, ownerStr);
+                upd.setString(2, network.getNetworkId());
+                if (upd.executeUpdate() == 0) {
+                    try (PreparedStatement ins = conn.prepareStatement(
+                            "INSERT INTO networks (network_id, owner_uuid, last_accessed) VALUES (?, ?, CURRENT_TIMESTAMP)")) {
+                        ins.setString(1, network.getNetworkId());
+                        ins.setString(2, ownerStr);
+                        ins.executeUpdate();
+                    }
+                }
             }
 
             // Clear existing network blocks
@@ -298,9 +312,18 @@ public class NetworkManager {
                 stmt.executeUpdate();
             }
 
-            // Insert network blocks (including cables)
+            // Insert network blocks (including cables). REPLACE (not INSERT): network_blocks has a global
+            // UNIQUE(world,x,y,z) — a block belongs to exactly one network. A block can still hold a row under a
+            // STALE network_id (a previous/rebuilt server position whose network went invalid without a clean
+            // unregister — "no longer valid" only warns, it doesn't delete rows). The DELETE above is scoped to
+            // THIS network_id, so it can't clear those stale rows, and a plain INSERT then collides on the UNIQUE
+            // and rolls back the whole registration (network reads invalid + "connection lost" spam). REPLACE is
+            // location-keyed last-writer-wins: it evicts any stale row at that coord (under any id) and re-binds it
+            // here. Safe against stealing from a *valid* network — two valid networks can't share a block (shared
+            // connectivity ⇒ two storage servers ⇒ detectNetwork returns null ⇒ neither registers). Portable on
+            // SQLite + MySQL (same idiom as the custom_block_markers / cable-marker writes, §11).
             try (PreparedStatement stmt = conn.prepareStatement(
-                    "INSERT INTO network_blocks (network_id, world_name, x, y, z, block_type) VALUES (?, ?, ?, ?, ?, ?)")) {
+                    "REPLACE INTO network_blocks (network_id, world_name, x, y, z, block_type) VALUES (?, ?, ?, ?, ?, ?)")) {
 
                 for (Location loc : network.getAllBlocks()) {
                     stmt.setString(1, network.getNetworkId());
@@ -520,39 +543,27 @@ public class NetworkManager {
     }
 
     private boolean isStorageServer(Block block) {
-        return block.getType() == Material.CHISELED_TUFF && isMarkedAsCustomBlock(block.getLocation(), "STORAGE_SERVER");
+        return MSSBlockType.STORAGE_SERVER.accepts(block.getType()) && isMarkedAsCustomBlock(block.getLocation(), "STORAGE_SERVER");
     }
 
     private boolean isDriveBay(Block block) {
-        return block.getType() == Material.CHISELED_TUFF_BRICKS && isMarkedAsCustomBlock(block.getLocation(), "DRIVE_BAY");
+        return MSSBlockType.DRIVE_BAY.accepts(block.getType()) && isMarkedAsCustomBlock(block.getLocation(), "DRIVE_BAY");
     }
 
     private boolean isMSSTerminal(Block block) {
-        return block.getType() == Material.CRAFTER && isMarkedAsCustomBlock(block.getLocation(), "MSS_TERMINAL");
+        return MSSBlockType.MSS_TERMINAL.accepts(block.getType()) && isMarkedAsCustomBlock(block.getLocation(), "MSS_TERMINAL");
     }
 
     private boolean isSecurityTerminal(Block block) {
-        return block.getType() == Material.OBSERVER && isMarkedAsCustomBlock(block.getLocation(), "SECURITY_TERMINAL");
+        return MSSBlockType.SECURITY_TERMINAL.accepts(block.getType()) && isMarkedAsCustomBlock(block.getLocation(), "SECURITY_TERMINAL");
     }
 
     private boolean isMarkedAsCustomBlock(Location location, String blockType) {
-        try (Connection conn = plugin.getDatabaseManager().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(
-                     "SELECT COUNT(*) FROM custom_block_markers WHERE world_name = ? AND x = ? AND y = ? AND z = ? AND block_type = ?")) {
-
-            stmt.setString(1, location.getWorld().getName());
-            stmt.setInt(2, location.getBlockX());
-            stmt.setInt(3, location.getBlockY());
-            stmt.setInt(4, location.getBlockZ());
-            stmt.setString(5, blockType);
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                return rs.next() && rs.getInt(1) > 0;
-            }
-        } catch (Exception e) {
-            plugin.getLogger().warning("Error checking custom block marker: " + e.getMessage());
-            return false;
-        }
+        // Route through the shared 5s-TTL cache instead of an uncached per-node DB query. detectNetwork
+        // calls this for every BFS node, so an uncached query here turned each network detection into
+        // hundreds of main-thread SELECTs — a player-spammable DB-amplification DoS. The cache is
+        // invalidated on every marker write/delete (BlockListener, CableManager, ExplosionManager).
+        return plugin.getBlockMarkerCache().isMarkedAsCustomBlock(location, blockType);
     }
 
     private String getBlockType(Block block) {

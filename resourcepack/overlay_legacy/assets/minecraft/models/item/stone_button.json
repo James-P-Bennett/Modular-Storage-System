@@ -1,0 +1,11 @@
+{
+  "parent": "minecraft:block/stone_button",
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 1011
+      },
+      "model": "modularstoragesystem:item/disk_platter_1k"
+    }
+  ]
+}

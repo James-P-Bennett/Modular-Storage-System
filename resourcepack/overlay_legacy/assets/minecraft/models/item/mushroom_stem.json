@@ -1,0 +1,29 @@
+{
+  "parent": "minecraft:block/mushroom_stem_inventory",
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 1001
+      },
+      "model": "modularstoragesystem:item/storage_server"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1002
+      },
+      "model": "modularstoragesystem:item/drive_bay"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1003
+      },
+      "model": "modularstoragesystem:item/mss_terminal"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1005
+      },
+      "model": "modularstoragesystem:item/security_terminal"
+    }
+  ]
+}

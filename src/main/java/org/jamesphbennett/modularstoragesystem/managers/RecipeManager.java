@@ -79,6 +79,9 @@ public class RecipeManager {
                         // Debug logging only - removed verbose console output
                     }
                     registeredRecipeCount++;
+                } catch (MaterialUnavailableException e) {
+                    // Expected on older MC versions — skip this recipe quietly (no scary stack trace).
+                    plugin.getLogger().info("Skipping recipe '" + recipeName + "' - " + e.getMessage());
                 } catch (Exception e) {
                     plugin.getLogger().severe("Failed to register recipe '" + recipeName + "': " + e.getMessage());
                     plugin.getLogger().severe("Stack trace: " + java.util.Arrays.toString(e.getStackTrace()));
@@ -405,8 +408,15 @@ public class RecipeManager {
         try {
             return Material.valueOf(materialName.toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new Exception("Invalid material '" + materialName + "' for ingredient '" + ingredientKey + "' in recipe '" + recipeName + "'");
+            // Material doesn't exist on this server version (e.g. RESIN_BRICK on < 1.21.4). Treat as an
+            // expected, recoverable condition so the recipe is skipped quietly instead of erroring.
+            throw new MaterialUnavailableException("material '" + materialName + "' (ingredient '" + ingredientKey + "' in recipe '" + recipeName + "') is not available on this Minecraft version");
         }
+    }
+
+    /** Thrown when a recipe references a vanilla material that doesn't exist on the running MC version. */
+    private static class MaterialUnavailableException extends Exception {
+        MaterialUnavailableException(String message) { super(message); }
     }
 
     /**
@@ -597,6 +607,9 @@ public class RecipeManager {
                 break;
             case "security_terminal":
                 result = itemManager.createSecurityTerminal();
+                break;
+            case "mss_wrench":
+                result = itemManager.createWrench();
                 break;
 
             // Storage disks

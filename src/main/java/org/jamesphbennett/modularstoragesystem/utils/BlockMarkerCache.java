@@ -111,10 +111,26 @@ public class BlockMarkerCache {
      */
     public void invalidateAllBlockTypesAtLocation(Location location) {
         // Invalidate cache for all possible block types at this location
-        String[] blockTypes = {"STORAGE_SERVER", "DRIVE_BAY", "MSS_TERMINAL", "EXPORTER", "IMPORTER", "SECURITY_TERMINAL", "ANY"};
+        String[] blockTypes = {"STORAGE_SERVER", "DRIVE_BAY", "MSS_TERMINAL", "EXPORTER", "IMPORTER", "SECURITY_TERMINAL", "NETWORK_CABLE", "ANY"};
         for (String blockType : blockTypes) {
             invalidateBlockMarkerCache(location, blockType);
         }
+    }
+
+    /**
+     * Remove expired entries to bound memory growth. Without this the cache grows unbounded — one entry
+     * per (block location, type) ever queried — which now matters because all network detection routes
+     * through this cache. Called periodically by the plugin's 30s scheduler task.
+     */
+    public void evictExpired() {
+        long now = System.currentTimeMillis();
+        blockMarkerCacheExpiry.entrySet().removeIf(entry -> {
+            if (entry.getValue() < now) {
+                blockMarkerCache.remove(entry.getKey());
+                return true;
+            }
+            return false;
+        });
     }
 
     /**

@@ -9,6 +9,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
+import org.jamesphbennett.modularstoragesystem.blocks.MSSBlockType;
 
 import java.util.List;
 
@@ -158,7 +159,8 @@ public class PistonListener implements Listener {
                 type != Material.CRAFTER &&
                 type != Material.PLAYER_HEAD &&
                 type != Material.PLAYER_WALL_HEAD &&
-                type != Material.OBSERVER) {
+                type != Material.OBSERVER &&
+                type != MSSBlockType.NOTE) {
             return false;
         }
 

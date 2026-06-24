@@ -63,6 +63,17 @@ public class StorageManager {
                             continue;
                         }
 
+                        // Anti-dupe: never accept a stale storage disk (its id was recovered, so this is a
+                        // superseded copy) into network storage.
+                        if (itemManager.isStorageDisk(item)) {
+                            String storedDiskId = itemManager.getStorageDiskId(item);
+                            if (storedDiskId != null && !itemManager.isDiskGenerationCurrent(item, storedDiskId)) {
+                                plugin.debugLog("Rejected stale storage disk " + storedDiskId + " from being stored");
+                                remainders.add(item);
+                                continue;
+                            }
+                        }
+
                         plugin.debugLog("debug.storage.processing", "amount", item.getAmount(), "item", item.getType());
                         ItemStack remainder = storeItemInNetwork(conn, networkId, diskIds, item);
                         if (remainder != null && remainder.getAmount() > 0) {
@@ -159,6 +170,16 @@ public class StorageManager {
                                 // Deserialize item and set amount
                                 ItemStack item = deserializeItemStack(itemData);
                                 if (item != null) {
+                                    // Anti-dupe: a stored disk whose id was recovered while parked is superseded.
+                                    // The cell was already decremented/removed above, so just drop it instead of
+                                    // handing back a stale duplicate of a disk the player has already recovered.
+                                    if (itemManager.isStorageDisk(item)) {
+                                        String storedDiskId = itemManager.getStorageDiskId(item);
+                                        if (storedDiskId != null && !itemManager.isDiskGenerationCurrent(item, storedDiskId)) {
+                                            plugin.debugLog("Discarded stale stored disk " + storedDiskId + " on retrieval (recovered while stored)");
+                                            continue;
+                                        }
+                                    }
                                     item.setAmount(toRetrieve);
                                     retrievedItems.add(item);
                                     remainingToRetrieve -= toRetrieve;

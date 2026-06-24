@@ -8,6 +8,7 @@ import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
+import org.jamesphbennett.modularstoragesystem.blocks.MSSBlockType;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -160,7 +161,7 @@ public class CableManager {
      * Check if a block is a custom network cable (strict validation)
      */
     public boolean isCustomNetworkCable(Block block) {
-        if (block.getType() != Material.HEAVY_CORE) return false;
+        if (!MSSBlockType.NETWORK_CABLE.accepts(block.getType())) return false;
         return isMarkedAsCustomCable(block.getLocation());
     }
 
@@ -184,7 +185,7 @@ public class CableManager {
     private void markLocationAsCustomCable(Location location) throws SQLException {
         plugin.getDatabaseManager().executeTransaction(conn -> {
             try (PreparedStatement stmt = conn.prepareStatement(
-                    "INSERT OR REPLACE INTO custom_block_markers (world_name, x, y, z, block_type) VALUES (?, ?, ?, ?, ?)")) {
+                    "REPLACE INTO custom_block_markers (world_name, x, y, z, block_type) VALUES (?, ?, ?, ?, ?)")) {
                 stmt.setString(1, location.getWorld().getName());
                 stmt.setInt(2, location.getBlockX());
                 stmt.setInt(3, location.getBlockY());
@@ -193,6 +194,10 @@ public class CableManager {
                 stmt.executeUpdate();
             }
         });
+
+        // Invalidate the marker cache so detection sees the new cable immediately — clear ALL type keys incl.
+        // ':ANY' (used by piston checks), not just NETWORK_CABLE, so a fresh cable is never read as non-MSS.
+        plugin.getBlockMarkerCache().invalidateAllBlockTypesAtLocation(location);
     }
 
 
@@ -298,23 +303,9 @@ public class CableManager {
      * Check if a location is marked as a custom block in the database
      */
     private boolean isMarkedAsCustomBlock(Location location) {
-        try (Connection conn = plugin.getDatabaseManager().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(
-                     "SELECT COUNT(*) FROM custom_block_markers WHERE world_name = ? AND x = ? AND y = ? AND z = ? AND block_type = ?")) {
-
-            stmt.setString(1, location.getWorld().getName());
-            stmt.setInt(2, location.getBlockX());
-            stmt.setInt(3, location.getBlockY());
-            stmt.setInt(4, location.getBlockZ());
-            stmt.setString(5, "NETWORK_CABLE");
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                return rs.next() && rs.getInt(1) > 0;
-            }
-        } catch (Exception e) {
-            plugin.getLogger().warning("Error checking custom block marker: " + e.getMessage());
-            return false;
-        }
+        // Route cable checks through the shared marker cache (isCustomNetworkCable is hit for every BFS
+        // node during detection). Cache is invalidated on cable place (below) and on block break.
+        return plugin.getBlockMarkerCache().isMarkedAsCustomBlock(location, "NETWORK_CABLE");
     }
 
     /**

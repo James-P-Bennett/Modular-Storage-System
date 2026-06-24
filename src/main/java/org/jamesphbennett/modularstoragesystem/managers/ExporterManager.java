@@ -74,6 +74,24 @@ public class ExporterManager implements org.jamesphbennett.modularstoragesystem.
     }
 
     /**
+     * Number of exporters currently assigned to the given network (used to enforce the per-network
+     * exporter role limit at placement). Fails open (returns 0) on a DB error so placement isn't blocked.
+     */
+    public int getNetworkExporterCount(String networkId) {
+        if (networkId == null) return 0;
+        try (Connection conn = plugin.getDatabaseManager().getConnection();
+             PreparedStatement stmt = conn.prepareStatement("SELECT COUNT(*) FROM exporters WHERE network_id = ?")) {
+            stmt.setString(1, networkId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error counting exporters for network " + networkId + ": " + e.getMessage());
+            return 0;
+        }
+    }
+
+    /**
      * Load all exporters from database
      */
     private void loadExporters() {
@@ -230,22 +248,45 @@ public class ExporterManager implements org.jamesphbennett.modularstoragesystem.
             // Check if exporter is physically connected to any network
             String adjacentNetworkId = findAdjacentNetwork(exporter.location);
             if (adjacentNetworkId == null) {
-                // AUTO-DISABLE: Set exporter as disabled when disconnected
-                try {
-                    toggleExporter(exporter.exporterId, false);
-
-                    // Refresh any open exporter GUIs to show disabled status
-                    refreshExporterGUIs(exporter.exporterId);
-
-                } catch (SQLException e) {
-                    plugin.getLogger().warning("Failed to auto-disable exporter " + exporter.exporterId + ": " + e.getMessage());
+                // Disconnected on THIS tick — usually a transient window while the network re-detects after a
+                // cable/topology change (or a mid-build marker-cache miss). Skip exporting this tick but DO NOT
+                // disable: the exporter stays enabled so the next tick re-resolves and reconnects automatically.
+                // Auto-disabling here latched it off permanently (the tick loop only processes enabled exporters)
+                // — the cause of the "50/50 on cable connect" + "quits when you edit the network" bug.
+                // DO clear the network association (keeping it enabled) so a physically-disconnected exporter stops
+                // counting against the network's exporter limit and drops out of /mss info. updateExporterNetwork-
+                // Assignments only un-binds when the NETWORK goes invalid, so a still-valid network whose cable was
+                // pulled would otherwise keep this device counted forever. It re-binds above on the first connected
+                // tick. One-shot, guarded write — not repeated every tick while it sits disconnected.
+                if (!"UNCONNECTED".equals(exporter.networkId)) {
+                    try {
+                        plugin.getDatabaseManager().executeUpdate(
+                                "UPDATE exporters SET network_id = ?, updated_at = CURRENT_TIMESTAMP WHERE exporter_id = ?",
+                                "UNCONNECTED", exporter.exporterId);
+                        activeExporters.remove(exporter.exporterId);
+                        ExporterData disconnectedData = new ExporterData(exporter.exporterId, "UNCONNECTED", exporter.location, exporter.enabled);
+                        disconnectedData.filterItems.addAll(exporter.filterItems);
+                        activeExporters.put(exporter.exporterId, disconnectedData);
+                    } catch (SQLException e) {
+                        plugin.getLogger().warning("Failed to clear disconnected exporter network assignment: " + e.getMessage());
+                    }
                 }
-
                 return;
             }
 
             // If connected to a different network than assigned, update the assignment
             if (!adjacentNetworkId.equals(exporter.networkId)) {
+                // Enforce the per-network exporter limit at the rebind point too — placement-time enforcement
+                // alone is bypassable by connecting devices to a network after the fact. If the target network
+                // is already at the limit, refuse the rebind and auto-disable this exporter.
+                if (getNetworkExporterCount(adjacentNetworkId) >= plugin.getConfigManager().getMaxExporters()) {
+                    try {
+                        toggleExporter(exporter.exporterId, false);
+                        refreshExporterGUIs(exporter.exporterId);
+                    } catch (SQLException ignored) {
+                    }
+                    return;
+                }
                 try {
                     // Update database
                     plugin.getDatabaseManager().executeUpdate(
@@ -890,9 +931,24 @@ public class ExporterManager implements org.jamesphbennett.modularstoragesystem.
     }
 
     /**
+     * Drop items that could not be put back into the network (e.g. the network filled up mid-tick) at the
+     * exporter's location instead of silently deleting them (prevents item loss).
+     */
+    private void dropUnstored(ExporterData exporter, List<ItemStack> notStored) {
+        if (notStored == null || notStored.isEmpty()) return;
+        Location loc = exporter.location;
+        if (loc == null || loc.getWorld() == null) return;
+        for (ItemStack item : notStored) {
+            if (item != null && !item.getType().isAir()) {
+                loc.getWorld().dropItemNaturally(loc, item);
+            }
+        }
+    }
+
+    /**
      * Handle export completion (leftovers, logging, etc.)
      */
-    private void handleExportCompletion(ExporterData exporter, ItemStack retrievedItem, 
+    private void handleExportCompletion(ExporterData exporter, ItemStack retrievedItem,
                                        int leftoverAmount) {
         try {
             // If there's leftover, put it back in the network
@@ -902,7 +958,8 @@ public class ExporterManager implements org.jamesphbennett.modularstoragesystem.
 
                 List<ItemStack> toReturn = new ArrayList<>();
                 toReturn.add(leftoverStack);
-                plugin.getStorageManager().storeItems(exporter.networkId, toReturn);
+                List<ItemStack> notStored = plugin.getStorageManager().storeItems(exporter.networkId, toReturn);
+                dropUnstored(exporter, notStored);
 
                 // Calculate what was actually exported
                 int exported = retrievedItem.getAmount() - leftoverAmount;
@@ -946,7 +1003,8 @@ public class ExporterManager implements org.jamesphbennett.modularstoragesystem.
 
                 List<ItemStack> toReturn = new ArrayList<>();
                 toReturn.add(leftoverStack);
-                plugin.getStorageManager().storeItems(exporter.networkId, toReturn);
+                List<ItemStack> notStored = plugin.getStorageManager().storeItems(exporter.networkId, toReturn);
+                dropUnstored(exporter, notStored);
 
                 // Calculate what was actually exported
                 int exported = retrievedItem.getAmount() - leftoverAmount;
@@ -1267,8 +1325,16 @@ public class ExporterManager implements org.jamesphbennett.modularstoragesystem.
         String exporterId = java.util.UUID.randomUUID().toString();
         String finalNetworkId = (networkId != null) ? networkId : "UNCONNECTED";
 
+        // REPLACE (not INSERT): exporters has a global UNIQUE(world,x,y,z). A stale row can linger at a coord
+        // when a device's world was unloaded at plugin enable (loadExporters skips unloaded worlds, so there's no
+        // in-memory entry) and the block is then broken — removal is gated on the in-memory lookup, so the marker
+        // is deleted but the row is orphaned. A plain INSERT on the next placement at that coord would collide on
+        // the UNIQUE and throw (same bug class as network_blocks). REPLACE is location-keyed last-writer-wins: it
+        // evicts the orphan row (and cascade-drops its orphan exporter_filters) and inserts this fresh device.
+        // Safe — createExporter only runs at placement, where no LIVE device occupies the coord and no filters
+        // exist yet. Portable on SQLite + MySQL.
         plugin.getDatabaseManager().executeUpdate(
-                "INSERT INTO exporters (exporter_id, network_id, world_name, x, y, z, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                "REPLACE INTO exporters (exporter_id, network_id, world_name, x, y, z, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                 exporterId, finalNetworkId, location.getWorld().getName(), location.getBlockX(), location.getBlockY(), location.getBlockZ(), false);
 
         // Add to memory
@@ -1316,7 +1382,8 @@ public class ExporterManager implements org.jamesphbennett.modularstoragesystem.
 
                         // Update in memory
                         activeExporters.remove(exporter.exporterId);
-                        ExporterData disconnectedData = new ExporterData(exporter.exporterId, "UNCONNECTED", exporter.location, false);
+                        // Preserve the player's enabled intent so the exporter auto-reconnects when the network returns.
+                        ExporterData disconnectedData = new ExporterData(exporter.exporterId, "UNCONNECTED", exporter.location, exporter.enabled);
                         disconnectedData.filterItems.addAll(exporter.filterItems);
                         activeExporters.put(exporter.exporterId, disconnectedData);
 
@@ -1325,16 +1392,9 @@ public class ExporterManager implements org.jamesphbennett.modularstoragesystem.
                     }
                 }
             } else {
-                // Network is valid, but check physical connectivity
-                if (exporter.enabled && isExporterConnectedToNetwork(exporter)) {
-                    // Auto-disable exporters that are enabled but physically disconnected
-                    try {
-                        toggleExporter(exporter.exporterId, false);
-                        refreshExporterGUIs(exporter.exporterId);
-                    } catch (SQLException e) {
-                        plugin.getLogger().warning("Failed to auto-disable exporter " + exporter.exporterId + ": " + e.getMessage());
-                    }
-                }
+                // Network is valid. Physical (cable) connectivity is re-checked every tick by processExport, and a
+                // transient disconnect no longer disables the exporter — it simply skips until reconnected. So a
+                // network event must NOT auto-disable here; doing so latched the exporter off on every cable edit.
             }
         }
 

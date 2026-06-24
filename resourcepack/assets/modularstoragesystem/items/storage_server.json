@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "modularstoragesystem:item/storage_server"
+  }
+}

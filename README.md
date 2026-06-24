@@ -191,21 +191,21 @@ RGR
 ```
 BGB    B = Blaze Rod, G = Gold Ingot
 111    1 = 1k Disk Platter
-ERE    E = Ender Pearl, R = Resin Brick
+ERE    E = Ender Pearl, R = Nether Brick
 ```
 
 #### 16k Disk Platter  
 ```
 BDB    B = Breeze Rod, D = Diamond
 444    4 = 4k Disk Platter
-PRP    P = Ender Pearl, R = Resin Brick
+PRP    P = Ender Pearl, R = Nether Brick
 ```
 
 #### 64k Disk Platter
 ```
 SES    S = Shulker Shell, E = Ender Eye
 666    6 = 16k Disk Platter  
-PRP    P = Ender Pearl, R = Resin Brick
+PRP    P = Ender Pearl, R = Nether Brick
 ```
 
 ### Storage Disks
@@ -251,6 +251,7 @@ The plugin provides several administrative and utility commands:
 | `/mss info`                          | Show plugin statistics and network information | `modularstoragesystem.admin`    |
 | `/mss recipes`                       | List all available recipes and their status    | `modularstoragesystem.admin`    |
 | `/mss reload [config\|recipes\|all]` | Reload configuration files                     | `modularstoragesystem.admin`    |
+| `/mss migratedb <sqlite\|mysql>`     | Import all data from the other database into the active one | `modularstoragesystem.admin`    |
 
 ### Available Items for `/mss give`
 - `storage_server`, `drive_bay`, `mss_terminal`, `security_terminal`
@@ -269,7 +270,54 @@ The plugin includes three main configuration files:
 - **lang/en_US.yml**: All plugin messages and text (supports localization)
 - **recipes.yml**: Complete recipe definitions with enable/disable options for each recipe
 
-The plugin uses **HikariCP** with SQLite for efficient database operations and connection pooling, ensuring optimal performance even with large storage networks.
+The plugin uses **HikariCP** connection pooling and supports either **SQLite** (default) or **MySQL/MariaDB** — see below.
+
+---
+
+## Database & Storage Backends
+
+All plugin data (networks, storage disks, stored items, drive bays, importers/exporters) lives in a
+database — either **SQLite** (default; a `storage.db` file, zero setup) or **MySQL/MariaDB** (for
+shared or remote databases). Pick one with `database.type: sqlite` or `mysql` in `config.yml`; MySQL
+host/credentials are configured in the same file.
+
+### Switching storage types without data loss
+
+Changing `database.type` by itself does **not** move your data — the new database starts empty (your
+old data stays safe in the old database, it just isn't loaded). To carry everything across, use the
+built-in importer:
+
+1. Install the new plugin jar and start the server once on your **existing** database so its schema
+   upgrades in place.
+2. Set `database.type` to the **destination** (e.g. `mysql`) in `config.yml` and **restart** — this
+   creates the empty new schema.
+3. Run **`/mss migratedb <old-type> confirm`** (e.g. `/mss migratedb sqlite confirm`). This copies
+   every table from the old database into the active one.
+4. **Restart** the server so all in-memory data reflects the import.
+
+> Do steps 2–4 with **no players online**, and back up first. The migration is atomic — it rolls back
+> on any error and leaves the active database unchanged — and is verified to preserve **every row in
+> both directions**, including when importing from an older plugin version's database. Item NBT is
+> copied verbatim, so data is preserved as long as the Minecraft version stays the same.
+
+### Upgrading from an older version
+
+Just replace the jar and start the server — the plugin runs idempotent, additive schema migrations on
+startup that bring older databases up to date **without losing data** (verified, including the legacy
+`storage_items` table layout). Your config files are **never overwritten** on update, so customizations
+are safe — but new keys are **not** auto-merged into them, so after a feature update:
+
+- **config.yml** — nothing to do. Missing keys fall back to the bundled defaults, so the plugin runs
+  unchanged; regenerate it only if you want to see and tweak newly-added options.
+- **lang/en_US.yml** — if you've **customized** it, merge the new keys in (or delete the data-folder
+  copy to regenerate). A stale language file renders newly-added text as `Missing message: <key>` — the
+  data-folder file overrides the bundled one and is not silently backfilled from it.
+- **recipes.yml** — if you've **customized** it, merge in new/changed recipes (or delete it to
+  regenerate). Recipes that exist only in the new jar are silently not registered, and changed
+  ingredients won't reach recipes your file already defines, until you refresh it.
+
+`/mss reload` re-reads your existing files but does **not** pull in new defaults — regenerate or
+hand-merge instead.
 
 ---
 

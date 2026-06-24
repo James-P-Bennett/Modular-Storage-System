@@ -117,7 +117,7 @@ recipes:
       G: "GOLD_INGOT"
       "1": "mss:disk_platter:1k"  # CUSTOM: 1k disk platter component
       E: "ENDER_PEARL"
-      R: "RESIN_BRICK"
+      R: "NETHER_BRICK"
     description: "4k tier disk platter component"
 
   disk_platter_16k:
@@ -134,7 +134,7 @@ recipes:
       D: "DIAMOND"
       "4": "mss:disk_platter:4k"  # CUSTOM: 4k disk platter component
       P: "ENDER_PEARL"
-      R: "RESIN_BRICK"
+      R: "NETHER_BRICK"
     description: "16k tier disk platter component"
 
   disk_platter_64k:
@@ -151,7 +151,7 @@ recipes:
       E: "ENDER_EYE"
       "6": "mss:disk_platter:16k"  # CUSTOM: 16k disk platter component
       P: "ENDER_PEARL"
-      R: "RESIN_BRICK"
+      R: "NETHER_BRICK"
     description: "64k tier disk platter component"
 
   storage_disk_housing:
@@ -331,3 +331,16 @@ recipes:
       - "mss:storage_disk_housing"  # CUSTOM: Storage disk housing component
       - "mss:disk_platter:64k"  # CUSTOM: 64k disk platter component
     description: "Alternative 64k storage disk recipe (shapeless)"
+
+  mss_wrench:
+    enabled: true
+    result:
+      item: "mss_wrench"
+      amount: 1
+    shape:
+      - " I "
+      - " II"
+      - "I  "
+    ingredients:
+      I: "IRON_INGOT"
+    description: "Rotate (right-click) and dismantle (shift+right-click) MSS blocks"

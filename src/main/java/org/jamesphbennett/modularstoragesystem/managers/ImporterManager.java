@@ -77,6 +77,24 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
     }
 
     /**
+     * Number of importers currently assigned to the given network (used to enforce the per-network
+     * importer role limit at placement). Fails open (returns 0) on a DB error so placement isn't blocked.
+     */
+    public int getNetworkImporterCount(String networkId) {
+        if (networkId == null) return 0;
+        try (Connection conn = plugin.getDatabaseManager().getConnection();
+             PreparedStatement stmt = conn.prepareStatement("SELECT COUNT(*) FROM importers WHERE network_id = ?")) {
+            stmt.setString(1, networkId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error counting importers for network " + networkId + ": " + e.getMessage());
+            return 0;
+        }
+    }
+
+    /**
      * Load all importers from database
      */
     private void loadImporters() {
@@ -232,22 +250,44 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
             // Check if importer is physically connected to any network
             String adjacentNetworkId = findAdjacentNetwork(importer.location);
             if (adjacentNetworkId == null) {
-                // AUTO-DISABLE: Set importer as disabled when disconnected
-                try {
-                    toggleImporter(importer.importerId, false);
-
-                    // Refresh any open importer GUIs to show disabled status
-                    refreshImporterGUIs(importer.importerId);
-
-                } catch (SQLException e) {
-                    plugin.getLogger().warning("Failed to auto-disable importer " + importer.importerId + ": " + e.getMessage());
+                // Disconnected on THIS tick — usually a transient window while the network re-detects after a
+                // cable/topology change. Skip importing this tick but DO NOT disable: the importer stays enabled so
+                // the next tick reconnects automatically once the network settles. Auto-disabling here latched it
+                // off permanently (the tick loop only processes enabled importers) — the flaky/quitting bug.
+                // DO clear the network association (keeping it enabled) so a physically-disconnected importer stops
+                // counting against the network's importer limit and drops out of /mss info. updateImporterNetwork-
+                // Assignments only un-binds when the NETWORK goes invalid, so a still-valid network whose cable was
+                // pulled would otherwise keep this device counted forever. It re-binds above on the first connected
+                // tick. One-shot, guarded write — not repeated every tick while it sits disconnected.
+                if (!"UNCONNECTED".equals(importer.networkId)) {
+                    try {
+                        plugin.getDatabaseManager().executeUpdate(
+                                "UPDATE importers SET network_id = ?, updated_at = CURRENT_TIMESTAMP WHERE importer_id = ?",
+                                "UNCONNECTED", importer.importerId);
+                        activeImporters.remove(importer.importerId);
+                        ImporterData disconnectedData = new ImporterData(importer.importerId, "UNCONNECTED", importer.location, importer.enabled, importer.bottleXp, importer.ejectBuckets);
+                        disconnectedData.filterItems.addAll(importer.filterItems);
+                        activeImporters.put(importer.importerId, disconnectedData);
+                    } catch (SQLException e) {
+                        plugin.getLogger().warning("Failed to clear disconnected importer network assignment: " + e.getMessage());
+                    }
                 }
-
                 return;
             }
 
             // If connected to a different network than assigned, update the assignment
             if (!adjacentNetworkId.equals(importer.networkId)) {
+                // Enforce the per-network importer limit at the rebind point too — placement-time enforcement
+                // alone is bypassable by connecting devices to a network after the fact. If the target network
+                // is already at the limit, refuse the rebind and auto-disable this importer.
+                if (getNetworkImporterCount(adjacentNetworkId) >= plugin.getConfigManager().getMaxImporters()) {
+                    try {
+                        toggleImporter(importer.importerId, false);
+                        refreshImporterGUIs(importer.importerId);
+                    } catch (SQLException ignored) {
+                    }
+                    return;
+                }
                 try {
                     // Update database
                     plugin.getDatabaseManager().executeUpdate(
@@ -882,8 +922,13 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
         String importerId = java.util.UUID.randomUUID().toString();
         String finalNetworkId = (networkId != null) ? networkId : "UNCONNECTED";
 
+        // REPLACE (not INSERT): mirrors the exporter fix. importers has a global UNIQUE(world,x,y,z); a device in
+        // an unloaded world is skipped by loadImporters (no in-memory entry), so breaking it deletes the marker but
+        // orphans the row, and a later placement at that coord would collide on the UNIQUE with a plain INSERT.
+        // REPLACE evicts the orphan (cascade-dropping its orphan importer_filters) and inserts fresh; safe because
+        // createImporter only runs at placement (no live device at the coord, no filters yet). Portable SQLite + MySQL.
         plugin.getDatabaseManager().executeUpdate(
-                "INSERT INTO importers (importer_id, network_id, world_name, x, y, z, enabled, bottle_xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                "REPLACE INTO importers (importer_id, network_id, world_name, x, y, z, enabled, bottle_xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                 importerId, finalNetworkId, location.getWorld().getName(), location.getBlockX(), location.getBlockY(), location.getBlockZ(), false, false);
 
         // Add to memory
@@ -931,7 +976,8 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
 
                         // Update in memory
                         activeImporters.remove(importer.importerId);
-                        ImporterData disconnectedData = new ImporterData(importer.importerId, "UNCONNECTED", importer.location, false, importer.bottleXp, importer.ejectBuckets);
+                        // Preserve the player's enabled intent so the importer auto-reconnects when the network returns.
+                        ImporterData disconnectedData = new ImporterData(importer.importerId, "UNCONNECTED", importer.location, importer.enabled, importer.bottleXp, importer.ejectBuckets);
                         disconnectedData.filterItems.addAll(importer.filterItems);
                         activeImporters.put(importer.importerId, disconnectedData);
 
@@ -940,16 +986,9 @@ public class ImporterManager implements org.jamesphbennett.modularstoragesystem.
                     }
                 }
             } else {
-                // Network is valid, but check physical connectivity
-                if (importer.enabled && isImporterConnectedToNetwork(importer)) {
-                    // Auto-disable importers that are enabled but physically disconnected
-                    try {
-                        toggleImporter(importer.importerId, false);
-                        refreshImporterGUIs(importer.importerId);
-                    } catch (SQLException e) {
-                        plugin.getLogger().warning("Failed to auto-disable importer " + importer.importerId + ": " + e.getMessage());
-                    }
-                }
+                // Network is valid. Physical connectivity is re-checked every tick by processImport, and a transient
+                // disconnect no longer disables the importer — it simply skips until reconnected. So a network event
+                // must NOT auto-disable here; doing so latched the importer off on every cable edit.
             }
         }
 

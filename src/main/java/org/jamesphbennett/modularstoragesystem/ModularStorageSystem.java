@@ -8,6 +8,8 @@ import org.jamesphbennett.modularstoragesystem.listeners.AnvilListener;
 import org.jamesphbennett.modularstoragesystem.listeners.BlockListener;
 import org.jamesphbennett.modularstoragesystem.listeners.PlayerListener;
 import org.jamesphbennett.modularstoragesystem.listeners.PistonListener;
+import org.jamesphbennett.modularstoragesystem.listeners.ResourcePackListener;
+import org.jamesphbennett.modularstoragesystem.listeners.CablePipeListener;
 import org.jamesphbennett.modularstoragesystem.managers.*;
 import org.jamesphbennett.modularstoragesystem.storage.StorageManager;
 import org.jamesphbennett.modularstoragesystem.network.NetworkManager;
@@ -37,6 +39,8 @@ public final class ModularStorageSystem extends JavaPlugin {
     private PermissionManager permissionManager;
     private MessageManager messageManager;
     private BlockMarkerCache blockMarkerCache;
+    private ResourcePackManager resourcePackManager;
+    private CablePipeRenderer cablePipeRenderer;
 
     public ModularStorageSystem() {
     }
@@ -69,10 +73,18 @@ public final class ModularStorageSystem extends JavaPlugin {
             securityManager = new NetworkSecurityManager(this);
             permissionManager = new PermissionManager(this);
 
+            resourcePackManager = new ResourcePackManager(this);
+            resourcePackManager.start();
+
+            cablePipeRenderer = new CablePipeRenderer(this);
+
             // Start periodic GUI validation task (every 30 seconds)
             getServer().getScheduler().runTaskTimer(this, () -> {
                 if (guiManager != null) {
                     guiManager.validateOpenGUIs();
+                }
+                if (blockMarkerCache != null) {
+                    blockMarkerCache.evictExpired();
                 }
             }, 600L, 600L);
 
@@ -80,13 +92,15 @@ public final class ModularStorageSystem extends JavaPlugin {
             getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
             getServer().getPluginManager().registerEvents(new PistonListener(this), this);
             getServer().getPluginManager().registerEvents(new AnvilListener(this), this);
+            getServer().getPluginManager().registerEvents(new ResourcePackListener(this), this);
+            getServer().getPluginManager().registerEvents(new CablePipeListener(this), this);
 
             // Initialize ACF command manager
             PaperCommandManager commandManager = new PaperCommandManager(this);
 
             // Register custom command completions
             commandManager.getCommandCompletions().registerStaticCompletion("items", Arrays.asList(
-                    "server", "bay", "terminal", "cable", "exporter", "importer", "security",
+                    "server", "bay", "terminal", "cable", "exporter", "importer", "security", "wrench",
                     "disk1k", "disk4k", "disk16k", "disk64k",
                     "housing", "platter1k", "platter4k", "platter16k", "platter64k"
             ));
@@ -103,6 +117,11 @@ public final class ModularStorageSystem extends JavaPlugin {
             getLogger().info(messageManager.getConsoleMessage("console.startup.enabled"));
             getLogger().info(messageManager.getConsoleMessage("console.recipes.registered", "count", recipeManager.getRegisteredRecipeCount()));
 
+            // Render connection-aware pipe displays for cables already in loaded chunks (next tick; opt-in feature).
+            getServer().getScheduler().runTask(this, () -> {
+                if (cablePipeRenderer != null) cablePipeRenderer.renderLoaded();
+            });
+
         } catch (Exception e) {
             getLogger().log(Level.SEVERE, "Failed to enable Modular Storage System Plugin!", e);
             getServer().getPluginManager().disablePlugin(this);
@@ -115,6 +134,14 @@ public final class ModularStorageSystem extends JavaPlugin {
 
         if (guiManager != null) {
             guiManager.closeAllGUIs();
+        }
+
+        if (resourcePackManager != null) {
+            resourcePackManager.stop();
+        }
+
+        if (cablePipeRenderer != null) {
+            cablePipeRenderer.removeAll();
         }
 
         if (databaseManager != null) {
@@ -187,6 +214,14 @@ public final class ModularStorageSystem extends JavaPlugin {
 
     public BlockMarkerCache getBlockMarkerCache() {
         return blockMarkerCache;
+    }
+
+    public ResourcePackManager getResourcePackManager() {
+        return resourcePackManager;
+    }
+
+    public CablePipeRenderer getCablePipeRenderer() {
+        return cablePipeRenderer;
     }
 
     /**

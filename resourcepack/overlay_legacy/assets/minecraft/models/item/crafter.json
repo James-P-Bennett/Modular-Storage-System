@@ -1,0 +1,11 @@
+{
+  "parent": "minecraft:block/crafter",
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 1003
+      },
+      "model": "modularstoragesystem:item/mss_terminal"
+    }
+  ]
+}

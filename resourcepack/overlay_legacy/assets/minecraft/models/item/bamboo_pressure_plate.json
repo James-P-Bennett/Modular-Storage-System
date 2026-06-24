@@ -1,0 +1,11 @@
+{
+  "parent": "minecraft:block/bamboo_pressure_plate",
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 1006
+      },
+      "model": "modularstoragesystem:item/disk_housing"
+    }
+  ]
+}

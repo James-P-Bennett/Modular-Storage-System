@@ -1,0 +1,11 @@
+{
+  "parent": "minecraft:block/chiseled_tuff",
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 1001
+      },
+      "model": "modularstoragesystem:item/storage_server"
+    }
+  ]
+}

@@ -309,6 +309,58 @@ public class ConfigManager {
         loadRecipesConfig();
     }
 
+    // Resource pack settings (read directly so jar defaults + these literals always resolve)
+    public boolean isResourcePackEnabled() {
+        return config.getBoolean("resource-pack.enabled", false);
+    }
+
+    public boolean isResourcePackHandledByMss() {
+        return config.getBoolean("resource-pack.handled-by-mss", false);
+    }
+
+    /** Render placed network cables as connection-aware pipes via per-cable display entities (opt-in; needs the pack). */
+    public boolean isCablePipesEnabled() {
+        return config.getBoolean("resource-pack.cable-pipes", false);
+    }
+
+    /** Emit a redstone-torch-level light in the air block in front of MSS/security terminal screens. */
+    public boolean isTerminalLightEnabled() {
+        return config.getBoolean("terminal-light.enabled", true);
+    }
+
+    public boolean isResourcePackSelfHost() {
+        return config.getBoolean("resource-pack.self-host.enabled", true);
+    }
+
+    public int getResourcePackPort() {
+        return config.getInt("resource-pack.self-host.port", 25566);
+    }
+
+    public String getResourcePackPublicAddress() {
+        return config.getString("resource-pack.self-host.public-address", "");
+    }
+
+    public String getResourcePackFile() {
+        return config.getString("resource-pack.self-host.file", "resourcepack.zip");
+    }
+
+    public String getResourcePackUrl() {
+        return config.getString("resource-pack.url", "");
+    }
+
+    public String getResourcePackSha1() {
+        return config.getString("resource-pack.sha1", "");
+    }
+
+    public boolean isResourcePackRequired() {
+        return config.getBoolean("resource-pack.required", false);
+    }
+
+    public String getResourcePackPrompt() {
+        return config.getString("resource-pack.prompt",
+                "<yellow>Install the Modular Storage System pack to see custom item textures.</yellow>");
+    }
+
     // Cooldown getters
     public int getInfoCooldown() {
         return infoCooldown;

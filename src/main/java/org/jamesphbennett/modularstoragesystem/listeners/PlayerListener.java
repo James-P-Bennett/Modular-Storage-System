@@ -33,6 +33,10 @@ public class PlayerListener implements Listener {
     private final Map<String, Long> diskContentCacheExpiry = new ConcurrentHashMap<>();
     private static final long DISK_CONTENT_CACHE_DURATION_MS = 500; // 500ms
 
+    // Per-player recycle (shift+right-click) rate limit to prevent DB spam - 300ms
+    private final Map<java.util.UUID, Long> recycleCooldowns = new ConcurrentHashMap<>();
+    private static final long RECYCLE_COOLDOWN_MS = 300; // 300ms
+
     public PlayerListener(ModularStorageSystem plugin) {
         this.plugin = plugin;
         this.itemManager = plugin.getItemManager();
@@ -115,9 +119,31 @@ public class PlayerListener implements Listener {
             return;
         }
 
+        // Rate-limit recycling to prevent DB spam via rapid shift+right-click (each runs a content SELECT
+        // + a delete transaction).
+        java.util.UUID recyclerId = player.getUniqueId();
+        long recycleNow = System.currentTimeMillis();
+        Long recycleLast = recycleCooldowns.get(recyclerId);
+        if (recycleLast != null && (recycleNow - recycleLast) < RECYCLE_COOLDOWN_MS) {
+            event.setCancelled(true);
+            return;
+        }
+        recycleCooldowns.put(recyclerId, recycleNow);
+
         // Check if the disk has any contents (used capacity > 0)
         if (hasStorageContent(item)) {
             player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.disk.cannot-dismantle-with-items"));
+            return;
+        }
+
+        // Anti-dupe: a stale disk (its id was recovered, so this copy is superseded) cannot be recycled —
+        // otherwise a duplicated dead disk could be converted back into crafting materials.
+        String recycleDiskId = itemManager.getStorageDiskId(item);
+        if (recycleDiskId != null && !itemManager.isDiskGenerationCurrent(item, recycleDiskId)) {
+            event.setCancelled(true);
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.drive-bay.error.invalidated-disk"));
+            // Clean it up: a stale disk is useless everywhere, so remove it from the hand instead of leaving junk.
+            item.setAmount(item.getAmount() - 1);
             return;
         }
 
@@ -358,6 +384,14 @@ public class PlayerListener implements Listener {
      * Handle storage disk crafting (vanilla recipes but need database registration)
      */
     private void handleStorageDiskCrafting(CraftItemEvent event, Player player, String recipeKey) {
+        // Shift-click crafts multiple disks that would all share one disk_id (item/cell duplication).
+        // Require disks to be crafted one at a time so each gets its own registered ID.
+        if (event.isShiftClick()) {
+            event.setCancelled(true);
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.crafting.no-shift-craft"));
+            return;
+        }
+
         // Extract item type from recipe key for permission check
         String itemType = getItemTypeFromRecipeKey(recipeKey);
 
@@ -445,6 +479,13 @@ public class PlayerListener implements Listener {
      * Handle alternative storage disk crafting with proper player data
      */
     private void handleStorageDiskAltCrafting(CraftItemEvent event, Player player, String recipeName) {
+        // Shift-click would craft multiple disks sharing one disk_id (item/cell duplication) — block it.
+        if (event.isShiftClick()) {
+            event.setCancelled(true);
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.crafting.no-shift-craft"));
+            return;
+        }
+
         ItemStack storageDisk = null;
         String diskType = "1k"; // Default
 
@@ -596,11 +637,13 @@ public class PlayerListener implements Listener {
                 // First, remove any storage items associated with this disk
                 try (var stmt1 = conn.prepareStatement("DELETE FROM storage_items WHERE disk_id = ?")) {
                     stmt1.setString(1, diskId);
+                    stmt1.executeUpdate();
                 }
 
                 // Then, remove the disk record
                 try (var stmt2 = conn.prepareStatement("DELETE FROM storage_disks WHERE disk_id = ?")) {
                     stmt2.setString(1, diskId);
+                    stmt2.executeUpdate();
                 }
             });
         } catch (SQLException e) {

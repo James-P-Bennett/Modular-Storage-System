@@ -1,0 +1,11 @@
+{
+  "parent": "minecraft:block/heavy_core",
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 1004
+      },
+      "model": "modularstoragesystem:item/network_cable"
+    }
+  ]
+}

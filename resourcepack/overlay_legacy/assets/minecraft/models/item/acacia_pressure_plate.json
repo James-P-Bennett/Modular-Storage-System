@@ -1,0 +1,11 @@
+{
+  "parent": "minecraft:block/acacia_pressure_plate",
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 1021
+      },
+      "model": "modularstoragesystem:item/storage_disk_1k"
+    }
+  ]
+}

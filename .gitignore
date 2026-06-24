@@ -1,0 +1,14 @@
+# Local Purpur test server (not tracked)
+/run/
+
+# Maven build output
+/target/
+
+# Dev-only tooling (pack generator, deploy helper) — kept out of the published repo
+/tools/
+
+# Resource pack: seeded textures are vanilla Mojang art (don't redistribute them).
+# Repaint them with your own art, then `git add -f` your finished .png files (or remove
+# the line below). The built zip is a regenerable artifact.
+/resourcepack/assets/modularstoragesystem/textures/
+/resourcepack.zip

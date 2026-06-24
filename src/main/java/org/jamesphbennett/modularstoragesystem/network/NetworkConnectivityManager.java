@@ -4,6 +4,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
+import org.jamesphbennett.modularstoragesystem.blocks.MSSBlockType;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -247,19 +248,19 @@ public class NetworkConnectivityManager {
     }
 
     public BlockType getBlockType(Block block) {
-        if (block.getType() == Material.CHISELED_TUFF && isMarkedAsCustomBlock(block.getLocation(), "STORAGE_SERVER")) {
+        if (MSSBlockType.STORAGE_SERVER.accepts(block.getType()) && isMarkedAsCustomBlock(block.getLocation(), "STORAGE_SERVER")) {
             return BlockType.STORAGE_SERVER;
         }
-        if (block.getType() == Material.CHISELED_TUFF_BRICKS && isMarkedAsCustomBlock(block.getLocation(), "DRIVE_BAY")) {
+        if (MSSBlockType.DRIVE_BAY.accepts(block.getType()) && isMarkedAsCustomBlock(block.getLocation(), "DRIVE_BAY")) {
             return BlockType.DRIVE_BAY;
         }
-        if (block.getType() == Material.CRAFTER && isMarkedAsCustomBlock(block.getLocation(), "MSS_TERMINAL")) {
+        if (MSSBlockType.MSS_TERMINAL.accepts(block.getType()) && isMarkedAsCustomBlock(block.getLocation(), "MSS_TERMINAL")) {
             return BlockType.MSS_TERMINAL;
         }
-        if (block.getType() == Material.OBSERVER && isMarkedAsCustomBlock(block.getLocation(), "SECURITY_TERMINAL")) {
+        if (MSSBlockType.SECURITY_TERMINAL.accepts(block.getType()) && isMarkedAsCustomBlock(block.getLocation(), "SECURITY_TERMINAL")) {
             return BlockType.SECURITY_TERMINAL;
         }
-        if (block.getType() == Material.HEAVY_CORE && isMarkedAsCustomBlock(block.getLocation(), "NETWORK_CABLE")) {
+        if (MSSBlockType.NETWORK_CABLE.accepts(block.getType()) && isMarkedAsCustomBlock(block.getLocation(), "NETWORK_CABLE")) {
             return BlockType.NETWORK_CABLE;
         }
         if (block.getType() == Material.PLAYER_HEAD || block.getType() == Material.PLAYER_WALL_HEAD) {
@@ -274,23 +275,9 @@ public class NetworkConnectivityManager {
     }
 
     private boolean isMarkedAsCustomBlock(Location location, String blockType) {
-        try (Connection conn = plugin.getDatabaseManager().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(
-                     "SELECT COUNT(*) FROM custom_block_markers WHERE world_name = ? AND x = ? AND y = ? AND z = ? AND block_type = ?")) {
-
-            stmt.setString(1, location.getWorld().getName());
-            stmt.setInt(2, location.getBlockX());
-            stmt.setInt(3, location.getBlockY());
-            stmt.setInt(4, location.getBlockZ());
-            stmt.setString(5, blockType);
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                return rs.next() && rs.getInt(1) > 0;
-            }
-        } catch (Exception e) {
-            plugin.getLogger().warning("Error checking custom block marker: " + e.getMessage());
-            return false;
-        }
+        // Route through the shared marker cache (this connectivity BFS runs on every placement-conflict
+        // check; an uncached query per node was a player-spammable DB-amplification vector).
+        return plugin.getBlockMarkerCache().isMarkedAsCustomBlock(location, blockType);
     }
 
     private String getNetworkIdForLocation(Location location) {

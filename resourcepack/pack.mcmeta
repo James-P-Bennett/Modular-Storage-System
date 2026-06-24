@@ -1,0 +1,23 @@
+{
+  "pack": {
+    "pack_format": 46,
+    "description": "Modular Storage System \u2014 custom item models",
+    "supported_formats": {
+      "min_inclusive": 34,
+      "max_inclusive": 99
+    },
+    "min_format": 34,
+    "max_format": 99
+  },
+  "overlays": {
+    "entries": [
+      {
+        "formats": {
+          "min_inclusive": 34,
+          "max_inclusive": 45
+        },
+        "directory": "overlay_legacy"
+      }
+    ]
+  }
+}

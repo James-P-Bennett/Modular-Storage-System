@@ -12,6 +12,7 @@ import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
+import org.jamesphbennett.modularstoragesystem.blocks.MSSBlockType;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -34,6 +35,7 @@ public class ItemManager {
     private final NamespacedKey DRIVE_BAY_KEY;
     private final NamespacedKey MSS_TERMINAL_KEY;
     private final NamespacedKey NETWORK_CABLE_KEY;
+    private final NamespacedKey WRENCH_KEY;
     private final NamespacedKey STORAGE_DISK_KEY;
     private final NamespacedKey EXPORTER_KEY;
     private final NamespacedKey IMPORTER_KEY;
@@ -44,11 +46,18 @@ public class ItemManager {
     private final NamespacedKey DISK_USED_CELLS_KEY;
     private final NamespacedKey DISK_MAX_CELLS_KEY;
     private final NamespacedKey DISK_TIER_KEY;
+    private final NamespacedKey DISK_GENERATION_KEY;
 
     // Component namespace keys
     private final NamespacedKey DISK_PLATTER_KEY;
     private final NamespacedKey DISK_PLATTER_TIER_KEY;
     private final NamespacedKey STORAGE_DISK_HOUSING_KEY;
+
+    // The item_model component API (ItemMeta.hasItemModel/getItemModel) exists only on MC 1.21.2+; look the
+    // methods up reflectively (once) so this plugin still compiles against, and runs on, 1.21.0 / 1.21.1.
+    private final java.lang.reflect.Method hasItemModelMethod;
+    private final java.lang.reflect.Method getItemModelMethod;
+    private final java.lang.reflect.Method setItemModelMethod;
 
     public ItemManager(ModularStorageSystem plugin) {
         this.plugin = plugin;
@@ -59,6 +68,7 @@ public class ItemManager {
         DRIVE_BAY_KEY = new NamespacedKey(plugin, "drive_bay");
         MSS_TERMINAL_KEY = new NamespacedKey(plugin, "mss_terminal");
         NETWORK_CABLE_KEY = new NamespacedKey(plugin, "network_cable");
+        WRENCH_KEY = new NamespacedKey(plugin, "mss_wrench");
         STORAGE_DISK_KEY = new NamespacedKey(plugin, "storage_disk");
         EXPORTER_KEY = new NamespacedKey(plugin, "exporter");
         IMPORTER_KEY = new NamespacedKey(plugin, "importer");
@@ -69,82 +79,127 @@ public class ItemManager {
         DISK_USED_CELLS_KEY = new NamespacedKey(plugin, "disk_used_cells");
         DISK_MAX_CELLS_KEY = new NamespacedKey(plugin, "disk_max_cells");
         DISK_TIER_KEY = new NamespacedKey(plugin, "disk_tier");
+        DISK_GENERATION_KEY = new NamespacedKey(plugin, "disk_generation");
 
         // Component keys
         DISK_PLATTER_KEY = new NamespacedKey(plugin, "disk_platter");
         DISK_PLATTER_TIER_KEY = new NamespacedKey(plugin, "disk_platter_tier");
         STORAGE_DISK_HOUSING_KEY = new NamespacedKey(plugin, "storage_disk_housing");
+
+        java.lang.reflect.Method hasM = null, getM = null, setM = null;
+        try {
+            hasM = org.bukkit.inventory.meta.ItemMeta.class.getMethod("hasItemModel");
+            getM = org.bukkit.inventory.meta.ItemMeta.class.getMethod("getItemModel");
+        } catch (NoSuchMethodException ignored) {
+            // item_model read API not present (<1.21.2) — disk hashing simply omits the item model on those versions.
+        }
+        try {
+            setM = org.bukkit.inventory.meta.ItemMeta.class.getMethod("setItemModel", NamespacedKey.class);
+        } catch (NoSuchMethodException ignored) {
+            // item_model SETTER not present (<1.21.3) — custom_model_data alone tags items on those versions.
+        }
+        hasItemModelMethod = hasM;
+        getItemModelMethod = getM;
+        setItemModelMethod = setM;
+    }
+
+    /**
+     * Tag an MSS item so a resource pack can give it a distinct model, version-safely:
+     *  - custom_model_data (int): compiles at the 1.21 baseline, works 1.21 -> latest, and falls back to the
+     *    plain vanilla look when no pack is loaded. Legacy packs (<=1.21.3) key off this via model overrides.
+     *  - item_model (namespaced id): set reflectively (the setter exists on the 1.21.3+ API); modern packs key off it.
+     * No-ops entirely when the resource pack is disabled in config, so items stay pure-vanilla in that mode.
+     */
+    private void applyCustomModel(ItemMeta meta, String modelId, int customModelData) {
+        if (!plugin.getConfigManager().isResourcePackEnabled()) return;
+        meta.setCustomModelData(customModelData);
+        if (setItemModelMethod != null) {
+            try {
+                setItemModelMethod.invoke(meta, new NamespacedKey(plugin, modelId));
+            } catch (ReflectiveOperationException ignored) {
+                // setter present but failed — custom_model_data still tags the item
+            }
+        }
+    }
+
+    /**
+     * Build the cosmetic ItemStack shown by a cable's pipe display entity (see CablePipeRenderer): a HEAVY_CORE
+     * carrying the connection-mask item_model {@code network_cable_pipe_<mask>} (mask 0..63). Uses the same
+     * cross-version custom_model_data + item_model tagging as every other MSS item; no-ops on the model tags when
+     * the resource pack is disabled (the renderer is gated on that too, so it never spawns a raw HEAVY_CORE).
+     */
+    public ItemStack createCablePipeDisplayItem(int mask) {
+        ItemStack item = new ItemStack(Material.HEAVY_CORE);
+        ItemMeta meta = item.getItemMeta();
+        applyCustomModel(meta, "network_cable_pipe_" + mask, 1100 + mask);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    /**
+     * The Material an MSS block should be created/placed as right now: the role's {@code packMaterial} when the
+     * resource pack is enabled (a mushroom block for the cube roles so the pack can model the placed block; still
+     * HEAVY_CORE for the cable), else the role's vanilla Material. Item-side identity is the PDC marker, not the
+     * Material, so this swap is invisible to every is*(ItemStack) check.
+     */
+    private Material placedMaterial(MSSBlockType type) {
+        return type.placedMaterial(plugin.getConfigManager().isResourcePackEnabled());
     }
 
     public ItemStack createStorageServer() {
-        ItemStack item = new ItemStack(Material.CHISELED_TUFF);
+        ItemStack item = new ItemStack(placedMaterial(MSSBlockType.STORAGE_SERVER));
         ItemMeta meta = item.getItemMeta();
 
-        Component displayName = miniMessage.deserialize("<aqua>Server");
-        meta.displayName(displayName);
-
-        List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<blue>Modular Storage System"));
-        lore.add(Component.empty());
-        meta.lore(lore);
+        meta.displayName(plugin.getMessageManager().getMessageComponent(null, "item.storage_server.name"));
+        meta.lore(plugin.getMessageManager().getMessageComponentList(null, "item.storage_server.lore"));
 
         meta.getPersistentDataContainer().set(STORAGE_SERVER_KEY, PersistentDataType.BOOLEAN, true);
 
+        applyCustomModel(meta, "storage_server", 1001);
         item.setItemMeta(meta);
         return item;
     }
 
     public ItemStack createDriveBay() {
-        ItemStack item = new ItemStack(Material.CHISELED_TUFF_BRICKS);
+        ItemStack item = new ItemStack(placedMaterial(MSSBlockType.DRIVE_BAY));
         ItemMeta meta = item.getItemMeta();
 
-        Component displayName = miniMessage.deserialize("<aqua>Drive Bay");
-        meta.displayName(displayName);
-
-        List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<blue>Modular Storage System"));
-        lore.add(Component.empty());
-        meta.lore(lore);
+        meta.displayName(plugin.getMessageManager().getMessageComponent(null, "item.drive_bay.name"));
+        meta.lore(plugin.getMessageManager().getMessageComponentList(null, "item.drive_bay.lore"));
 
         meta.getPersistentDataContainer().set(DRIVE_BAY_KEY, PersistentDataType.BOOLEAN, true);
 
+        applyCustomModel(meta, "drive_bay", 1002);
         item.setItemMeta(meta);
         return item;
     }
 
     public ItemStack createMSSTerminal() {
-        ItemStack item = new ItemStack(Material.CRAFTER);
+        ItemStack item = new ItemStack(placedMaterial(MSSBlockType.MSS_TERMINAL));
         ItemMeta meta = item.getItemMeta();
 
-        Component displayName = miniMessage.deserialize("<aqua>Terminal");
-        meta.displayName(displayName);
-
-        List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<blue>Modular Storage System"));
-        lore.add(Component.empty());
-        meta.lore(lore);
+        meta.displayName(plugin.getMessageManager().getMessageComponent(null, "item.mss_terminal.name"));
+        meta.lore(plugin.getMessageManager().getMessageComponentList(null, "item.mss_terminal.lore"));
 
         meta.getPersistentDataContainer().set(MSS_TERMINAL_KEY, PersistentDataType.BOOLEAN, true);
 
+        applyCustomModel(meta, "mss_terminal", 1003);
         item.setItemMeta(meta);
         return item;
     }
 
     public ItemStack createNetworkCable() {
-        ItemStack item = new ItemStack(Material.HEAVY_CORE);
+        ItemStack item = new ItemStack(placedMaterial(MSSBlockType.NETWORK_CABLE));
         ItemMeta meta = item.getItemMeta();
 
-        Component displayName = miniMessage.deserialize("<aqua>Network Cable");
-        meta.displayName(displayName);
-
-        List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<blue>Modular Storage System"));
-        lore.add(Component.empty());
-//        lore.add(miniMessage.deserialize("<yellow>Does not count toward block limit"));
-        meta.lore(lore);
+        meta.displayName(plugin.getMessageManager().getMessageComponent(null, "item.network_cable.name"));
+        meta.lore(plugin.getMessageManager().getMessageComponentList(null, "item.network_cable.lore"));
 
         meta.getPersistentDataContainer().set(NETWORK_CABLE_KEY, PersistentDataType.BOOLEAN, true);
 
+        // The held cable item is a CONDUIT (placedMaterial) carrying a custom 3D model (network_cable_item) so it
+        // reads as a cable in hand/inventory; the PLACED conduit floats inside the pipe display in-world.
+        applyCustomModel(meta, "network_cable", 1004);
         item.setItemMeta(meta);
         return item;
     }
@@ -153,14 +208,8 @@ public class ItemManager {
         ItemStack item = new ItemStack(Material.PLAYER_HEAD);
         org.bukkit.inventory.meta.SkullMeta meta = (org.bukkit.inventory.meta.SkullMeta) item.getItemMeta();
 
-        Component displayName = miniMessage.deserialize("<aqua>Exporter");
-        meta.displayName(displayName);
-
-        List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<blue>Modular Storage System"));
-        lore.add(Component.empty());
-        lore.add(miniMessage.deserialize("<grey>Exports items from MSS Network"));
-        meta.lore(lore);
+        meta.displayName(plugin.getMessageManager().getMessageComponent(null, "item.exporter.name"));
+        meta.lore(plugin.getMessageManager().getMessageComponentList(null, "item.exporter.lore"));
 
         // Apply BurningFurnace player skin texture
         try {
@@ -180,14 +229,8 @@ public class ItemManager {
         ItemStack item = new ItemStack(Material.PLAYER_HEAD);
         org.bukkit.inventory.meta.SkullMeta meta = (org.bukkit.inventory.meta.SkullMeta) item.getItemMeta();
 
-        Component displayName = miniMessage.deserialize("<aqua>Importer");
-        meta.displayName(displayName);
-
-        List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<blue>Modular Storage System"));
-        lore.add(Component.empty());
-        lore.add(miniMessage.deserialize("<grey>Imports items to MSS Network"));
-        meta.lore(lore);
+        meta.displayName(plugin.getMessageManager().getMessageComponent(null, "item.importer.name"));
+        meta.lore(plugin.getMessageManager().getMessageComponentList(null, "item.importer.lore"));
 
         // Apply custom player skin texture using UUID
         try {
@@ -204,19 +247,15 @@ public class ItemManager {
     }
 
     public ItemStack createSecurityTerminal() {
-        ItemStack item = new ItemStack(Material.OBSERVER);
+        ItemStack item = new ItemStack(placedMaterial(MSSBlockType.SECURITY_TERMINAL));
         ItemMeta meta = item.getItemMeta();
 
-        Component displayName = miniMessage.deserialize("<aqua>Security Terminal");
-        meta.displayName(displayName);
-
-        List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<blue>Modular Storage System"));
-        lore.add(Component.empty());
-        meta.lore(lore);
+        meta.displayName(plugin.getMessageManager().getMessageComponent(null, "item.security_terminal.name"));
+        meta.lore(plugin.getMessageManager().getMessageComponentList(null, "item.security_terminal.lore"));
 
         meta.getPersistentDataContainer().set(SECURITY_TERMINAL_KEY, PersistentDataType.BOOLEAN, true);
 
+        applyCustomModel(meta, "security_terminal", 1005);
         item.setItemMeta(meta);
         return item;
     }
@@ -284,26 +323,27 @@ public class ItemManager {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
 
-        // Set display name with tier color
-        Component displayName = switch (tier.toLowerCase()) {
-            case "4k" -> miniMessage.deserialize("<aqua>4k Platter");
-            case "16k" -> miniMessage.deserialize("<aqua>16k Platter");
-            case "64k" -> miniMessage.deserialize("<aqua>64k Platter");
-            default -> miniMessage.deserialize("<aqua>1k Platter");
+        // Tier label (1k/4k/16k/64k) substituted into the lang name
+        String tierLabel = switch (tier.toLowerCase()) {
+            case "4k" -> "4k";
+            case "16k" -> "16k";
+            case "64k" -> "64k";
+            default -> "1k";
         };
-        meta.displayName(displayName);
-
-        List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<blue>Modular Storage System"));
-        lore.add(Component.empty());
-        lore.add(miniMessage.deserialize("<yellow>Crafting Component"));
-        meta.lore(lore);
+        meta.displayName(plugin.getMessageManager().getMessageComponent(null, "item.disk_platter.name", "tier", tierLabel));
+        meta.lore(plugin.getMessageManager().getMessageComponentList(null, "item.disk_platter.lore"));
 
 
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
         pdc.set(DISK_PLATTER_KEY, PersistentDataType.BOOLEAN, true);
         pdc.set(DISK_PLATTER_TIER_KEY, PersistentDataType.STRING, tier);
 
+        applyCustomModel(meta, "disk_platter_" + tierLabel, switch (tierLabel) {
+            case "4k" -> 1012;
+            case "16k" -> 1013;
+            case "64k" -> 1014;
+            default -> 1011;
+        });
         item.setItemMeta(meta);
         return item;
     }
@@ -311,21 +351,61 @@ public class ItemManager {
     /**
      * Create a Storage Disk Housing
      */
+    /** The MSS Wrench: a skinnable IRON_AXE tool. Right-click rotates a placed MSS block; shift+right-click
+     *  dismantles an MSS block to inventory (costs durability). Identity is the WRENCH_KEY PDC marker. */
+    public ItemStack createWrench() {
+        ItemStack item = new ItemStack(Material.IRON_AXE);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(plugin.getMessageManager().getMessageComponent(null, "item.mss_wrench.name"));
+        meta.lore(plugin.getMessageManager().getMessageComponentList(null, "item.mss_wrench.lore"));
+        meta.getPersistentDataContainer().set(WRENCH_KEY, PersistentDataType.BOOLEAN, true);
+        applyCustomModel(meta, "mss_wrench", 1007);
+
+        // Kill the iron-axe attack cooldown (the slow recharge looks odd on a tool): override attack speed to a high
+        // value (instant recharge) in the main hand, and hide the attribute line from the tooltip.
+        org.bukkit.attribute.Attribute attackSpeed = resolveAttackSpeed();
+        if (attackSpeed != null) {
+            meta.addAttributeModifier(attackSpeed, new org.bukkit.attribute.AttributeModifier(
+                    new NamespacedKey(plugin, "wrench_no_cooldown"), 1000.0,
+                    org.bukkit.attribute.AttributeModifier.Operation.ADD_NUMBER,
+                    org.bukkit.inventory.EquipmentSlotGroup.MAINHAND));
+            meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ATTRIBUTES);
+        }
+
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    /** Resolve the attack-speed Attribute via the registry, trying the modern ("attack_speed") then legacy
+     *  ("generic.attack_speed") keys. The enum constant AND its key were renamed across 1.21.x, so a direct
+     *  Attribute.GENERIC_ATTACK_SPEED reference (compiled on 1.21) would NoSuchFieldError on newer servers (§10). */
+    private static org.bukkit.attribute.Attribute resolveAttackSpeed() {
+        for (String key : new String[]{"attack_speed", "generic.attack_speed"}) {
+            try {
+                org.bukkit.attribute.Attribute a = org.bukkit.Registry.ATTRIBUTE.get(NamespacedKey.minecraft(key));
+                if (a != null) return a;
+            } catch (Throwable ignored) {
+                // registry shape differs on this version — fall through to the next key / give up gracefully
+            }
+        }
+        return null;
+    }
+
+    public boolean isWrench(ItemStack item) {
+        return item != null && item.hasItemMeta()
+                && item.getItemMeta().getPersistentDataContainer().has(WRENCH_KEY, PersistentDataType.BOOLEAN);
+    }
+
     public ItemStack createStorageDiskHousing() {
         ItemStack item = new ItemStack(Material.BAMBOO_PRESSURE_PLATE);
         ItemMeta meta = item.getItemMeta();
 
-        Component displayName = miniMessage.deserialize("<aqua>Disk Housing");
-        meta.displayName(displayName);
-
-        List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<blue>Modular Storage System"));
-        lore.add(Component.empty());
-        lore.add(miniMessage.deserialize("<yellow>Crafting Component"));
-        meta.lore(lore);
+        meta.displayName(plugin.getMessageManager().getMessageComponent(null, "item.disk_housing.name"));
+        meta.lore(plugin.getMessageManager().getMessageComponentList(null, "item.disk_housing.lore"));
 
         meta.getPersistentDataContainer().set(STORAGE_DISK_HOUSING_KEY, PersistentDataType.BOOLEAN, true);
 
+        applyCustomModel(meta, "disk_housing", 1006);
         item.setItemMeta(meta);
         return item;
     }
@@ -420,7 +500,11 @@ public class ItemManager {
         if (tier == null) {
             tier = "1k"; // Default fallback
         }
-        return createStorageDiskWithIdAndTier(diskId, crafterUUID, crafterName, tier);
+        ItemStack disk = createStorageDiskWithIdAndTier(diskId, crafterUUID, crafterName, tier);
+        // Stamp the authoritative stored generation so a recreated-by-id disk (recovery / drive-bay drop)
+        // carries the current generation. /mss recovery bumps the DB generation BEFORE calling this, which
+        // is exactly what invalidates any older physical copy of the same id.
+        return setDiskGeneration(disk, getGenerationFromDatabase(diskId));
     }
 
     /**
@@ -434,29 +518,14 @@ public class ItemManager {
         // HARDCODED: All disks have 64 cells
         int defaultCells = 64;
 
-        // Set display name with tier color
-        Component displayName = switch (tier) {
-            case "4k" -> miniMessage.deserialize("<gold>4k Storage Disk");
-            case "16k" -> miniMessage.deserialize("<green>16k Storage Disk");
-            case "64k" -> miniMessage.deserialize("<light_purple>64k Storage Disk");
-            default -> miniMessage.deserialize("<red>1k Storage Disk");
+        // Tier label (1k/4k/16k/64k) selects the per-tier coloured disk name key
+        String nameTier = switch (tier) {
+            case "4k", "16k", "64k" -> tier;
+            default -> "1k";
         };
-        meta.displayName(displayName);
+        meta.displayName(plugin.getMessageManager().getMessageComponent(null, "item.storage_disk.name_" + nameTier));
 
-        // Calculate capacity info
-        int itemsPerCell = getItemsPerCellForTier(tier);
-        int totalCapacity = defaultCells * itemsPerCell;
-
-        List<Component> lore = new ArrayList<>();
-        lore.add(miniMessage.deserialize("<blue>Modular Storage System"));
-        lore.add(Component.empty());
-        lore.add(miniMessage.deserialize("<gray>Capacity: " + String.format("%,d", itemsPerCell) + " items per cell"));
-        lore.add(miniMessage.deserialize("<green>Cells Used: 0/" + defaultCells));
-        lore.add(miniMessage.deserialize("<aqua>Total Capacity: " + String.format("%,d", totalCapacity) + " items"));
-        lore.add(Component.empty());
-        lore.add(miniMessage.deserialize("<dark_gray>Crafted by: " + crafterName));
-        lore.add(miniMessage.deserialize("<dark_gray>ID: " + diskId));
-        meta.lore(lore);
+        meta.lore(buildDiskLore(crafterName, diskId, tier, 0, defaultCells));
 
 
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
@@ -467,9 +536,39 @@ public class ItemManager {
         pdc.set(DISK_TIER_KEY, PersistentDataType.STRING, tier);
         pdc.set(DISK_USED_CELLS_KEY, PersistentDataType.INTEGER, 0);
         pdc.set(DISK_MAX_CELLS_KEY, PersistentDataType.INTEGER, 64); // HARDCODED: All disks have 64 cells
+        pdc.set(DISK_GENERATION_KEY, PersistentDataType.INTEGER, 0); // Anti-dupe nonce: bumped by /mss recovery
 
+        applyCustomModel(meta, "storage_disk_" + nameTier, switch (nameTier) {
+            case "4k" -> 1022;
+            case "16k" -> 1023;
+            case "64k" -> 1024;
+            default -> 1021;
+        });
         item.setItemMeta(meta);
         return item;
+    }
+
+    /**
+     * Build the lang-driven lore (tooltip) shown on a storage disk.
+     * Shared by disk creation (0 cells) and {@link #updateStorageDiskLore} so both paths stay identical.
+     */
+    private List<Component> buildDiskLore(String crafterName, String diskId, String tier, int usedCells, int maxCells) {
+        int itemsPerCell = getItemsPerCellForTier(tier);
+        int totalCapacity = maxCells * itemsPerCell;
+        String usageColor = (usedCells >= maxCells) ? "<red>" :
+                (usedCells >= maxCells * 0.8) ? "<yellow>" : "<green>";
+
+        var mm = plugin.getMessageManager();
+        List<Component> lore = new ArrayList<>();
+        lore.add(mm.getMessageComponent(null, "gui.storage-disk.header"));
+        lore.add(Component.empty());
+        lore.add(mm.getMessageComponent(null, "gui.storage-disk.capacity", "capacity", String.format("%,d", itemsPerCell)));
+        lore.add(miniMessage.deserialize(mm.getMessage("en_US", "gui.storage-disk.cells-used", "color", usageColor, "used", String.valueOf(usedCells), "max", String.valueOf(maxCells))));
+        lore.add(mm.getMessageComponent(null, "gui.storage-disk.total-capacity", "total", String.format("%,d", totalCapacity)));
+        lore.add(Component.empty());
+        lore.add(mm.getMessageComponent(null, "gui.storage-disk.crafted-by", "crafter", crafterName));
+        lore.add(mm.getMessageComponent(null, "gui.storage-disk.disk-id", "id", diskId));
+        return lore;
     }
 
     /**
@@ -485,24 +584,20 @@ public class ItemManager {
         String diskId = meta.getPersistentDataContainer().get(DISK_ID_KEY, PersistentDataType.STRING);
         String tier = getDiskTier(disk);
 
-        // Calculate capacity info
-        int itemsPerCell = getItemsPerCellForTier(tier);
-        int totalCapacity = maxCells * itemsPerCell;
+        meta.lore(buildDiskLore(crafterName, diskId, tier, usedCells, maxCells));
 
-        // Color coding based on usage
-        String usageColor = (usedCells >= maxCells) ? "<red>" :
-                (usedCells >= maxCells * 0.8) ? "<yellow>" : "<green>";
-
-        List<Component> lore = new ArrayList<>();
-        lore.add(plugin.getMessageManager().getMessageComponent(null, "gui.storage-disk.header"));
-        lore.add(Component.empty());
-        lore.add(plugin.getMessageManager().getMessageComponent(null, "gui.storage-disk.capacity", "capacity", String.format("%,d", itemsPerCell)));
-        lore.add(miniMessage.deserialize(plugin.getMessageManager().getMessage("en_US", "gui.storage-disk.cells-used", "color", usageColor, "used", String.valueOf(usedCells), "max", String.valueOf(maxCells))));
-        lore.add(plugin.getMessageManager().getMessageComponent(null, "gui.storage-disk.total-capacity", "total", String.format("%,d", totalCapacity)));
-        lore.add(Component.empty());
-        lore.add(plugin.getMessageManager().getMessageComponent(null, "gui.storage-disk.crafted-by", "crafter", crafterName));
-        lore.add(plugin.getMessageManager().getMessageComponent(null, "gui.storage-disk.disk-id", "id", diskId));
-        meta.lore(lore);
+        // Re-stamp the custom model here too: the drive bay rebuilds disks via its own builder that bypasses
+        // applyCustomModel, so this lore-refresh is where we guarantee the resource-pack model survives a rebuild.
+        String modelTier = switch (tier == null ? "1k" : tier) {
+            case "4k", "16k", "64k" -> tier;
+            default -> "1k";
+        };
+        applyCustomModel(meta, "storage_disk_" + modelTier, switch (modelTier) {
+            case "4k" -> 1022;
+            case "16k" -> 1023;
+            case "64k" -> 1024;
+            default -> 1021;
+        });
 
         // Update persistent data
         meta.getPersistentDataContainer().set(DISK_USED_CELLS_KEY, PersistentDataType.INTEGER, usedCells);
@@ -645,6 +740,69 @@ public class ItemManager {
         return disk.getItemMeta().getPersistentDataContainer().get(DISK_ID_KEY, PersistentDataType.STRING);
     }
 
+    /**
+     * Anti-dupe generation nonce. New disks are generation 0; /mss recovery bumps the stored generation so
+     * any older physical copy of the same disk_id becomes invalid. Missing key => 0 (backward compatible).
+     */
+    public int getStorageDiskGeneration(ItemStack disk) {
+        if (disk == null || !disk.hasItemMeta()) return 0;
+        Integer gen = disk.getItemMeta().getPersistentDataContainer().get(DISK_GENERATION_KEY, PersistentDataType.INTEGER);
+        return gen != null ? gen : 0;
+    }
+
+    /**
+     * Stamp a specific generation onto a disk item (used when recreating a disk by id).
+     */
+    public ItemStack setDiskGeneration(ItemStack disk, int generation) {
+        if (disk == null) return null;
+        ItemMeta meta = disk.getItemMeta();
+        if (meta == null) return disk;
+        meta.getPersistentDataContainer().set(DISK_GENERATION_KEY, PersistentDataType.INTEGER, generation);
+        disk.setItemMeta(meta);
+        return disk;
+    }
+
+    /**
+     * The authoritative stored generation for a disk id (0 if not registered / on error).
+     */
+    private int getGenerationFromDatabase(String diskId) {
+        try (java.sql.Connection conn = plugin.getDatabaseManager().getConnection();
+             java.sql.PreparedStatement stmt = conn.prepareStatement(
+                     "SELECT generation FROM storage_disks WHERE disk_id = ?")) {
+            stmt.setString(1, diskId);
+            try (java.sql.ResultSet rs = stmt.executeQuery()) {
+                return rs.next() ? rs.getInt("generation") : 0;
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error reading disk generation for " + diskId + ": " + e.getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * True if this disk item's generation matches the stored generation for its id (or the disk is not yet
+     * registered). False means it is a stale copy whose id was recovered — it must not be usable. Fails open
+     * on DB error so a transient hiccup never blocks a legitimate disk insert.
+     */
+    public boolean isDiskGenerationCurrent(ItemStack disk, String diskId) {
+        int itemGen = getStorageDiskGeneration(disk);
+        try (java.sql.Connection conn = plugin.getDatabaseManager().getConnection();
+             java.sql.PreparedStatement stmt = conn.prepareStatement(
+                     "SELECT generation FROM storage_disks WHERE disk_id = ?")) {
+            stmt.setString(1, diskId);
+            try (java.sql.ResultSet rs = stmt.executeQuery()) {
+                // Not registered: a pristine disk (gen 0) may first-insert, but a recovered copy (gen > 0) whose
+                // row was since deleted (e.g. the live copy got recycled) must NOT be silently re-blessed back
+                // into a working disk — that would dupe its crafting components.
+                if (!rs.next()) return itemGen == 0;
+                return rs.getInt("generation") == itemGen;
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error checking disk generation for " + diskId + ": " + e.getMessage());
+            return true;
+        }
+    }
+
     public String getDiskCrafterUUID(ItemStack disk) {
         if (!isStorageDisk(disk)) return null;
         return disk.getItemMeta().getPersistentDataContainer().get(DISK_CRAFTER_UUID_KEY, PersistentDataType.STRING);
@@ -704,9 +862,16 @@ public class ItemManager {
                     builder.append("|lore:").append(legacyLore);
                 }
 
-                // Custom model data
-                if (meta.hasItemModel()) {
-                    builder.append("|customModelData:").append(Objects.requireNonNull(meta.getItemModel()));
+                // Item model (minecraft:item_model component) — API present only on MC 1.21.2+, accessed
+                // reflectively so the plugin still compiles/runs on 1.21.0 / 1.21.1.
+                if (hasItemModelMethod != null) {
+                    try {
+                        if (Boolean.TRUE.equals(hasItemModelMethod.invoke(meta))) {
+                            Object itemModel = getItemModelMethod.invoke(meta);
+                            if (itemModel != null) builder.append("|itemModel:").append(itemModel);
+                        }
+                    } catch (ReflectiveOperationException ignored) {
+                    }
                 }
 
                 // Enchantments (for regular enchanted items)
@@ -786,9 +951,15 @@ public class ItemManager {
      * Check if an item is blacklisted and should NOT be stored in the network
      */
     public boolean isItemBlacklisted(ItemStack item) {
-        // Block storage disks only (not network blocks or components)
+        // Block storage disks ONLY when they hold data — empty disks (0 used cells) may be stored in the
+        // network. Used cells are read from the item's PDC (never a DB query: this is a per-item hot path,
+        // and a stored/loose disk's PDC is kept current by updateStorageDiskLore on every cell-count change).
         if (isStorageDisk(item)) {
-            return true;
+            int usedCells = item.getItemMeta().getPersistentDataContainer()
+                    .getOrDefault(DISK_USED_CELLS_KEY, PersistentDataType.INTEGER, 0);
+            if (usedCells > 0) {
+                return true;
+            }
         }
 
         // Check configuration blacklist

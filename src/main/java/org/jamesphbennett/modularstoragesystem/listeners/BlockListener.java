@@ -19,10 +19,13 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.BlockRedstoneEvent;
 import org.bukkit.event.block.BlockPhysicsEvent;
+import org.bukkit.event.block.BlockPistonExtendEvent;
+import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.jamesphbennett.modularstoragesystem.ModularStorageSystem;
+import org.jamesphbennett.modularstoragesystem.blocks.MSSBlockType;
 import org.jamesphbennett.modularstoragesystem.managers.ItemManager;
 import org.jamesphbennett.modularstoragesystem.managers.ExporterManager;
 import org.jamesphbennett.modularstoragesystem.managers.ImporterManager;
@@ -80,12 +83,16 @@ public class BlockListener implements Listener {
         this.cableManager = plugin.getCableManager();
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent event) {
         Player player = event.getPlayer();
         ItemStack item = event.getItemInHand();
         Block block = event.getBlockPlaced();
         Location location = block.getLocation();
+
+        // Placing a block next to a note-backed MSS block re-derives that block's instrument off our piglin key — re-pin
+        // any adjacent MSS block so the pack texture doesn't revert to vanilla.
+        repinAdjacentNoteBlocks(block);
 
         if (itemManager.isStorageDisk(item)) {
             event.setCancelled(true);
@@ -161,6 +168,16 @@ public class BlockListener implements Listener {
                 }
             }
 
+            // Enforce the per-network exporter role limit before placing (only when connecting to a network).
+            if (nearbyNetworkId != null) {
+                int maxExporters = plugin.getConfigManager().getMaxExporters();
+                if (plugin.getExporterManager().getNetworkExporterCount(nearbyNetworkId) >= maxExporters) {
+                    event.setCancelled(true);
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.placement.exporter-limit-reached", "max", String.valueOf(maxExporters)));
+                    return;
+                }
+            }
+
             // If no network found, use placeholder - exporter will remain inactive until connected
             if (nearbyNetworkId == null) {
                 player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.exporter-unconnected"));
@@ -183,6 +200,8 @@ public class BlockListener implements Listener {
                 event.setCancelled(true);
                 return;
             }
+            // Re-join adjacent cable pipe displays so they plug into the new device head (opt-in; no-op when off).
+            plugin.getServer().getScheduler().runTask(plugin, () -> plugin.getCablePipeRenderer().refreshAround(location.getBlock()));
             return; // Don't continue to network detection for exporters
         }
 
@@ -204,6 +223,16 @@ public class BlockListener implements Listener {
                     if (nearbyNetworkId != null) {
                         break;
                     }
+                }
+            }
+
+            // Enforce the per-network importer role limit before placing (only when connecting to a network).
+            if (nearbyNetworkId != null) {
+                int maxImporters = plugin.getConfigManager().getMaxImporters();
+                if (plugin.getImporterManager().getNetworkImporterCount(nearbyNetworkId) >= maxImporters) {
+                    event.setCancelled(true);
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.placement.importer-limit-reached", "max", String.valueOf(maxImporters)));
+                    return;
                 }
             }
 
@@ -229,6 +258,8 @@ public class BlockListener implements Listener {
                 event.setCancelled(true);
                 return;
             }
+            // Re-join adjacent cable pipe displays so they plug into the new device head (opt-in; no-op when off).
+            plugin.getServer().getScheduler().runTask(plugin, () -> plugin.getCablePipeRenderer().refreshAround(location.getBlock()));
             return; // Don't continue to network detection for importers
         }
 
@@ -331,6 +362,24 @@ public class BlockListener implements Listener {
         itemManager.isExporter(item);
         itemManager.isImporter(item);
 
+        // Enforce the network-size limit SYNCHRONOUSLY so we can cancel the place event cleanly (the item simply
+        // stays in the hand) instead of letting it place and refunding from a deferred task — which raced and could
+        // lose or dupe the item. The block is already placed + marked above, so detectNetwork sees the full
+        // (possibly just-merged) network here. Cables don't count toward this block limit.
+        if (!itemManager.isNetworkCable(item)) {
+            NetworkInfo placedNetwork = networkManager.detectNetwork(location);
+            if (placedNetwork != null && placedNetwork.isValid()) {
+                int maxBlocks = plugin.getConfigManager().getMaxNetworkBlocks();
+                int blockCount = placedNetwork.getAllBlocks().size() - placedNetwork.getNetworkCables().size();
+                if (blockCount > maxBlocks) {
+                    event.setCancelled(true);
+                    removeCustomBlockMarker(location);
+                    player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "errors.placement.network-size-limit", "max", String.valueOf(maxBlocks)));
+                    return;
+                }
+            }
+        }
+
         // Schedule network detection and block direction setting for next tick (after block is fully placed)
         plugin.getServer().getScheduler().runTask(plugin, () -> {
             // Set block direction after the block is fully placed
@@ -386,19 +435,8 @@ public class BlockListener implements Listener {
                 }
 
                 if (network != null && network.isValid()) {
-                    // Check network size limit (blocks only, not cables)
-                    int maxBlocks = plugin.getConfigManager().getMaxNetworkBlocks();
-                    int networkBlockCount = network.getAllBlocks().size() - network.getNetworkCables().size();
-
-                    if (networkBlockCount > maxBlocks) {
-                        // Network exceeds size limit - break the block and give it back
-                        block.setType(Material.AIR);
-                        removeCustomBlockMarker(location);
-                        block.getWorld().dropItemNaturally(location, item);
-                        Component message = plugin.getMessageManager().getMessageComponent(player, "errors.placement.network-size-limit", "max", String.valueOf(maxBlocks));
-                        player.sendMessage(message);
-                        return;
-                    }
+                    // Network-size limit is enforced synchronously at placement (see the pre-check above), so an
+                    // over-limit placement is cancelled cleanly there — no post-placement break/drop here.
 
                     // Register the network with comprehensive drive bay restoration
                     networkManager.registerNetwork(network, player.getUniqueId());
@@ -432,7 +470,8 @@ public class BlockListener implements Listener {
                 } else {
                     if (itemManager.isStorageServer(item)) {
                         player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.storage-server-requirements"));
-                    }  else {
+                    } else if (!itemManager.isNetworkCable(item)) {
+                        // Cables are pure connectors — they don't function on their own, so skip the needs-connection nag.
                         player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "success.placement.block-needs-connection"));
                     }
                 }
@@ -450,19 +489,28 @@ public class BlockListener implements Listener {
                     }
                 }
 
+                // Refresh connection-aware cable pipe displays for the placed block + its neighbours (opt-in; no-op
+                // when the feature is off). Placing a cable OR a network block re-joins adjacent cables to it.
+                plugin.getCablePipeRenderer().refreshAround(block);
+                if (cableManager.isCustomNetworkCable(block)) dryCable(block); // a cable placed in water stays dry
+
             } catch (Exception e) {
                 Component message = plugin.getMessageManager().getMessageComponent(player, "errors.network.connection-lost");
                 player.sendMessage(message);
-                plugin.getLogger().severe("Error setting up network: " + e.getMessage());
+                plugin.getLogger().log(java.util.logging.Level.SEVERE, "Error setting up network: " + e.getMessage(), e);
             }
         });
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
         Block block = event.getBlock();
         Location location = block.getLocation();
+
+        // Breaking a block next to a note-backed MSS block re-derives that block's instrument off our piglin key —
+        // re-pin any adjacent MSS block (handled before the early return, since the broken block usually isn't MSS).
+        repinAdjacentNoteBlocks(block);
 
         // Check if it's one of our CUSTOM network blocks, cables, exporters, or importers
         if (!isCustomNetworkBlockOrCableOrExporterOrImporter(block)) {
@@ -479,6 +527,13 @@ public class BlockListener implements Listener {
                 return;
             }
 
+            // Clear a terminal's front screen-light before it's broken (read its facing from the still-present block).
+            MSSBlockType brokenNoteRole = placedNoteRole(block);
+            if ((brokenNoteRole == MSSBlockType.MSS_TERMINAL || brokenNoteRole == MSSBlockType.SECURITY_TERMINAL)
+                    && block.getBlockData() instanceof org.bukkit.block.data.type.NoteBlock brokenNb) {
+                removeTerminalLight(block, MSSBlockType.facingFromNote(brokenNb.getNote().getId()));
+            }
+
             // Handle exporter removal
             if (isCustomExporter(block)) {
                 try {
@@ -493,7 +548,7 @@ public class BlockListener implements Listener {
                     event.setDropItems(false);
                     ItemStack customItem = plugin.getItemManager().createExporter();
                     if (customItem != null) {
-                        block.getWorld().dropItemNaturally(location, customItem);
+                        dropOrGive(location, customItem);
                     }
 
                     // Remove custom block marker
@@ -504,6 +559,8 @@ public class BlockListener implements Listener {
                     player.sendMessage(message);
                     plugin.getLogger().severe("Error removing exporter: " + e.getMessage());
                 }
+                // Re-join adjacent cable pipe displays once this device head is gone (opt-in; no-op when off).
+                plugin.getServer().getScheduler().runTask(plugin, () -> plugin.getCablePipeRenderer().refreshAround(block));
                 return; // Exporters don't affect network topology, so return early
             }
 
@@ -521,7 +578,7 @@ public class BlockListener implements Listener {
                     event.setDropItems(false);
                     ItemStack customItem = plugin.getItemManager().createImporter();
                     if (customItem != null) {
-                        block.getWorld().dropItemNaturally(location, customItem);
+                        dropOrGive(location, customItem);
                     }
 
                     // Remove custom block marker
@@ -532,6 +589,8 @@ public class BlockListener implements Listener {
                     player.sendMessage(message);
                     plugin.getLogger().severe("Error removing importer: " + e.getMessage());
                 }
+                // Re-join adjacent cable pipe displays once this device head is gone (opt-in; no-op when off).
+                plugin.getServer().getScheduler().runTask(plugin, () -> plugin.getCablePipeRenderer().refreshAround(block));
                 return; // Importers don't affect network topology, so return early
             }
 
@@ -545,7 +604,7 @@ public class BlockListener implements Listener {
                     event.setDropItems(false);
                     ItemStack customItem = plugin.getItemManager().createSecurityTerminal();
                     if (customItem != null) {
-                        block.getWorld().dropItemNaturally(location, customItem);
+                        dropOrGive(location, customItem);
                     }
 
                     // Remove custom block marker
@@ -573,11 +632,15 @@ public class BlockListener implements Listener {
             event.setDropItems(false);
             ItemStack customItem = getCustomItemForBlock(block);
             if (customItem != null) {
-                block.getWorld().dropItemNaturally(location, customItem);
+                dropOrGive(location, customItem);
             }
 
             // Remove custom block marker
             removeCustomBlockMarker(location);
+
+            // Refresh cable pipe displays next tick (block is air by then): removes the broken cable's display and
+            // re-joins its neighbours (opt-in feature; no-op when off).
+            plugin.getServer().getScheduler().runTask(plugin, () -> plugin.getCablePipeRenderer().refreshAround(block));
 
             // Update the network after the block is broken (if it was part of a network)
             if (networkId != null) {
@@ -629,7 +692,7 @@ public class BlockListener implements Listener {
                     } catch (Exception e) {
                         Component message = plugin.getMessageManager().getMessageComponent(player, "errors.removal.error-network-update", "error", e.getMessage());
                         player.sendMessage(message);
-                        plugin.getLogger().severe("Error updating network after block break: " + e.getMessage());
+                        plugin.getLogger().log(java.util.logging.Level.SEVERE, "Error updating network after block break: " + e.getMessage(), e);
                     }
                 });
             }
@@ -644,18 +707,16 @@ public class BlockListener implements Listener {
     /**
      * Handle entity explosions (creepers, TNT, etc.) that destroy MSS blocks
      */
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onEntityExplode(EntityExplodeEvent event) {
-        if (event.isCancelled()) return;
         plugin.getExplosionManager().handleExplosion(event.blockList());
     }
 
     /**
      * Handle block explosions (beds, respawn anchors, etc.) that destroy MSS blocks
      */
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockExplode(BlockExplodeEvent event) {
-        if (event.isCancelled()) return;
         plugin.getExplosionManager().handleExplosion(event.blockList());
     }
 
@@ -676,12 +737,29 @@ public class BlockListener implements Listener {
         Block block = event.getClickedBlock();
         Player player = event.getPlayer();
 
+        // MSS Wrench takes precedence over opening the block's GUI: right-click rotates a note-backed MSS block,
+        // shift+right-click dismantles any MSS block to inventory.
+        if (itemManager.isWrench(event.getItem())) {
+            event.setCancelled(true);
+            if (player.isSneaking()) wrenchDismantle(player, block);
+            else wrenchRotate(player, block);
+            return;
+        }
+
         // Check if player is awaiting search input and cancel ALL interactions
         if (plugin.getGUIManager().isAwaitingSearchInput(player)) {
             // Player is in search mode - cancel the search and the interaction
             event.setCancelled(true);
             plugin.getGUIManager().cancelSearchInput(player);
             player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.terminal.search.search-cancelled"));
+            return;
+        }
+
+        // Sneaking lets the player BUILD against MSS blocks / I/O instead of opening their GUI (vanilla
+        // convention — like a chest or crafter). We don't cancel, so a block held in hand places normally;
+        // GUI access stays on a plain non-sneak right-click. The wrench is handled above, so sneak+wrench
+        // still dismantles rather than building.
+        if (player.isSneaking()) {
             return;
         }
 
@@ -951,17 +1029,17 @@ public class BlockListener implements Listener {
     }
 
     private boolean isCustomStorageServer(Block block) {
-        if (block.getType() != Material.CHISELED_TUFF) return false;
+        if (!MSSBlockType.STORAGE_SERVER.accepts(block.getType())) return false;
         return isMarkedAsCustomBlock(block.getLocation(), "STORAGE_SERVER");
     }
 
     private boolean isCustomDriveBay(Block block) {
-        if (block.getType() != Material.CHISELED_TUFF_BRICKS) return false;
+        if (!MSSBlockType.DRIVE_BAY.accepts(block.getType())) return false;
         return isMarkedAsCustomBlock(block.getLocation(), "DRIVE_BAY");
     }
 
     private boolean isCustomMSSTerminal(Block block) {
-        if (block.getType() != Material.CRAFTER) return false;
+        if (!MSSBlockType.MSS_TERMINAL.accepts(block.getType())) return false;
         return isMarkedAsCustomBlock(block.getLocation(), "MSS_TERMINAL");
     }
 
@@ -976,7 +1054,7 @@ public class BlockListener implements Listener {
     }
 
     private boolean isCustomSecurityTerminal(Block block) {
-        if (block.getType() != Material.OBSERVER) return false;
+        if (!MSSBlockType.SECURITY_TERMINAL.accepts(block.getType())) return false;
         return isMarkedAsCustomBlock(block.getLocation(), "SECURITY_TERMINAL");
     }
 
@@ -1050,7 +1128,7 @@ public class BlockListener implements Listener {
     private void markLocationAsCustomBlock(Location location, String blockType) throws SQLException {
         plugin.getDatabaseManager().executeTransaction(conn -> {
             try (PreparedStatement stmt = conn.prepareStatement(
-                    "INSERT OR REPLACE INTO custom_block_markers (world_name, x, y, z, block_type) VALUES (?, ?, ?, ?, ?)")) {
+                    "REPLACE INTO custom_block_markers (world_name, x, y, z, block_type) VALUES (?, ?, ?, ?, ?)")) {
                 stmt.setString(1, location.getWorld().getName());
                 stmt.setInt(2, location.getBlockX());
                 stmt.setInt(3, location.getBlockY());
@@ -1060,8 +1138,9 @@ public class BlockListener implements Listener {
             }
         });
 
-        // Invalidate cache after marking block
-        plugin.getBlockMarkerCache().invalidateBlockMarkerCache(location, blockType);
+        // Invalidate cache after marking block — clear ALL type keys incl. ':ANY' (used by piston checks),
+        // not just the typed key, so a freshly-placed block is never read as non-MSS from a stale ':ANY'.
+        plugin.getBlockMarkerCache().invalidateAllBlockTypesAtLocation(location);
     }
 
     private void removeCustomBlockMarker(Location location) {
@@ -1166,8 +1245,11 @@ public class BlockListener implements Listener {
      * Runs async with caching to prevent DB spam
      */
     private void displayStorageServerInfo(Player player, Location serverLocation) {
-        // Run async to avoid blocking main thread with DB queries
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+        // Run on the main thread (next tick): this reads LIVE block state — detectNetwork and the
+        // exporter/importer adjacency scans call block.getType()/getBlock(), which is only legal on the
+        // main thread and throws IllegalStateException (async block access) on Paper 26.x if run async.
+        // Detection is cache-backed now, so the main-thread cost of this one-off interact is small.
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
             try {
                 // Get network ID if it exists
                 String networkId = networkManager.getNetworkId(serverLocation);
@@ -1189,9 +1271,16 @@ public class BlockListener implements Listener {
                     terminalCount = detectedNetwork.getTerminals().size();
                     cableCount = detectedNetwork.getNetworkCables().size();
 
-                    // Count exporters and importers in the detected network
-                    exporterCount = getExporterCountInArea(detectedNetwork.getAllBlocks());
-                    importerCount = countNetworkImporters(new ArrayList<>(detectedNetwork.getAllBlocks()));
+                    // Count exporters/importers from the authoritative DB count (matches the enforced
+                    // per-network role limit) when the network has an id; the adjacency scan would miss
+                    // devices daisy-chained off another device (those aren't in getAllBlocks).
+                    if (networkId != null) {
+                        exporterCount = plugin.getExporterManager().getNetworkExporterCount(networkId);
+                        importerCount = plugin.getImporterManager().getNetworkImporterCount(networkId);
+                    } else {
+                        exporterCount = getExporterCountInArea(detectedNetwork.getAllBlocks());
+                        importerCount = countNetworkImporters(new ArrayList<>(detectedNetwork.getAllBlocks()));
+                    }
 
                     // Get storage capacity from valid network only (with caching)
                     if (isValidNetwork) {
@@ -1216,7 +1305,10 @@ public class BlockListener implements Listener {
                 int maxImporters = plugin.getConfigManager().getMaxImporters();
 
                 // Calculate total connected blocks (excluding cables)
-                int totalBlocks = driveBayCount + terminalCount + exporterCount + importerCount + 1; // +1 for the server itself
+                // Counted network blocks = server + drive bays + terminals + security terminal (NOT cables,
+                // and NOT exporters/importers — those have their own role limits). Mirror the placement
+                // limit's basis exactly: networkBlocks = getAllBlocks() minus cables.
+                int totalBlocks = (detectedNetwork != null) ? (detectedNetwork.getAllBlocks().size() - cableCount) : 0;
 
                 // Capture final variables for use in sync task
                 final int finalDriveBayCount = driveBayCount;
@@ -1417,6 +1509,14 @@ public class BlockListener implements Listener {
     public void onBlockPhysics(BlockPhysicsEvent event) {
         Block block = event.getBlock();
 
+        // Note-backed MSS blocks (pack mode): cancel block-physics so the note block's `instrument` can't be
+        // re-derived from the block below (which would change the state the resource pack keys off). Gated on the
+        // note-block Material + marker so real note blocks are unaffected.
+        if (placedNoteRole(block) != null) {
+            event.setCancelled(true);
+            return;
+        }
+
         // Check if this is a security terminal observer block
         if (block.getType() == Material.OBSERVER && isCustomSecurityTerminal(block)) {
             // Cancel physics updates to prevent observer detection behavior
@@ -1452,29 +1552,282 @@ public class BlockListener implements Listener {
                 event.setCancelled(true);
             }
         }
+
+        // Keep cable conduits dry: cancel water flowing into a cable's block so it can't be waterlogged → can't
+        // activate as a conduit (cables repel water).
+        if (event.getBlock().getType() == Material.WATER && cableManager.isCustomNetworkCable(toBlock)) {
+            event.setCancelled(true);
+        }
+    }
+
+    /** Cancel emptying a water bucket onto a cable — cables repel water so they can't be waterlogged/activated. */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onPlayerBucketEmpty(org.bukkit.event.player.PlayerBucketEmptyEvent event) {
+        if (event.getBucket() != Material.WATER_BUCKET) return;
+        if (cableManager.isCustomNetworkCable(event.getBlock()) || cableManager.isCustomNetworkCable(event.getBlockClicked())) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(plugin.getMessageManager().getMessageComponent(event.getPlayer(), "errors.placement.cable-repels-water"));
+        }
     }
 
     /**
-     * Set the facing direction for directional blocks based on player placement direction (delayed)
+     * Set the placed-block state for an MSS block (delayed, next tick after placement).
      */
     private void setBlockDirectionDelayed(Block block, Player player, ItemStack item) {
-        // Only set direction for MSS Terminal and Security Terminal
-        if (!itemManager.isMSSTerminal(item) && !itemManager.isSecurityTerminal(item)) {
+        MSSBlockType role = MSSBlockType.byMarker(getBlockTypeFromItem(item));
+        if (role == null) return; // not one of the reskinnable blocks (e.g. exporter/importer heads)
+
+        // Pack mode: the placed block is a note block. Stamp its note (role + facing) so the resource pack renders
+        // this role's model, ORIENTED so the FRONT face (the _north texture) points toward the player who placed it.
+        // Note blocks don't derive state from neighbours, so there is no face-merge to fight — the only mutable input
+        // is `instrument` (from the block below), which onBlockPhysics freezes.
+        if (role.isNoteBacked() && block.getType() == MSSBlockType.NOTE) {
+            int facing = facingIndexForFront(getBlockFace(player));
+            stampNoteState(block, role, facing);
+            if (role == MSSBlockType.MSS_TERMINAL || role == MSSBlockType.SECURITY_TERMINAL) {
+                placeTerminalLight(block, facing);
+            }
             return;
         }
 
-        // Check if the block data implements Directional (both Crafter and Observer do)
-        if (!(block.getBlockData() instanceof Directional directional)) {
-            return;
+        // Vanilla mode (pack off): keep the player-facing orientation for the Directional terminal/security blocks
+        // (Crafter/Observer). Storage server / drive bay / cable are non-directional and need no post-placement state.
+        if ((role == MSSBlockType.MSS_TERMINAL || role == MSSBlockType.SECURITY_TERMINAL)
+                && block.getBlockData() instanceof Directional directional) {
+            BlockFace facing = getBlockFace(player);
+            if (directional.getFaces().contains(facing)) {
+                directional.setFacing(facing);
+                block.setBlockData(directional);
+            }
         }
+    }
 
-        // Calculate player direction
-        BlockFace facing = getBlockFace(player);
+    /** Stamp a note block's state (instrument=piglin, note=role+facing, powered=false) so the pack renders this role. */
+    void stampNoteState(Block block, MSSBlockType role, int facing) {
+        if (block.getType() != MSSBlockType.NOTE) return;
+        block.setBlockData(org.bukkit.Bukkit.createBlockData(
+                "minecraft:note_block[instrument=piglin,note=" + role.noteFor(facing) + ",powered=false]"), false);
+    }
 
-        // Set the facing direction if it's a valid option for this block
-        if (directional.getFaces().contains(facing)) {
-            directional.setFacing(facing);
-            block.setBlockData(directional);
+    /** The MSS role of a placed note block (resolved by marker), or null if not a marked note-backed MSS block. */
+    MSSBlockType placedNoteRole(Block block) {
+        if (block.getType() != MSSBlockType.NOTE) return null;
+        for (MSSBlockType t : MSSBlockType.values()) {
+            if (isMarkedAsCustomBlock(block.getLocation(), t.markerType)) return t;
+        }
+        return null;
+    }
+
+    private static final BlockFace[] SIX_FACES = {
+            BlockFace.UP, BlockFace.DOWN, BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST
+    };
+
+    /**
+     * Re-pin every note-backed MSS block AT or ADJACENT to a just-changed block. A note block re-derives its
+     * {@code instrument} (off our {@code piglin} key) on ANY neighbour update via vanilla shape-updates, which
+     * {@link BlockPhysicsEvent} can't reliably cancel — so placing/breaking next to (or stacking on top of) an MSS
+     * block reverts its pack texture to vanilla. We include the changed block ITSELF, so a freshly-placed block at the
+     * TOP of a stack — which has nothing placed above it later to re-trigger a fix and so can't rely on its neighbours —
+     * is covered too, and re-pin both next tick and a few ticks later (the re-derive can land after the placement
+     * stamp). Cheap getType()!=NOTE short-circuit means nothing is scheduled when no MSS note block is near.
+     */
+    private void repinAdjacentNoteBlocks(Block changed) {
+        java.util.Set<Block> noteBlocks = new java.util.HashSet<>();
+        if (placedNoteRole(changed) != null) noteBlocks.add(changed);
+        for (BlockFace face : SIX_FACES) {
+            Block neighbour = changed.getRelative(face);
+            if (placedNoteRole(neighbour) != null) noteBlocks.add(neighbour);
+        }
+        scheduleRepin(noteBlocks);
+    }
+
+    /** Re-pin the given MSS note blocks to instrument=piglin next tick AND a few ticks later — the late pass catches a
+     *  vanilla block-update re-derive that lands after the first pass (placement stamp, stack or piston settle).
+     *  Idempotent (already-pinned no-ops); nothing scheduled for an empty set. */
+    private void scheduleRepin(java.util.Set<Block> noteBlocks) {
+        if (noteBlocks.isEmpty()) return;
+        for (long delay : new long[]{1L, 6L}) {
+            plugin.getServer().getScheduler().runTaskLater(plugin,
+                    () -> noteBlocks.forEach(this::pinNoteBlockToPiglin), delay);
+        }
+    }
+
+    /** Restore {@code instrument=piglin} on a marked note-backed MSS block whose instrument drifted (a neighbour
+     *  update re-derived it), so the pack skin returns. No-op if it's not ours or already pinned; applyPhysics=false
+     *  so we don't re-trigger neighbour updates. */
+    private void pinNoteBlockToPiglin(Block block) {
+        if (placedNoteRole(block) != null
+                && block.getBlockData() instanceof org.bukkit.block.data.type.NoteBlock nb
+                && nb.getInstrument() != org.bukkit.Instrument.PIGLIN) {
+            nb.setInstrument(org.bukkit.Instrument.PIGLIN);
+            block.setBlockData(nb, false);
+        }
+    }
+
+    /**
+     * A piston that MOVES a block next to a note-backed MSS block — pulling the block out from under it, or pushing a
+     * block above/below it — fires a vanilla shape-update on that note block, which re-derives its instrument off our
+     * piglin key and reverts the pack skin. {@link PistonListener} already blocks the MSS block ITSELF from being
+     * moved, so here we only re-pin MSS blocks adjacent to the disturbance. MONITOR + ignoreCancelled so we act only
+     * when the piston actually fires (after PistonListener's cancel).
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPistonExtendRepin(BlockPistonExtendEvent event) {
+        repinAroundPistonMove(event.getBlock(), event.getBlocks(), event.getDirection());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPistonRetractRepin(BlockPistonRetractEvent event) {
+        repinAroundPistonMove(event.getBlock(), event.getBlocks(), event.getDirection());
+    }
+
+    /**
+     * Re-pin note-backed MSS blocks adjacent to anything a piston move disturbs. The affected MSS blocks are resolved
+     * NOW (at event time, before the move) from every disturbed cell — each moved block's source and either
+     * destination (±dir, agnostic to extend vs retract), plus the piston body and head — then re-pinned on a short
+     * delay AND after the ~2-tick piston animation settles, since a destination-side revert only lands once the moving
+     * block solidifies. Idempotent (already-pinned no-ops), so the two passes never fight; nothing is scheduled when
+     * the piston is nowhere near an MSS block.
+     */
+    private void repinAroundPistonMove(Block piston, java.util.List<Block> moved, BlockFace dir) {
+        java.util.Set<Block> disturbed = new java.util.HashSet<>();
+        disturbed.add(piston);
+        disturbed.add(piston.getRelative(dir));            // piston head extends/clears along the axis only
+        disturbed.add(piston.getRelative(dir.getOppositeFace()));
+        // Expand each moved block by ALL 6 faces, not just ±dir: slime/honey blocks drag neighbours PERPENDICULAR to
+        // the push, so a moved block's destination can be on any axis. This catches an MSS block adjacent to it
+        // regardless of drag direction (idempotent + non-NOTE short-circuit keeps the extra cells cheap).
+        for (Block b : moved) {
+            disturbed.add(b);
+            for (BlockFace f : SIX_FACES) disturbed.add(b.getRelative(f));
+        }
+        java.util.Set<Block> noteBlocks = new java.util.HashSet<>();
+        for (Block d : disturbed) {
+            for (BlockFace face : SIX_FACES) {
+                Block n = d.getRelative(face);
+                if (placedNoteRole(n) != null) noteBlocks.add(n);
+            }
+        }
+        scheduleRepin(noteBlocks); // 1 tick = immediate source-side revert; later pass = destination-side after settle
+    }
+
+    /** When set during a (synthetic) BlockBreakEvent, the broken block's custom item goes to this player's inventory
+     *  instead of dropping on the ground — the MSS Wrench's "dismantle to inventory". */
+    private Player dismantleRecipient;
+
+    private void dropOrGive(Location loc, ItemStack item) {
+        if (item == null) return;
+        if (dismantleRecipient != null) {
+            dismantleRecipient.getInventory().addItem(item).values()
+                    .forEach(overflow -> loc.getWorld().dropItemNaturally(loc, overflow));
+        } else {
+            loc.getWorld().dropItemNaturally(loc, item);
+        }
+    }
+
+    /** MSS Wrench right-click: rotate a note-backed MSS block 90° (its _north front cycles N->E->S->W). */
+    private void wrenchRotate(Player player, Block block) {
+        MSSBlockType role = placedNoteRole(block);
+        if (role == null) return; // only the note-backed cube blocks rotate
+        if (!(block.getBlockData() instanceof org.bukkit.block.data.type.NoteBlock nb)) return;
+        int oldFacing = MSSBlockType.facingFromNote(nb.getNote().getId());
+        int next = (oldFacing + 1) % MSSBlockType.FACINGS;
+        boolean terminal = role == MSSBlockType.MSS_TERMINAL || role == MSSBlockType.SECURITY_TERMINAL;
+        if (terminal) removeTerminalLight(block, oldFacing); // clear the old front light before rotating
+        stampNoteState(block, role, next);
+        if (terminal) placeTerminalLight(block, next);       // light the new front
+        player.playSound(block.getLocation(), org.bukkit.Sound.ITEM_SPYGLASS_USE, 0.6f, 1.4f);
+    }
+
+    /** MSS Wrench shift+right-click: dismantle an MSS block to the player's inventory. Reuses the full break-cleanup
+     *  path via a synthetic BlockBreakEvent (so markers/network/drive-bay disks are handled and security is honoured),
+     *  with the block's item routed to the player; then consumes 1 durability. */
+    private void wrenchDismantle(Player player, Block block) {
+        if (!isCustomNetworkBlockOrCableOrExporterOrImporter(block)) return;
+        dismantleRecipient = player;
+        try {
+            BlockBreakEvent breakEvent = new BlockBreakEvent(block, player);
+            plugin.getServer().getPluginManager().callEvent(breakEvent);
+            if (breakEvent.isCancelled()) return; // protection / security denied — leave the block intact
+            block.setType(Material.AIR, false);
+            // Audible feedback that the wrench picked the block up — same spyglass sound as the rotate action.
+            player.playSound(block.getLocation(), org.bukkit.Sound.ITEM_SPYGLASS_USE, 0.6f, 1.4f);
+            damageWrench(player, block.getLocation());
+        } finally {
+            dismantleRecipient = null;
+        }
+    }
+
+    /** Damage the held wrench by 1; break it (with a sound) when it runs out. No-op in creative. */
+    private void damageWrench(Player player, Location at) {
+        if (player.getGameMode() == org.bukkit.GameMode.CREATIVE) return;
+        ItemStack wrench = player.getInventory().getItemInMainHand();
+        if (!(wrench.getItemMeta() instanceof org.bukkit.inventory.meta.Damageable dmg)) return;
+        dmg.setDamage(dmg.getDamage() + 1);
+        if (dmg.getDamage() >= wrench.getType().getMaxDurability()) {
+            wrench.setAmount(wrench.getAmount() - 1);
+            player.playSound(at, org.bukkit.Sound.ENTITY_ITEM_BREAK, 1f, 1f);
+        } else {
+            wrench.setItemMeta(dmg);
+        }
+    }
+
+    /**
+     * Map the desired FRONT direction to the note-block facing index (0-3). At facing 0 the model's {@code _north}
+     * face points world-NORTH; each step rotates the model 90° clockwise via the blockstate (y = facing*90), so
+     * facings 0..3 point the front N, E, S, W. {@code _north} is the front texture for the reskinned cube blocks.
+     */
+    private static int facingIndexForFront(BlockFace front) {
+        return switch (front) {
+            case EAST -> 1;
+            case SOUTH -> 2;
+            case WEST -> 3;
+            default -> 0; // NORTH (and any non-horizontal fallback)
+        };
+    }
+
+    /** Inverse of {@link #facingIndexForFront}: the world direction a terminal's FRONT (_north face) points for facing 0..3. */
+    private static BlockFace frontFace(int facing) {
+        return switch (facing) {
+            case 1 -> BlockFace.EAST;
+            case 2 -> BlockFace.SOUTH;
+            case 3 -> BlockFace.WEST;
+            default -> BlockFace.NORTH;
+        };
+    }
+
+    /** The light level emitted in front of a terminal screen (0-15). Place + remove share this so they never drift. */
+    private static final int TERMINAL_LIGHT_LEVEL = 14;
+
+    /** Place an invisible LIGHT in the air block in front of a terminal's screen — if the feature is enabled and that
+     *  block is air/light. Only MSS + security terminals call this. */
+    private void placeTerminalLight(Block terminal, int facing) {
+        if (!plugin.getConfigManager().isTerminalLightEnabled()) return;
+        Block front = terminal.getRelative(frontFace(facing));
+        if (front.getType() != Material.AIR && front.getType() != Material.LIGHT) return;
+        org.bukkit.block.data.type.Light light = (org.bukkit.block.data.type.Light) Material.LIGHT.createBlockData();
+        light.setLevel(TERMINAL_LIGHT_LEVEL);
+        front.setBlockData(light, false);
+    }
+
+    /** Remove OUR front light in front of a terminal — used on wrench-rotate (old front) and break. */
+    private void removeTerminalLight(Block terminal, int facing) {
+        Block front = terminal.getRelative(frontFace(facing));
+        if (front.getType() == Material.LIGHT
+                && front.getBlockData() instanceof org.bukkit.block.data.type.Light l && l.getLevel() == TERMINAL_LIGHT_LEVEL) {
+            front.setType(Material.AIR, false);
+        }
+    }
+
+    /**
+     * Force a cable's conduit non-waterlogged so it can never be "in water" — the prerequisite for activating as a
+     * conduit. Cables never hold water: flow in is cancelled ({@link #onBlockFromTo}), a water bucket onto a cable is
+     * cancelled ({@link #onPlayerBucketEmpty}), and a cable placed in water is dried here.
+     */
+    void dryCable(Block cable) {
+        if (cable.getBlockData() instanceof org.bukkit.block.data.Waterlogged wl && wl.isWaterlogged()) {
+            wl.setWaterlogged(false);
+            cable.setBlockData(wl, false); // applyPhysics=false: don't re-trigger flow
         }
     }
 

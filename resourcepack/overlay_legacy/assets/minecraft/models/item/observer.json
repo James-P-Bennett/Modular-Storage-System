@@ -1,0 +1,11 @@
+{
+  "parent": "minecraft:block/observer",
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 1005
+      },
+      "model": "modularstoragesystem:item/security_terminal"
+    }
+  ]
+}

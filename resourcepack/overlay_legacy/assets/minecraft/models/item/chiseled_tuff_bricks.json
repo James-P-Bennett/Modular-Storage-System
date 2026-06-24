@@ -1,0 +1,11 @@
+{
+  "parent": "minecraft:block/chiseled_tuff_bricks",
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 1002
+      },
+      "model": "modularstoragesystem:item/drive_bay"
+    }
+  ]
+}

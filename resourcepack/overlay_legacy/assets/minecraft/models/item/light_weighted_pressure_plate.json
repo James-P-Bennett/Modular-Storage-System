@@ -1,0 +1,11 @@
+{
+  "parent": "minecraft:block/light_weighted_pressure_plate",
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 1023
+      },
+      "model": "modularstoragesystem:item/storage_disk_16k"
+    }
+  ]
+}

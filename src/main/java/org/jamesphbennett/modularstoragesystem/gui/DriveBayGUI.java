@@ -168,7 +168,7 @@ public class DriveBayGUI implements Listener {
     private ItemStack loadStorageDiskWithCurrentStats(String diskId) {
         try (Connection conn = plugin.getDatabaseManager().getConnection();
              PreparedStatement stmt = conn.prepareStatement(
-                     "SELECT crafter_uuid, crafter_name, used_cells, max_cells, tier FROM storage_disks WHERE disk_id = ?")) {
+                     "SELECT crafter_uuid, crafter_name, used_cells, max_cells, tier, generation FROM storage_disks WHERE disk_id = ?")) {
 
             stmt.setString(1, diskId);
             try (ResultSet rs = stmt.executeQuery()) {
@@ -178,6 +178,7 @@ public class DriveBayGUI implements Listener {
                     int usedCells = rs.getInt("used_cells");
                     int maxCells = rs.getInt("max_cells");
                     String tier = rs.getString("tier");
+                    int generation = rs.getInt("generation");
 
                     if (tier == null || tier.isEmpty()) {
                         tier = "1k";
@@ -185,7 +186,9 @@ public class DriveBayGUI implements Listener {
                     }
 
                     ItemStack disk = createStorageDiskWithSpecificTier(diskId, crafterUUID, crafterName, tier);
-                    return plugin.getItemManager().updateStorageDiskLore(disk, usedCells, maxCells);
+                    disk = plugin.getItemManager().updateStorageDiskLore(disk, usedCells, maxCells);
+                    // Carry the current generation so a removed/recovered disk stays valid for re-insertion.
+                    return plugin.getItemManager().setDiskGeneration(disk, generation);
                 }
             }
         } catch (Exception e) {
@@ -281,6 +284,17 @@ public class DriveBayGUI implements Listener {
 
         int slot = event.getRawSlot();
         int[] driveSlots = getDriveSlots();
+
+        // Only LEFT/RIGHT/SHIFT clicks are handled below. Other click types (hotbar NUMBER_KEY swap,
+        // SWAP_OFFHAND, DOUBLE_CLICK, drop, etc.) could move a disk into a drive slot WITHOUT creating a
+        // drive_bay_slots row (item loss/desync on the next refresh), so cancel any such click inside the GUI.
+        ClickType clickType = event.getClick();
+        if (slot < inventory.getSize()
+                && clickType != ClickType.LEFT && clickType != ClickType.RIGHT
+                && clickType != ClickType.SHIFT_LEFT && clickType != ClickType.SHIFT_RIGHT) {
+            event.setCancelled(true);
+            return;
+        }
 
         if (event.getClick() == ClickType.SHIFT_LEFT || event.getClick() == ClickType.SHIFT_RIGHT) {
             if (slot >= inventory.getSize()) {
@@ -445,6 +459,12 @@ public class DriveBayGUI implements Listener {
             return false;
         }
 
+        // Anti-dupe: reject a stale copy whose id was recovered (only the latest generation is valid).
+        if (!plugin.getItemManager().isDiskGenerationCurrent(disk, diskId)) {
+            player.sendMessage(plugin.getMessageManager().getMessageComponent(player, "gui.drive-bay.error.invalidated-disk"));
+            return false;
+        }
+
         try {
             plugin.getDatabaseManager().executeTransaction(conn -> {
                 boolean diskExists = false;
@@ -510,7 +530,7 @@ public class DriveBayGUI implements Listener {
                 }
 
                 try (PreparedStatement stmt = conn.prepareStatement(
-                        "INSERT OR REPLACE INTO drive_bay_slots (network_id, world_name, x, y, z, slot_number, disk_id) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+                        "REPLACE INTO drive_bay_slots (network_id, world_name, x, y, z, slot_number, disk_id) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
                     stmt.setString(1, networkId != null ? networkId : "disconnected_" + System.currentTimeMillis());
                     stmt.setString(2, driveBayLocation.getWorld().getName());
                     stmt.setInt(3, driveBayLocation.getBlockX());
@@ -621,28 +641,13 @@ public class DriveBayGUI implements Listener {
     public void onInventoryDrag(InventoryDragEvent event) {
         if (!event.getInventory().equals(inventory)) return;
 
+        // Disks are inserted only via the click path (which writes the drive_bay_slots row). A drag into a
+        // drive slot would leave a disk with no DB record (item loss/desync), so cancel any drag that
+        // touches the GUI inventory.
         for (int slot : event.getRawSlots()) {
             if (slot < inventory.getSize()) {
-                int[] driveSlots = getDriveSlots();
-
-                boolean isDriveSlot = false;
-                for (int driveSlot : driveSlots) {
-                    if (driveSlot == slot) {
-                        isDriveSlot = true;
-                        break;
-                    }
-                }
-
-                if (!isDriveSlot) {
-                    event.setCancelled(true);
-                    return;
-                }
-
-                if (!plugin.getItemManager().isStorageDisk(event.getOldCursor())) {
-                    event.setCancelled(true);
-                    event.getWhoClicked().sendMessage(plugin.getMessageManager().getMessageComponent((Player)event.getWhoClicked(), "gui.storage.disk-only"));
-                    return;
-                }
+                event.setCancelled(true);
+                return;
             }
         }
     }

@@ -1,0 +1,160 @@
+{
+  "variants": {
+    "instrument=harp": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=basedrum": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=snare": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=hat": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=bass": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=flute": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=bell": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=guitar": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=chime": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=xylophone": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=iron_xylophone": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=cow_bell": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=didgeridoo": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=bit": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=banjo": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=pling": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=zombie": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=skeleton": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=creeper": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=dragon": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=wither_skeleton": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=custom_head": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=piglin,powered=true": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=piglin,note=0,powered=false": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=piglin,note=1,powered=false": {
+      "model": "modularstoragesystem:block/storage_server"
+    },
+    "instrument=piglin,note=2,powered=false": {
+      "model": "modularstoragesystem:block/storage_server",
+      "y": 90
+    },
+    "instrument=piglin,note=3,powered=false": {
+      "model": "modularstoragesystem:block/storage_server",
+      "y": 180
+    },
+    "instrument=piglin,note=4,powered=false": {
+      "model": "modularstoragesystem:block/storage_server",
+      "y": 270
+    },
+    "instrument=piglin,note=5,powered=false": {
+      "model": "modularstoragesystem:block/drive_bay"
+    },
+    "instrument=piglin,note=6,powered=false": {
+      "model": "modularstoragesystem:block/drive_bay",
+      "y": 90
+    },
+    "instrument=piglin,note=7,powered=false": {
+      "model": "modularstoragesystem:block/drive_bay",
+      "y": 180
+    },
+    "instrument=piglin,note=8,powered=false": {
+      "model": "modularstoragesystem:block/drive_bay",
+      "y": 270
+    },
+    "instrument=piglin,note=9,powered=false": {
+      "model": "modularstoragesystem:block/mss_terminal"
+    },
+    "instrument=piglin,note=10,powered=false": {
+      "model": "modularstoragesystem:block/mss_terminal",
+      "y": 90
+    },
+    "instrument=piglin,note=11,powered=false": {
+      "model": "modularstoragesystem:block/mss_terminal",
+      "y": 180
+    },
+    "instrument=piglin,note=12,powered=false": {
+      "model": "modularstoragesystem:block/mss_terminal",
+      "y": 270
+    },
+    "instrument=piglin,note=13,powered=false": {
+      "model": "modularstoragesystem:block/security_terminal"
+    },
+    "instrument=piglin,note=14,powered=false": {
+      "model": "modularstoragesystem:block/security_terminal",
+      "y": 90
+    },
+    "instrument=piglin,note=15,powered=false": {
+      "model": "modularstoragesystem:block/security_terminal",
+      "y": 180
+    },
+    "instrument=piglin,note=16,powered=false": {
+      "model": "modularstoragesystem:block/security_terminal",
+      "y": 270
+    },
+    "instrument=piglin,note=17,powered=false": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=piglin,note=18,powered=false": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=piglin,note=19,powered=false": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=piglin,note=20,powered=false": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=piglin,note=21,powered=false": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=piglin,note=22,powered=false": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=piglin,note=23,powered=false": {
+      "model": "minecraft:block/note_block"
+    },
+    "instrument=piglin,note=24,powered=false": {
+      "model": "minecraft:block/note_block"
+    }
+  }
+}
